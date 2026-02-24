@@ -36,6 +36,11 @@ public struct LLMResponse: Sendable {
         content.compactMap { $0.text }.joined()
     }
 
+    /// すべての思考テキストを結合して取得
+    public var thinkingText: String {
+        content.compactMap { $0.thinkingText }.joined()
+    }
+
     /// 生成された画像をすべて取得
     ///
     /// レスポンスに含まれるすべての画像を配列で返します。
@@ -111,6 +116,12 @@ public struct LLMResponse: Sendable {
         /// 音声が含まれる場合に使用されます。
         case audio(GeneratedAudio)
 
+        /// 思考コンテンツ（Extended Thinking）
+        ///
+        /// Claude の Extended Thinking で生成された思考プロセスを表します。
+        /// signature は後続リクエストで思考ブロックを参照するために使用されます。
+        case thinking(text: String, signature: String?)
+
         // MARK: - Convenience Accessors
 
         /// テキストコンテンツを取得（text ブロックの場合のみ）
@@ -133,6 +144,14 @@ public struct LLMResponse: Sendable {
         public var generatedAudio: GeneratedAudio? {
             if case .audio(let audio) = self {
                 return audio
+            }
+            return nil
+        }
+
+        /// 思考テキストを取得（thinking ブロックの場合のみ）
+        public var thinkingText: String? {
+            if case .thinking(let text, _) = self {
+                return text
             }
             return nil
         }
@@ -269,6 +288,11 @@ public struct LLMMessage: Sendable, Codable {
         /// - Gemini: ✓（MP4, AVI, MOV, MKV, WebM, FLV, MPEG, 3GP, WMV）
         case video(VideoContent)
 
+        /// 思考コンテンツ（Extended Thinking）
+        ///
+        /// Claude の Extended Thinking で生成された思考プロセスを会話履歴に保持するために使用。
+        case thinking(text: String, signature: String?)
+
         // MARK: - Codable
 
         private enum CodingKeys: String, CodingKey {
@@ -283,6 +307,7 @@ public struct LLMMessage: Sendable, Codable {
             case imageContent
             case audioContent
             case videoContent
+            case signature
         }
 
         private enum ContentType: String, Codable {
@@ -292,6 +317,7 @@ public struct LLMMessage: Sendable, Codable {
             case image
             case audio
             case video
+            case thinking
         }
 
         public init(from decoder: Decoder) throws {
@@ -322,6 +348,10 @@ public struct LLMMessage: Sendable, Codable {
             case .video:
                 let videoContent = try container.decode(VideoContent.self, forKey: .videoContent)
                 self = .video(videoContent)
+            case .thinking:
+                let text = try container.decode(String.self, forKey: .text)
+                let signature = try container.decodeIfPresent(String.self, forKey: .signature)
+                self = .thinking(text: text, signature: signature)
             }
         }
 
@@ -352,6 +382,10 @@ public struct LLMMessage: Sendable, Codable {
             case .video(let videoContent):
                 try container.encode(ContentType.video, forKey: .type)
                 try container.encode(videoContent, forKey: .videoContent)
+            case .thinking(let text, let signature):
+                try container.encode(ContentType.thinking, forKey: .type)
+                try container.encode(text, forKey: .text)
+                try container.encodeIfPresent(signature, forKey: .signature)
             }
         }
     }
