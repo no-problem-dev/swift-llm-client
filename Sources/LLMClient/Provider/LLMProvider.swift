@@ -154,6 +154,7 @@ public struct LLMResponse: Sendable {
         case maxTokens = "max_tokens"
         case stopSequence = "stop_sequence"
         case toolUse = "tool_use"
+        case modelContextWindowExceeded = "model_context_window_exceeded"
     }
 }
 
@@ -161,20 +162,26 @@ public struct LLMResponse: Sendable {
 
 /// トークン使用量
 public struct TokenUsage: Sendable {
-    /// 入力トークン数
     public let inputTokens: Int
-
-    /// 出力トークン数
     public let outputTokens: Int
+    public let cacheCreationTokens: Int?
+    public let cacheReadTokens: Int?
+    public let reasoningTokens: Int?
 
-    /// 合計トークン数
-    public var totalTokens: Int {
-        inputTokens + outputTokens
-    }
+    public var totalTokens: Int { inputTokens + outputTokens }
 
-    public init(inputTokens: Int, outputTokens: Int) {
+    public init(
+        inputTokens: Int,
+        outputTokens: Int,
+        cacheCreationTokens: Int? = nil,
+        cacheReadTokens: Int? = nil,
+        reasoningTokens: Int? = nil
+    ) {
         self.inputTokens = inputTokens
         self.outputTokens = outputTokens
+        self.cacheCreationTokens = cacheCreationTokens
+        self.cacheReadTokens = cacheReadTokens
+        self.reasoningTokens = reasoningTokens
     }
 }
 
