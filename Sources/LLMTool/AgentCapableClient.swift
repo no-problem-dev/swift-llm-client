@@ -20,6 +20,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     ///   - tools: 使用可能なツール
     ///   - toolChoice: ツール選択設定
     ///   - responseSchema: 期待する出力スキーマ（最終出力用）
+    ///   - maxTokens: 最大出力トークン数（nil の場合はプロバイダーのデフォルト値を使用）
     /// - Returns: LLM レスポンス
     func executeAgentStep(
         messages: [LLMMessage],
@@ -27,7 +28,8 @@ public protocol AgentCapableClient: ToolCallableClient {
         systemPrompt: Prompt?,
         tools: ToolSet,
         toolChoice: ToolChoice?,
-        responseSchema: JSONSchema?
+        responseSchema: JSONSchema?,
+        maxTokens: Int?
     ) async throws -> LLMResponse
 
     /// エージェントステップをストリーミング実行
@@ -43,6 +45,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     ///   - toolChoice: ツール選択設定
     ///   - responseSchema: 期待する出力スキーマ
     ///   - thinkingMode: Extended Thinking のモード
+    ///   - maxTokens: 最大出力トークン数（nil の場合はプロバイダーのデフォルト値を使用）
     /// - Returns: ストリーミングイベントの AsyncThrowingStream
     func streamAgentStep(
         messages: [LLMMessage],
@@ -51,7 +54,8 @@ public protocol AgentCapableClient: ToolCallableClient {
         tools: ToolSet,
         toolChoice: ToolChoice?,
         responseSchema: JSONSchema?,
-        thinkingMode: ThinkingMode
+        thinkingMode: ThinkingMode,
+        maxTokens: Int?
     ) -> AsyncThrowingStream<StreamingAgentEvent, Error>
 }
 
@@ -68,9 +72,10 @@ extension AgentCapableClient {
         tools: ToolSet,
         toolChoice: ToolChoice?,
         responseSchema: JSONSchema?,
-        thinkingMode: ThinkingMode
+        thinkingMode: ThinkingMode,
+        maxTokens: Int?
     ) -> AsyncThrowingStream<StreamingAgentEvent, Error> {
-        AsyncThrowingStream { continuation in
+        makeCancellableStream { continuation in
             Task {
                 do {
                     let response = try await executeAgentStep(
@@ -79,7 +84,8 @@ extension AgentCapableClient {
                         systemPrompt: systemPrompt,
                         tools: tools,
                         toolChoice: toolChoice,
-                        responseSchema: responseSchema
+                        responseSchema: responseSchema,
+                        maxTokens: maxTokens
                     )
                     continuation.yield(.completed(response))
                     continuation.finish()
