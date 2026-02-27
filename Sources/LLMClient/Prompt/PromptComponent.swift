@@ -10,7 +10,7 @@ import Foundation
 /// ## 使用例
 ///
 /// ```swift
-/// let prompt = Prompt {
+/// let prompt = SystemPrompt {
 ///     PromptComponent.role("データ分析の専門家")
 ///     PromptComponent.objective("テキストから情報を抽出する")
 ///     PromptComponent.instruction("名前は敬称を除いて抽出")

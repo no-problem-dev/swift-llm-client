@@ -25,7 +25,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     func executeAgentStep(
         messages: [LLMMessage],
         model: Model,
-        systemPrompt: Prompt?,
+        systemPrompt: SystemPrompt?,
         tools: ToolSet,
         toolChoice: ToolChoice?,
         responseSchema: JSONSchema?,
@@ -50,7 +50,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     func streamAgentStep(
         messages: [LLMMessage],
         model: Model,
-        systemPrompt: Prompt?,
+        systemPrompt: SystemPrompt?,
         tools: ToolSet,
         toolChoice: ToolChoice?,
         responseSchema: JSONSchema?,
@@ -68,7 +68,7 @@ extension AgentCapableClient {
     public func streamAgentStep(
         messages: [LLMMessage],
         model: Model,
-        systemPrompt: Prompt?,
+        systemPrompt: SystemPrompt?,
         tools: ToolSet,
         toolChoice: ToolChoice?,
         responseSchema: JSONSchema?,

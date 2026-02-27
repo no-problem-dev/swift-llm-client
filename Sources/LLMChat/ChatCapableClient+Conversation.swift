@@ -159,12 +159,12 @@ extension ChatCapableClient {
 
     /// 会話履歴と構造化システムプロンプトを使用して構造化出力を生成
     ///
-    /// DSL で構築した `Prompt` をシステムプロンプトとして使用できます。
+    /// DSL で構築した `SystemPrompt` をシステムプロンプトとして使用できます。
     ///
     /// ## 使用例
     ///
     /// ```swift
-    /// let systemPrompt = Prompt {
+    /// let systemPrompt = SystemPrompt {
     ///     PromptComponent.role("データ分析の専門家")
     ///     PromptComponent.behavior("正確性を最優先する")
     /// }
@@ -191,7 +191,7 @@ extension ChatCapableClient {
         input: LLMInput,
         history: History,
         model: Model,
-        systemPrompt: Prompt,
+        systemPrompt: SystemPrompt,
         temperature: Double? = nil,
         maxTokens: Int? = nil
     ) async throws -> T {
@@ -219,7 +219,7 @@ extension ChatCapableClient {
         input: LLMInput,
         history: History,
         model: Model,
-        systemPrompt: Prompt,
+        systemPrompt: SystemPrompt,
         temperature: Double? = nil,
         maxTokens: Int? = nil
     ) async throws -> ChatResponse<T> {

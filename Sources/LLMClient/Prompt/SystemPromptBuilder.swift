@@ -1,16 +1,16 @@
 import Foundation
 
-// MARK: - PromptBuilder
+// MARK: - SystemPromptBuilder
 
-/// プロンプト構築用の Result Builder
+/// システムプロンプト構築用の Result Builder
 ///
 /// Swift の Result Builder 機能を使用して、
-/// 宣言的な DSL でプロンプトを構築できます。
+/// 宣言的な DSL でシステムプロンプトを構築できます。
 ///
 /// ## 使用例
 ///
 /// ```swift
-/// let prompt = Prompt {
+/// let prompt = SystemPrompt {
 ///     PromptComponent.role("データアナリスト")
 ///     PromptComponent.objective("情報抽出")
 ///
@@ -24,7 +24,7 @@ import Foundation
 /// }
 /// ```
 @resultBuilder
-public struct PromptBuilder {
+public struct SystemPromptBuilder {
 
     /// 複数のコンポーネント配列をブロックとして構築
     ///

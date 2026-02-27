@@ -94,30 +94,30 @@ extension Array where Element == RemovedConstraint {
         map { $0.toPromptComponent() }
     }
 
-    /// 除去された制約の配列を Prompt に変換
+    /// 除去された制約の配列を SystemPrompt に変換
     ///
-    /// - Returns: outputConstraint コンポーネントで構成された Prompt
+    /// - Returns: outputConstraint コンポーネントで構成された SystemPrompt
     ///            制約がない場合は nil
     ///
     /// ## 使用例
     ///
     /// ```swift
-    /// if let constraintPrompt = removedConstraints.toPrompt() {
+    /// if let constraintPrompt = removedConstraints.toSystemPrompt() {
     ///     let finalPrompt = systemPrompt + constraintPrompt
     /// }
     /// ```
-    public func toPrompt() -> Prompt? {
+    public func toSystemPrompt() -> SystemPrompt? {
         guard !isEmpty else { return nil }
-        return Prompt(components: toPromptComponents())
+        return SystemPrompt(components: toPromptComponents())
     }
 }
 
 // MARK: - SchemaAdaptationResult Extension
 
 extension SchemaAdaptationResult {
-    /// 除去された制約を Prompt に変換
+    /// 除去された制約を SystemPrompt に変換
     ///
-    /// - Returns: outputConstraint コンポーネントで構成された Prompt
+    /// - Returns: outputConstraint コンポーネントで構成された SystemPrompt
     ///            制約がない場合は nil
     ///
     /// ## 使用例
@@ -126,12 +126,12 @@ extension SchemaAdaptationResult {
     /// let adapter = OpenAISchemaAdapter()
     /// let result = adapter.adaptWithConstraints(schema)
     ///
-    /// if let constraintPrompt = result.toConstraintPrompt() {
+    /// if let constraintPrompt = result.toConstraintSystemPrompt() {
     ///     // システムプロンプトに制約を追加
     ///     let effectiveSystemPrompt = systemPrompt + constraintPrompt
     /// }
     /// ```
-    public func toConstraintPrompt() -> Prompt? {
-        removedConstraints.toPrompt()
+    public func toConstraintSystemPrompt() -> SystemPrompt? {
+        removedConstraints.toSystemPrompt()
     }
 }

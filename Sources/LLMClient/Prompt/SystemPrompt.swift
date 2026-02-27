@@ -1,17 +1,21 @@
 import Foundation
 
-// MARK: - Prompt
+// MARK: - SystemPrompt
 
-/// 構造化されたプロンプト
+/// 構造化されたシステムプロンプト
 ///
 /// DSL を使用して構築された、複数のプロンプトコンポーネントから成る
-/// 構造化されたプロンプトです。記述順序がそのまま最終的なプロンプトの
+/// 構造化されたシステムプロンプトです。記述順序がそのまま最終的なプロンプトの
 /// 順序となります。
+///
+/// オプションで `SystemPromptMetadata` を保持し、UI 表示やカタログ管理に
+/// 活用できます。
 ///
 /// ## 使用例
 ///
 /// ```swift
-/// let prompt = Prompt {
+/// // メタデータなし（従来の Prompt と同等）
+/// let prompt = SystemPrompt {
 ///     PromptComponent.role("データ分析の専門家")
 ///     PromptComponent.objective("テキストからユーザー情報を抽出する")
 ///     PromptComponent.context("日本語の SNS 投稿が入力される")
@@ -26,6 +30,17 @@ import Foundation
 ///         input: "佐藤花子さん（28）は東京在住",
 ///         output: #"{"name": "佐藤花子", "age": 28}"#
 ///     )
+/// }
+///
+/// // メタデータ付き（カタログ登録用）
+/// let catalogPrompt = SystemPrompt(
+///     "Researcher",
+///     description: "情報収集、分析、統合タスクに最適化",
+///     iconName: "magnifyingglass",
+///     tags: ["research", "analysis"]
+/// ) {
+///     PromptComponent.role("expert research assistant")
+///     PromptComponent.objective("Gather and synthesize information")
 /// }
 ///
 /// let result: UserInfo = try await client.generate(
@@ -54,16 +69,19 @@ import Foundation
 ///
 /// ...
 /// ```
-public struct Prompt: Sendable, Equatable, Codable {
+public struct SystemPrompt: Sendable, Equatable, Codable {
 
     // MARK: - Properties
+
+    /// UI 表示用メタデータ（オプション）
+    public let metadata: SystemPromptMetadata?
 
     /// プロンプトを構成するコンポーネントの配列（記述順）
     public let components: [PromptComponent]
 
     // MARK: - Initializers
 
-    /// DSL を使用してプロンプトを構築
+    /// DSL を使用してシステムプロンプトを構築（メタデータなし）
     ///
     /// Result Builder を使用して、宣言的にプロンプトを構築します。
     /// コンポーネントの記述順序がそのままプロンプトの順序になります。
@@ -72,13 +90,56 @@ public struct Prompt: Sendable, Equatable, Codable {
     ///
     /// ## 使用例
     /// ```swift
-    /// let prompt = Prompt {
+    /// let prompt = SystemPrompt {
     ///     PromptComponent.role("データ分析の専門家")
     ///     PromptComponent.objective("情報抽出")
     ///     PromptComponent.instruction("名前を抽出する")
     /// }
     /// ```
-    public init(@PromptBuilder _ builder: () -> [PromptComponent]) {
+    public init(@SystemPromptBuilder _ builder: () -> [PromptComponent]) {
+        self.metadata = nil
+        self.components = builder()
+    }
+
+    /// メタデータ付きでシステムプロンプトを構築
+    ///
+    /// カタログ登録用のプロンプトを作成する場合に使用します。
+    ///
+    /// - Parameters:
+    ///   - name: 表示名
+    ///   - description: 説明文
+    ///   - iconName: SF Symbols アイコン名
+    ///   - tags: タグ（カテゴリ分類用）
+    ///   - builder: プロンプトコンポーネントを構築するクロージャ
+    ///
+    /// ## 使用例
+    /// ```swift
+    /// let prompt = SystemPrompt(
+    ///     "Researcher",
+    ///     description: "情報収集・分析タスクに最適化",
+    ///     iconName: "magnifyingglass",
+    ///     tags: ["research"]
+    /// ) {
+    ///     PromptComponent.role("expert research assistant")
+    /// }
+    /// ```
+    public init(
+        _ name: String,
+        description: String,
+        iconName: String,
+        tags: [String] = [],
+        @SystemPromptBuilder _ builder: () -> [PromptComponent]
+    ) {
+        let id = name.lowercased()
+            .replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: "_", with: "-")
+        self.metadata = SystemPromptMetadata(
+            id: id,
+            name: name,
+            description: description,
+            iconName: iconName,
+            tags: tags
+        )
         self.components = builder()
     }
 
@@ -86,7 +147,9 @@ public struct Prompt: Sendable, Equatable, Codable {
     ///
     /// プログラマティックにプロンプトを構築する場合に使用します。
     ///
-    /// - Parameter components: プロンプトコンポーネントの配列
+    /// - Parameters:
+    ///   - components: プロンプトコンポーネントの配列
+    ///   - metadata: メタデータ（オプション）
     ///
     /// ## 使用例
     /// ```swift
@@ -94,9 +157,10 @@ public struct Prompt: Sendable, Equatable, Codable {
     ///     .objective("情報抽出"),
     ///     .instruction("名前を抽出する")
     /// ]
-    /// let prompt = Prompt(components: components)
+    /// let prompt = SystemPrompt(components: components)
     /// ```
-    public init(components: [PromptComponent]) {
+    public init(components: [PromptComponent], metadata: SystemPromptMetadata? = nil) {
+        self.metadata = metadata
         self.components = components
     }
 
@@ -129,7 +193,7 @@ public struct Prompt: Sendable, Equatable, Codable {
 
 // MARK: - CustomStringConvertible
 
-extension Prompt: CustomStringConvertible {
+extension SystemPrompt: CustomStringConvertible {
     public var description: String {
         render()
     }
@@ -137,8 +201,8 @@ extension Prompt: CustomStringConvertible {
 
 // MARK: - ExpressibleByStringLiteral
 
-extension Prompt: ExpressibleByStringLiteral {
-    /// 文字列リテラルからプロンプトを作成
+extension SystemPrompt: ExpressibleByStringLiteral {
+    /// 文字列リテラルからシステムプロンプトを作成
     ///
     /// 単純な文字列をプロンプトとして使用する場合の後方互換性のために提供されます。
     /// 文字列は `context` コンポーネントとして扱われます。
@@ -147,24 +211,27 @@ extension Prompt: ExpressibleByStringLiteral {
     ///
     /// ## 使用例
     /// ```swift
-    /// let prompt: Prompt = "山田太郎さんは35歳です"
+    /// let prompt: SystemPrompt = "山田太郎さんは35歳です"
     /// ```
     public init(stringLiteral value: String) {
+        self.metadata = nil
         self.components = [.context(value)]
     }
 }
 
-// MARK: - Prompt Combination
+// MARK: - SystemPrompt Combination
 
-extension Prompt {
-    /// 2つのプロンプトを結合
+extension SystemPrompt {
+    /// 2つのシステムプロンプトを結合
+    ///
+    /// メタデータは左辺のものが保持されます。
     ///
     /// - Parameters:
     ///   - lhs: 最初のプロンプト
     ///   - rhs: 追加するプロンプト
     /// - Returns: 結合されたプロンプト
-    public static func + (lhs: Prompt, rhs: Prompt) -> Prompt {
-        Prompt(components: lhs.components + rhs.components)
+    public static func + (lhs: SystemPrompt, rhs: SystemPrompt) -> SystemPrompt {
+        SystemPrompt(components: lhs.components + rhs.components, metadata: lhs.metadata)
     }
 
     /// プロンプトにコンポーネントを追加
@@ -173,15 +240,15 @@ extension Prompt {
     ///   - lhs: プロンプト
     ///   - rhs: 追加するコンポーネント
     /// - Returns: コンポーネントが追加されたプロンプト
-    public static func + (lhs: Prompt, rhs: PromptComponent) -> Prompt {
-        Prompt(components: lhs.components + [rhs])
+    public static func + (lhs: SystemPrompt, rhs: PromptComponent) -> SystemPrompt {
+        SystemPrompt(components: lhs.components + [rhs], metadata: lhs.metadata)
     }
 
     /// 別のプロンプトを追加した新しいプロンプトを返す
     ///
     /// - Parameter other: 追加するプロンプト
     /// - Returns: 結合されたプロンプト
-    public func appending(_ other: Prompt) -> Prompt {
+    public func appending(_ other: SystemPrompt) -> SystemPrompt {
         self + other
     }
 
@@ -189,20 +256,30 @@ extension Prompt {
     ///
     /// - Parameter component: 追加するコンポーネント
     /// - Returns: コンポーネントが追加されたプロンプト
-    public func appending(_ component: PromptComponent) -> Prompt {
+    public func appending(_ component: PromptComponent) -> SystemPrompt {
         self + component
+    }
+
+    /// コンポーネントを追加した新しいプロンプトを返す
+    ///
+    /// メタデータを保持しつつ、追加のコンポーネントで拡張します。
+    ///
+    /// - Parameter builder: 追加するコンポーネントを構築するクロージャ
+    /// - Returns: コンポーネントが追加されたプロンプト
+    public func modified(@SystemPromptBuilder with builder: () -> [PromptComponent]) -> SystemPrompt {
+        SystemPrompt(components: components + builder(), metadata: metadata)
     }
 }
 
 // MARK: - Filtering and Transformation
 
-extension Prompt {
+extension SystemPrompt {
     /// 特定のタイプのコンポーネントのみを抽出
     ///
     /// - Parameter predicate: フィルタ条件
     /// - Returns: フィルタされたプロンプト
-    public func filter(_ predicate: (PromptComponent) -> Bool) -> Prompt {
-        Prompt(components: components.filter(predicate))
+    public func filter(_ predicate: (PromptComponent) -> Bool) -> SystemPrompt {
+        SystemPrompt(components: components.filter(predicate), metadata: metadata)
     }
 
     /// 特定のタグ名を持つコンポーネントのみを抽出
@@ -214,7 +291,14 @@ extension Prompt {
     /// ```swift
     /// let instructions = prompt.components(withTag: "instruction")
     /// ```
-    public func components(withTag tagName: String) -> Prompt {
+    public func components(withTag tagName: String) -> SystemPrompt {
         filter { $0.tagName == tagName }
     }
+}
+
+// MARK: - LLMInputProtocol Conformance
+
+extension SystemPrompt: LLMInputProtocol {
+    /// SystemPrompt 自体をプロンプトとして返す
+    public var prompt: SystemPrompt { self }
 }

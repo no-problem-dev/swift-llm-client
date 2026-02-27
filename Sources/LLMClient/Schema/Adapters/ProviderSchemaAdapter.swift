@@ -23,8 +23,8 @@ import Foundation
 /// let anthropicAdapter = AnthropicSchemaAdapter()
 /// let result = anthropicAdapter.adaptWithConstraints(schema)
 /// let anthropicSchema = result.schema
-/// // 除去された制約を Prompt に変換（RemovedConstraint+Prompt.swift）
-/// if let constraintPrompt = result.toConstraintPrompt() {
+/// // 除去された制約を SystemPrompt に変換（RemovedConstraint+Prompt.swift）
+/// if let constraintPrompt = result.toConstraintSystemPrompt() {
 ///     let finalSystemPrompt = systemPrompt + constraintPrompt
 /// }
 ///

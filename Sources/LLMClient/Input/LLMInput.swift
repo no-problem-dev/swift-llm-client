@@ -28,10 +28,10 @@ import Foundation
 /// let input = LLMInput("分析してください")
 /// ```
 ///
-/// ### Prompt DSL を使用
+/// ### SystemPrompt DSL を使用
 /// ```swift
 /// let input = LLMInput(
-///     Prompt {
+///     SystemPrompt {
 ///         PromptComponent.role("データ分析の専門家")
 ///         PromptComponent.objective("売上データを分析")
 ///     }
@@ -54,7 +54,7 @@ import Foundation
 ///
 /// // 複数のメディア
 /// let input = LLMInput(
-///     Prompt {
+///     SystemPrompt {
 ///         PromptComponent.objective("動画と音声を分析")
 ///     },
 ///     audios: [audioContent],
@@ -63,7 +63,7 @@ import Foundation
 /// ```
 public struct LLMInput: LLMInputProtocol, ExpressibleByStringLiteral {
     /// テキストプロンプト
-    public let prompt: Prompt
+    public let prompt: SystemPrompt
 
     /// 画像コンテンツ
     public let images: [ImageContent]
@@ -86,7 +86,7 @@ public struct LLMInput: LLMInputProtocol, ExpressibleByStringLiteral {
     ///   - audios: 音声コンテンツ（デフォルト: 空）
     ///   - videos: 動画コンテンツ（デフォルト: 空）
     public init(
-        _ prompt: Prompt,
+        _ prompt: SystemPrompt,
         images: [ImageContent] = [],
         audios: [AudioContent] = [],
         videos: [VideoContent] = []
@@ -112,7 +112,7 @@ public struct LLMInput: LLMInputProtocol, ExpressibleByStringLiteral {
         audios: [AudioContent] = [],
         videos: [VideoContent] = []
     ) {
-        self.prompt = Prompt(stringLiteral: text)
+        self.prompt = SystemPrompt(stringLiteral: text)
         self.images = images
         self.audios = audios
         self.videos = videos
@@ -121,7 +121,7 @@ public struct LLMInput: LLMInputProtocol, ExpressibleByStringLiteral {
     // MARK: - ExpressibleByStringLiteral
 
     public init(stringLiteral value: String) {
-        self.prompt = Prompt(stringLiteral: value)
+        self.prompt = SystemPrompt(stringLiteral: value)
         self.images = []
         self.audios = []
         self.videos = []
@@ -210,9 +210,3 @@ extension LLMInput {
     }
 }
 
-// MARK: - Prompt Conformance to LLMInputProtocol
-
-extension Prompt: LLMInputProtocol {
-    /// Prompt 自体をプロンプトとして返す
-    public var prompt: Prompt { self }
-}

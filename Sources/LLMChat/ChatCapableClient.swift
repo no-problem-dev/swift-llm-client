@@ -122,7 +122,7 @@ extension ChatCapableClient {
     public func chat<T: StructuredProtocol>(
         input: LLMInput,
         model: Model,
-        systemPrompt: Prompt,
+        systemPrompt: SystemPrompt,
         temperature: Double? = nil,
         maxTokens: Int? = nil
     ) async throws -> ChatResponse<T> {

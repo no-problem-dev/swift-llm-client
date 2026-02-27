@@ -30,9 +30,9 @@ import Foundation
 ///     images: [imageContent]
 /// )
 ///
-/// // Prompt DSL を使用
+/// // SystemPrompt DSL を使用
 /// let input = LLMInput(
-///     Prompt {
+///     SystemPrompt {
 ///         PromptComponent.role("データ分析の専門家")
 ///         PromptComponent.objective("画像から情報を抽出")
 ///     },
@@ -41,7 +41,7 @@ import Foundation
 /// ```
 public protocol LLMInputProtocol: Sendable {
     /// テキストプロンプト
-    var prompt: Prompt { get }
+    var prompt: SystemPrompt { get }
 
     /// 画像コンテンツ
     var images: [ImageContent] { get }

@@ -134,7 +134,7 @@ extension StructuredLLMClient {
     public func generateWithUsage<T: StructuredProtocol>(
         input: LLMInput,
         model: Model,
-        systemPrompt: Prompt,
+        systemPrompt: SystemPrompt,
         temperature: Double? = nil,
         maxTokens: Int? = nil
     ) async throws -> GenerationResult<T> {
@@ -207,12 +207,12 @@ extension StructuredLLMClient {
 
     /// 構造化システムプロンプトを使用して出力を生成
     ///
-    /// ユーザー入力とシステムプロンプトの両方に Prompt DSL を使用できます。
+    /// ユーザー入力とシステムプロンプトの両方に SystemPrompt DSL を使用できます。
     ///
     /// ## 使用例
     ///
     /// ```swift
-    /// let systemPrompt = Prompt {
+    /// let systemPrompt = SystemPrompt {
     ///     PromptComponent.role("データ分析の専門家")
     ///     PromptComponent.behavior("正確性を最優先する")
     /// }
@@ -235,7 +235,7 @@ extension StructuredLLMClient {
     public func generate<T: StructuredProtocol>(
         input: LLMInput,
         model: Model,
-        systemPrompt: Prompt,
+        systemPrompt: SystemPrompt,
         temperature: Double? = nil,
         maxTokens: Int? = nil
     ) async throws -> T {
