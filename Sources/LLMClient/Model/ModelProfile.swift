@@ -19,6 +19,26 @@ public struct ModelProfile: Sendable, Hashable, Codable {
     /// パラメータ数（例: "4B", "70B", "30B-A3B"）
     public let parameterCount: String?
 
+    // MARK: - Detail Information
+
+    /// モデルの詳細説明（複数行）
+    public let description: String?
+
+    /// コンテキストウィンドウサイズ（トークン数）
+    public let contextWindow: Int?
+
+    /// 最大出力トークン数
+    public let maxOutputTokens: Int?
+
+    /// 知識カットオフ（例: "2025-04"）
+    public let knowledgeCutoff: String?
+
+    /// 主な強み（例: ["複雑な推論", "コード生成"]）
+    public let strengths: [String]?
+
+    /// おすすめ用途（例: ["エージェントワークフロー", "コードレビュー"]）
+    public let bestFor: [String]?
+
     // MARK: - Capabilities
 
     /// ツール呼び出しのサポートレベル
@@ -47,6 +67,12 @@ public struct ModelProfile: Sendable, Hashable, Codable {
         summary: String,
         modelFamily: String,
         parameterCount: String? = nil,
+        description: String? = nil,
+        contextWindow: Int? = nil,
+        maxOutputTokens: Int? = nil,
+        knowledgeCutoff: String? = nil,
+        strengths: [String]? = nil,
+        bestFor: [String]? = nil,
         toolCallSupport: ToolCallSupport,
         japaneseSupport: LanguageSupport,
         modalities: Set<Modality>,
@@ -57,6 +83,12 @@ public struct ModelProfile: Sendable, Hashable, Codable {
         self.summary = summary
         self.modelFamily = modelFamily
         self.parameterCount = parameterCount
+        self.description = description
+        self.contextWindow = contextWindow
+        self.maxOutputTokens = maxOutputTokens
+        self.knowledgeCutoff = knowledgeCutoff
+        self.strengths = strengths
+        self.bestFor = bestFor
         self.toolCallSupport = toolCallSupport
         self.japaneseSupport = japaneseSupport
         self.modalities = modalities
