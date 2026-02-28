@@ -50,7 +50,7 @@ public struct DynamicStructured: Sendable {
     public init(
         _ name: String,
         description: String? = nil,
-        @StructuredBuilder _ builder: () -> [NamedSchema]
+        @SchemaFieldBuilder _ builder: () -> [NamedSchema]
     ) {
         self.name = name
         self.description = description
@@ -81,20 +81,9 @@ public struct DynamicStructured: Sendable {
     ///
     /// - Returns: オブジェクト型の JSON Schema
     public func toJSONSchema() -> JSONSchema {
-        var properties: [String: JSONSchema] = [:]
-        var required: [String] = []
-
-        for field in fields {
-            properties[field.name] = field.schema
-            if field.isRequired {
-                required.append(field.name)
-            }
-        }
-
-        return JSONSchema.object(
+        JSONSchema.object(
             description: description,
-            properties: properties,
-            required: required.isEmpty ? nil : required,
+            fields: fields,
             additionalProperties: false
         )
     }

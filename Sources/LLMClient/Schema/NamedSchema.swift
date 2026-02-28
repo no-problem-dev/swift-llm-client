@@ -1,12 +1,11 @@
 import Foundation
-import LLMClient
 
 // MARK: - NamedSchema
 
 /// 名前付きスキーマ
 ///
 /// `JSONSchema` に名前と必須情報を付加した型です。
-/// `DynamicStructured` のフィールド定義として使用されます。
+/// `DynamicStructured` のフィールド定義や `DynamicTool` のパラメータ定義として使用されます。
 ///
 /// ## 使用例
 ///
@@ -56,9 +55,9 @@ extension NamedSchema {
     }
 }
 
-// MARK: - StructuredBuilder Support
+// MARK: - SchemaFieldBuilder Support
 
-/// `StructuredBuilder` で使用可能な型のプロトコル
+/// `SchemaFieldBuilder` で使用可能な型のプロトコル
 public protocol NamedSchemaConvertible: Sendable {
     /// NamedSchema に変換
     func asNamedSchema() -> NamedSchema

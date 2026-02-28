@@ -1,35 +1,32 @@
 import Foundation
 
-// MARK: - DynamicStructuredResult
+// MARK: - DynamicJSON
 
-/// 動的構造化出力の結果
+/// 動的 JSON データの型安全アクセサ
 ///
-/// LLM から返された JSON データを動的に扱うための型です。
+/// LLM から返された JSON データや、ツール引数として渡された JSON データを
+/// 動的に扱うための型です。
 /// Dictionary ライクなアクセスと、型安全なヘルパーメソッドを提供します。
 ///
 /// ## 使用例
 ///
 /// ```swift
-/// let result = try await client.generate(
-///     input: "田中太郎さん（35歳）の情報を抽出",
-///     model: .sonnet,
-///     output: userInfo
-/// )
+/// let json = try DynamicJSON(from: data)
 ///
 /// // subscript アクセス
-/// let name = result["name"]  // Any?
+/// let name = json["name"]  // Any?
 ///
 /// // 型安全なアクセス
-/// let nameString = result.string("name")  // String?
-/// let age = result.int("age")             // Int?
+/// let nameString = json.string("name")  // String?
+/// let age = json.int("age")             // Int?
 ///
 /// // ネストされた構造へのアクセス
-/// let city = result.nested("address")?.string("city")
+/// let city = json.nested("address")?.string("city")
 /// ```
 ///
 /// - Note: この型は `@unchecked Sendable` です。
 ///   内部の辞書は `let` で不変であるため、スレッドセーフです。
-public struct DynamicStructuredResult: @unchecked Sendable {
+public struct DynamicJSON: @unchecked Sendable {
     /// 内部の値を保持する辞書
     private let values: [String: Any]
 
@@ -45,17 +42,17 @@ public struct DynamicStructuredResult: @unchecked Sendable {
     /// JSON データからデコードして初期化
     ///
     /// - Parameter data: JSON データ
-    /// - Throws: `DynamicStructuredResultError` デコードエラー
+    /// - Throws: `DynamicJSONError` デコードエラー
     public init(from data: Data) throws {
         do {
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                throw DynamicStructuredResultError.invalidJSON
+                throw DynamicJSONError.invalidJSON
             }
             self.values = json
-        } catch is DynamicStructuredResultError {
-            throw DynamicStructuredResultError.invalidJSON
+        } catch is DynamicJSONError {
+            throw DynamicJSONError.invalidJSON
         } catch {
-            throw DynamicStructuredResultError.invalidJSON
+            throw DynamicJSONError.invalidJSON
         }
     }
 
@@ -65,7 +62,7 @@ public struct DynamicStructuredResult: @unchecked Sendable {
     /// - Throws: デコードエラー
     public init(from jsonString: String) throws {
         guard let data = jsonString.data(using: .utf8) else {
-            throw DynamicStructuredResultError.invalidEncoding
+            throw DynamicJSONError.invalidEncoding
         }
         try self.init(from: data)
     }
@@ -153,23 +150,23 @@ public struct DynamicStructuredResult: @unchecked Sendable {
     /// ネストされたオブジェクトとして取得
     ///
     /// - Parameter key: フィールド名
-    /// - Returns: ネストされた結果オブジェクト、または nil
-    public func nested(_ key: String) -> DynamicStructuredResult? {
+    /// - Returns: ネストされた DynamicJSON、または nil
+    public func nested(_ key: String) -> DynamicJSON? {
         guard let dict = values[key] as? [String: Any] else {
             return nil
         }
-        return DynamicStructuredResult(values: dict)
+        return DynamicJSON(values: dict)
     }
 
     /// ネストされたオブジェクトの配列として取得
     ///
     /// - Parameter key: フィールド名
-    /// - Returns: ネストされた結果オブジェクトの配列、または nil
-    public func nestedArray(_ key: String) -> [DynamicStructuredResult]? {
+    /// - Returns: ネストされた DynamicJSON の配列、または nil
+    public func nestedArray(_ key: String) -> [DynamicJSON]? {
         guard let array = values[key] as? [[String: Any]] else {
             return nil
         }
-        return array.map { DynamicStructuredResult(values: $0) }
+        return array.map { DynamicJSON(values: $0) }
     }
 
     // MARK: - Utility Methods
@@ -195,8 +192,8 @@ public struct DynamicStructuredResult: @unchecked Sendable {
 
 // MARK: - Errors
 
-/// DynamicStructuredResult のエラー
-public enum DynamicStructuredResultError: Error, Sendable {
+/// DynamicJSON のエラー
+public enum DynamicJSONError: Error, Sendable {
     /// 無効な JSON データ
     case invalidJSON
 
@@ -206,12 +203,12 @@ public enum DynamicStructuredResultError: Error, Sendable {
 
 // MARK: - CustomDebugStringConvertible
 
-extension DynamicStructuredResult: CustomDebugStringConvertible {
+extension DynamicJSON: CustomDebugStringConvertible {
     public var debugDescription: String {
         guard let data = try? JSONSerialization.data(withJSONObject: values, options: .prettyPrinted),
               let string = String(data: data, encoding: .utf8) else {
-            return "DynamicStructuredResult(\(values.keys.joined(separator: ", ")))"
+            return "DynamicJSON(\(values.keys.joined(separator: ", ")))"
         }
-        return "DynamicStructuredResult: \(string)"
+        return "DynamicJSON: \(string)"
     }
 }

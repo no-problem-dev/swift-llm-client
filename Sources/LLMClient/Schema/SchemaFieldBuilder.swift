@@ -1,41 +1,37 @@
 import Foundation
-import LLMClient
 
-// MARK: - StructuredBuilder
+// MARK: - SchemaFieldBuilder
 
-/// `DynamicStructured` のフィールドを宣言的に構築するための Result Builder
+/// `[NamedSchema]` を宣言的に構築するための Result Builder
 ///
 /// `JSONSchema` とその拡張メソッド `.named()` を組み合わせて、
-/// 構造化出力の定義をパズルのように組み立てることができます。
+/// スキーマフィールドの定義をパズルのように組み立てることができます。
+/// `DynamicStructured` と `DynamicTool` の両方で使用されます。
 ///
 /// ## 使用例
 ///
 /// ```swift
+/// // DynamicStructured で使用
 /// let userInfo = DynamicStructured("UserInfo") {
-///     // 必須の文字列フィールド
 ///     JSONSchema.string(description: "ユーザー名")
 ///         .named("name")
 ///
-///     // オプショナルな整数フィールド
 ///     JSONSchema.integer(description: "年齢", minimum: 0)
 ///         .named("age")
 ///         .optional()
+/// }
 ///
-///     // 条件付きフィールド
-///     if includeEmail {
-///         JSONSchema.string(description: "メール", format: "email")
-///             .named("email")
-///     }
-///
-///     // 配列から動的に生成
-///     for tag in requiredTags {
-///         JSONSchema.string(description: tag.description)
-///             .named(tag.name)
-///     }
+/// // DynamicTool で使用
+/// let tool = DynamicTool("get_weather", description: "天気を取得") {
+///     JSONSchema.string(description: "都市名").named("city")
+///     JSONSchema.enum(["celsius", "fahrenheit"], description: "単位")
+///         .named("unit").optional()
+/// } handler: { args in
+///     .text("Weather in \(args.string("city") ?? "unknown")")
 /// }
 /// ```
 @resultBuilder
-public struct StructuredBuilder {
+public struct SchemaFieldBuilder {
     /// 複数のフィールドを結合
     public static func buildBlock(_ components: NamedSchemaConvertible...) -> [NamedSchema] {
         components.map { $0.asNamedSchema() }

@@ -204,4 +204,63 @@ extension JSONSchema {
             enum: values
         )
     }
+
+    /// `NamedSchema` 配列からオブジェクト型のスキーマを作成
+    ///
+    /// `SchemaFieldBuilder` と組み合わせて、宣言的にオブジェクトスキーマを構築できます。
+    ///
+    /// - Parameters:
+    ///   - description: スキーマの説明
+    ///   - fields: `NamedSchema` 配列
+    ///   - additionalProperties: 追加プロパティを許可するかどうか
+    /// - Returns: オブジェクト型の JSONSchema
+    ///
+    /// ```swift
+    /// let schema = JSONSchema.object(fields: [
+    ///     JSONSchema.string(description: "名前").named("name"),
+    ///     JSONSchema.integer(minimum: 0).named("age").optional(),
+    /// ])
+    /// ```
+    public static func object(
+        description: String? = nil,
+        fields: [NamedSchema],
+        additionalProperties: Bool = false
+    ) -> JSONSchema {
+        var properties: [String: JSONSchema] = [:]
+        var required: [String] = []
+        for field in fields {
+            properties[field.name] = field.schema
+            if field.isRequired { required.append(field.name) }
+        }
+        return .object(
+            description: description,
+            properties: properties,
+            required: required.isEmpty ? nil : required,
+            additionalProperties: additionalProperties
+        )
+    }
+}
+
+// MARK: - JSONSchema Named Extension
+
+extension JSONSchema {
+    /// 名前を付けて NamedSchema に変換
+    ///
+    /// `DynamicStructured` や `DynamicTool` のフィールドとして使用するために、
+    /// JSON Schema に名前を付与します。
+    ///
+    /// - Parameter name: フィールド名
+    /// - Returns: 名前付きスキーマ（デフォルトで必須）
+    ///
+    /// ```swift
+    /// let field = JSONSchema.string(description: "ユーザー名")
+    ///     .named("name")
+    ///
+    /// let optionalField = JSONSchema.integer(minimum: 0)
+    ///     .named("age")
+    ///     .optional()
+    /// ```
+    public func named(_ name: String) -> NamedSchema {
+        NamedSchema(name: name, schema: self, isRequired: true)
+    }
 }
