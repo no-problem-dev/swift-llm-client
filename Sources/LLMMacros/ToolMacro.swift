@@ -40,6 +40,9 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
         // @ToolArgument を持つプロパティを収集
         let arguments = collectToolArguments(from: structDecl)
 
+        // @ToolArgument を持たない注入用ストアドプロパティを収集
+        let injected = collectInjectedProperties(from: structDecl)
+
         var members: [DeclSyntax] = []
 
         // toolName インスタンスプロパティ
@@ -69,7 +72,7 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
             """)
 
         // init(arguments:) イニシャライザ
-        let initDecl = generateInitializer(arguments: arguments)
+        let initDecl = generateInitializer(arguments: arguments, injected: injected)
         members.append(initDecl)
 
         // execute(with:) インスタンスメソッド
@@ -177,6 +180,51 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
         }
 
         return arguments
+    }
+
+    /// @ToolArgument を持たない注入用ストアドプロパティを収集
+    ///
+    /// ツールに注入（`init` 時に設定）する必要があるプロパティ。
+    /// 計算プロパティ・デフォルト値付きプロパティは除外する。
+    private static func collectInjectedProperties(from structDecl: StructDeclSyntax) -> [InjectedPropertyInfo] {
+        var injected: [InjectedPropertyInfo] = []
+
+        for member in structDecl.memberBlock.members {
+            guard let varDecl = member.decl.as(VariableDeclSyntax.self),
+                  let binding = varDecl.bindings.first,
+                  let identifier = binding.pattern.as(IdentifierPatternSyntax.self),
+                  let typeAnnotation = binding.typeAnnotation else {
+                continue
+            }
+
+            // 計算プロパティは除外
+            if binding.accessorBlock != nil {
+                continue
+            }
+
+            // デフォルト値がある場合は除外（マクロが生成したデフォルト値付き引数ではない）
+            if binding.initializer != nil {
+                continue
+            }
+
+            // @ToolArgument 属性があるプロパティは除外（LLM 引数として別途処理）
+            let argInfo = extractToolArgumentInfo(from: varDecl.attributes)
+            if argInfo.hasAttribute {
+                continue
+            }
+
+            let propertyName = identifier.identifier.text
+            let typeName = typeAnnotation.type.trimmedDescription
+            let isLet = varDecl.bindingSpecifier.tokenKind == .keyword(.let)
+
+            injected.append(InjectedPropertyInfo(
+                name: propertyName,
+                typeName: typeName,
+                isLet: isLet
+            ))
+        }
+
+        return injected
     }
 
     /// @ToolArgument 属性から情報を抽出
@@ -307,16 +355,34 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
 
     /// 初期化子を生成
     ///
-    /// 引数なしの `init()` と `init(arguments:)` の両方を生成します。
-    /// これにより、ToolSet への登録時は `MyTool()` で作成でき、
+    /// 注入プロパティがある場合は `init(<injected>:)` と `init(<injected>:arguments:)` を生成します。
+    /// 注入プロパティがない場合は `init()` と `init(arguments:)` を生成します。
+    /// これにより、ToolSet への登録は `MyTool(injectedProp: value)` で可能になり、
     /// 実行時は引数付きで再構築できます。
-    private static func generateInitializer(arguments: [ToolArgumentInfo]) -> DeclSyntax {
+    private static func generateInitializer(
+        arguments: [ToolArgumentInfo],
+        injected: [InjectedPropertyInfo]
+    ) -> DeclSyntax {
+        // 注入プロパティのパラメータ文字列（例: "sessions: [SessionRecord]"）
+        let injectedParams = injected.map { "\($0.name): \($0.typeName)" }.joined(separator: ", ")
+        // 注入プロパティの代入文
+        let injectedAssignments = injected.map { "self.\($0.name) = \($0.name)" }.joined(separator: "\n    ")
+
         if arguments.isEmpty {
-            return """
-                public init(arguments: Arguments = EmptyArguments()) {
-                    self.arguments = arguments
-                }
-                """
+            if injected.isEmpty {
+                return """
+                    public init(arguments: Arguments = EmptyArguments()) {
+                        self.arguments = arguments
+                    }
+                    """
+            } else {
+                return """
+                    public init(\(raw: injectedParams), arguments: Arguments = EmptyArguments()) {
+                        \(raw: injectedAssignments)
+                        self.arguments = arguments
+                    }
+                    """
+            }
         }
 
         // 各引数のデフォルト値を生成
@@ -333,21 +399,38 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
             argAssignments += "    self.\(arg.name) = arguments.\(arg.name)\n"
         }
 
-        // 引数なし init() を生成（ToolSet 登録用）
-        // arguments プロパティは遅延初期化するため、ダミー値で初期化
-        return """
-            public init() {
-                // ToolSet 登録時のデフォルト初期化
-                // 実際の引数は execute(with:) で設定される
-                \(raw: defaultAssignments)
-                // arguments は execute 時に設定されるため、空の Arguments で初期化
-                self.arguments = Arguments()
-            }
+        if injected.isEmpty {
+            // 注入プロパティなし：従来通り
+            return """
+                public init() {
+                    // ToolSet 登録時のデフォルト初期化
+                    // 実際の引数は execute(with:) で設定される
+                    \(raw: defaultAssignments)
+                    // arguments は execute 時に設定されるため、空の Arguments で初期化
+                    self.arguments = Arguments()
+                }
 
-            public init(arguments: Arguments) {
-                self.arguments = arguments
-            \(raw: argAssignments)}
-            """
+                public init(arguments: Arguments) {
+                    self.arguments = arguments
+                \(raw: argAssignments)}
+                """
+        } else {
+            // 注入プロパティあり：注入プロパティをパラメータとして受け取る
+            return """
+                public init(\(raw: injectedParams)) {
+                    // ToolSet 登録時の初期化（注入プロパティを受け取る）
+                    // LLM 引数は execute(with:) で設定される
+                    \(raw: injectedAssignments)
+                    \(raw: defaultAssignments)
+                    self.arguments = Arguments()
+                }
+
+                public init(\(raw: injectedParams), arguments: Arguments) {
+                    \(raw: injectedAssignments)
+                    self.arguments = arguments
+                \(raw: argAssignments)}
+                """
+        }
     }
 
     /// 型に応じたデフォルト値を返す
@@ -419,6 +502,15 @@ struct ToolArgumentInfo {
     let isArray: Bool
     let description: String?
     let constraints: [ConstraintInfo]
+}
+
+// MARK: - InjectedPropertyInfo
+
+/// 注入用ストアドプロパティの情報（@ToolArgument を持たない）
+struct InjectedPropertyInfo {
+    let name: String
+    let typeName: String
+    let isLet: Bool
 }
 
 // MARK: - ToolMacroError
