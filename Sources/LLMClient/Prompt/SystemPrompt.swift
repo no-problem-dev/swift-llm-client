@@ -178,6 +178,13 @@ public struct SystemPrompt: Sendable, Equatable, Codable {
             .joined(separator: "\n\n")
     }
 
+    /// UI 表示用のプレーンテキスト（XML タグなし）
+    public var displayText: String {
+        components
+            .map { $0.contentPreview }
+            .joined(separator: "\n\n")
+    }
+
     // MARK: - Computed Properties
 
     /// プロンプトが空かどうか
