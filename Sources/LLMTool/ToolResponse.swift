@@ -1,4 +1,5 @@
 import Foundation
+import LLMClient
 
 // MARK: - ToolResponse
 
@@ -42,6 +43,12 @@ public struct ToolResponse: Sendable, Equatable {
     /// エラーかどうか
     public let isError: Bool
 
+    /// メディアコンテンツ（画像など）
+    ///
+    /// ツール結果に画像などのメディアが含まれる場合、
+    /// LLM メッセージに追加コンテンツとして注入される。
+    public let mediaContents: [ImageContent]
+
     // MARK: - Initializer
 
     /// ToolResponse を初期化
@@ -51,10 +58,15 @@ public struct ToolResponse: Sendable, Equatable {
     ///   - name: ツール名
     ///   - output: 出力内容
     ///   - isError: エラーかどうか（デフォルト: false）
-    public init(callId: String, name: String, output: String, isError: Bool = false) {
+    ///   - mediaContents: メディアコンテンツ（デフォルト: 空配列）
+    public init(
+        callId: String, name: String, output: String,
+        isError: Bool = false, mediaContents: [ImageContent] = []
+    ) {
         self.callId = callId
         self.name = name
         self.output = output
         self.isError = isError
+        self.mediaContents = mediaContents
     }
 }

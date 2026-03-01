@@ -1,4 +1,5 @@
 import Foundation
+import LLMClient
 
 // MARK: - ToolResult
 
@@ -19,6 +20,9 @@ import Foundation
 ///
 /// // エラー
 /// return .error("API rate limit exceeded")
+///
+/// // テキスト + メディア（画像など）
+/// return .textWithMedia("Image loaded", media: [imageContent])
 /// ```
 public enum ToolResult: Sendable, Equatable {
     /// テキスト形式の結果
@@ -32,6 +36,12 @@ public enum ToolResult: Sendable, Equatable {
     /// ツールの実行自体は成功したが、処理内でエラーが発生した場合に使用します。
     /// 例: API 呼び出しの失敗、データが見つからない、など
     case error(String)
+
+    /// テキスト + メディアコンテンツ付き結果
+    ///
+    /// 画像などのメディアを LLM に直接渡す場合に使用します。
+    /// テキスト部分は LLM へのツール結果として、メディアは追加コンテンツとして注入されます。
+    case textWithMedia(String, media: [ImageContent])
 
     // MARK: - Factory Methods
 
@@ -67,6 +77,8 @@ public enum ToolResult: Sendable, Equatable {
             return String(data: data, encoding: .utf8) ?? ""
         case .error(let message):
             return "Error: \(message)"
+        case .textWithMedia(let text, _):
+            return text
         }
     }
 
@@ -76,6 +88,14 @@ public enum ToolResult: Sendable, Equatable {
             return true
         }
         return false
+    }
+
+    /// メディアコンテンツ（存在する場合）
+    public var mediaContents: [ImageContent] {
+        if case .textWithMedia(_, let media) = self {
+            return media
+        }
+        return []
     }
 }
 
