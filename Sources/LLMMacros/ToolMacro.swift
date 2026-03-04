@@ -213,6 +213,11 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
                 continue
             }
 
+            // @ToolExclude 属性があるプロパティは除外
+            if hasToolExcludeAttribute(varDecl.attributes) {
+                continue
+            }
+
             let propertyName = identifier.identifier.text
             let typeName = typeAnnotation.type.trimmedDescription
             let isLet = varDecl.bindingSpecifier.tokenKind == .keyword(.let)
@@ -225,6 +230,19 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
         }
 
         return injected
+    }
+
+    /// @ToolExclude 属性があるかチェック
+    private static func hasToolExcludeAttribute(_ attributes: AttributeListSyntax) -> Bool {
+        for attribute in attributes {
+            guard let attr = attribute.as(AttributeSyntax.self),
+                  let identifier = attr.attributeName.as(IdentifierTypeSyntax.self),
+                  identifier.name.text == "ToolExclude" else {
+                continue
+            }
+            return true
+        }
+        return false
     }
 
     /// @ToolArgument 属性から情報を抽出

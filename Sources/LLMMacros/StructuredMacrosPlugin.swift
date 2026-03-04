@@ -10,5 +10,6 @@ struct LLMMacrosPlugin: CompilerPlugin {
         StructuredCaseMacro.self,
         ToolMacro.self,
         ToolArgumentMacro.self,
+        ToolExcludeMacro.self,
     ]
 }

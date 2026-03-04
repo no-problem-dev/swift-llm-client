@@ -90,6 +90,32 @@ public macro Tool(
     name: String? = nil
 ) = #externalMacro(module: "LLMMacros", type: "ToolMacro")
 
+/// ツールのプロパティをマクロ処理から除外するマーカー
+///
+/// `@Tool` マクロが適用された構造体のストアドプロパティに付けることで、
+/// そのプロパティを注入プロパティとしても扱わなくなります。
+/// コールバッククロージャなど、ツールの引数でも DI 対象でもないプロパティに使用します。
+///
+/// ## 使用例
+///
+/// ```swift
+/// @Tool("UI ブロックを出力します", name: "emit_block")
+/// struct EmitBlockTool {
+///     @ToolArgument("ブロックの種類")
+///     var type: String
+///
+///     @ToolExclude
+///     var onEmit: @Sendable (UIBlock) async -> Void
+///
+///     func call() async throws -> String {
+///         await onEmit(...)
+///         return "Done"
+///     }
+/// }
+/// ```
+@attached(peer)
+public macro ToolExclude() = #externalMacro(module: "LLMMacros", type: "ToolExcludeMacro")
+
 /// ツールの引数を定義するマクロ
 ///
 /// `@Tool` マクロが適用された型のプロパティに使用します。
