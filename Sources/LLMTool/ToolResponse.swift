@@ -37,36 +37,29 @@ public struct ToolResponse: Sendable, Equatable {
     /// ツール名
     public let name: String
 
-    /// 出力内容
-    public let output: String
-
-    /// エラーかどうか
-    public let isError: Bool
+    /// 実行結果コンテンツ
+    public let content: ToolResultContent
 
     /// メディアコンテンツ（画像など）
-    ///
-    /// ツール結果に画像などのメディアが含まれる場合、
-    /// LLM メッセージに追加コンテンツとして注入される。
     public let mediaContents: [ImageContent]
 
     // MARK: - Initializer
 
-    /// ToolResponse を初期化
-    ///
-    /// - Parameters:
-    ///   - callId: 対応する ToolCall の ID
-    ///   - name: ツール名
-    ///   - output: 出力内容
-    ///   - isError: エラーかどうか（デフォルト: false）
-    ///   - mediaContents: メディアコンテンツ（デフォルト: 空配列）
     public init(
-        callId: String, name: String, output: String,
-        isError: Bool = false, mediaContents: [ImageContent] = []
+        callId: String, name: String, content: ToolResultContent,
+        mediaContents: [ImageContent] = []
     ) {
         self.callId = callId
         self.name = name
-        self.output = output
-        self.isError = isError
+        self.content = content
         self.mediaContents = mediaContents
     }
+
+    // MARK: - Convenience
+
+    /// 出力文字列を取得
+    public var output: String { content.contentValue }
+
+    /// エラーかどうか
+    public var isError: Bool { content.isError }
 }

@@ -258,9 +258,8 @@ public struct LLMMessage: Sendable, Codable {
         /// - Parameters:
         ///   - toolCallId: 対応するツール呼び出しID
         ///   - name: ツール名（Gemini APIで必須）
-        ///   - content: 実行結果の文字列
-        ///   - isError: エラー結果かどうか
-        case toolResult(toolCallId: String, name: String, content: String, isError: Bool)
+        ///   - content: 実行結果（成功または失敗）
+        case toolResult(toolCallId: String, name: String, content: ToolResultContent)
 
         // MARK: - 新規（メディア入力）
 
@@ -303,7 +302,6 @@ public struct LLMMessage: Sendable, Codable {
             case input
             case toolCallId
             case content
-            case isError
             case imageContent
             case audioContent
             case videoContent
@@ -336,9 +334,8 @@ public struct LLMMessage: Sendable, Codable {
             case .toolResult:
                 let toolCallId = try container.decode(String.self, forKey: .toolCallId)
                 let name = try container.decode(String.self, forKey: .name)
-                let content = try container.decode(String.self, forKey: .content)
-                let isError = try container.decode(Bool.self, forKey: .isError)
-                self = .toolResult(toolCallId: toolCallId, name: name, content: content, isError: isError)
+                let content = try container.decode(ToolResultContent.self, forKey: .content)
+                self = .toolResult(toolCallId: toolCallId, name: name, content: content)
             case .image:
                 let imageContent = try container.decode(ImageContent.self, forKey: .imageContent)
                 self = .image(imageContent)
@@ -367,12 +364,11 @@ public struct LLMMessage: Sendable, Codable {
                 try container.encode(id, forKey: .id)
                 try container.encode(name, forKey: .name)
                 try container.encode(input, forKey: .input)
-            case .toolResult(let toolCallId, let name, let content, let isError):
+            case .toolResult(let toolCallId, let name, let content):
                 try container.encode(ContentType.toolResult, forKey: .type)
                 try container.encode(toolCallId, forKey: .toolCallId)
                 try container.encode(name, forKey: .name)
                 try container.encode(content, forKey: .content)
-                try container.encode(isError, forKey: .isError)
             case .image(let imageContent):
                 try container.encode(ContentType.image, forKey: .type)
                 try container.encode(imageContent, forKey: .imageContent)
@@ -446,10 +442,10 @@ public struct LLMMessage: Sendable, Codable {
     }
 
     /// ツール結果を取得
-    public var toolResults: [(toolCallId: String, name: String, content: String, isError: Bool)] {
+    public var toolResults: [(toolCallId: String, name: String, content: ToolResultContent)] {
         contents.compactMap { content in
-            if case .toolResult(let id, let name, let resultContent, let isError) = content {
-                return (id, name, resultContent, isError)
+            if case .toolResult(let id, let name, let resultContent) = content {
+                return (id, name, resultContent)
             }
             return nil
         }
@@ -488,7 +484,7 @@ public struct LLMMessage: Sendable, Codable {
         return LLMMessage(role: .assistant, contents: contents)
     }
 
-    /// ツール実行結果メッセージを作成（ユーザー）
+    /// ツール実行結果メッセージを作成（成功）（ユーザー）
     ///
     /// ツールを実行した結果を LLM に返すためのメッセージ。
     ///
@@ -496,22 +492,36 @@ public struct LLMMessage: Sendable, Codable {
     ///   - toolCallId: 対応するツール呼び出しID
     ///   - name: ツール名
     ///   - content: 実行結果の文字列
-    ///   - isError: エラー結果かどうか（デフォルト: false）
     public static func toolResult(
         toolCallId: String,
         name: String,
-        content: String,
-        isError: Bool = false
+        content: String
     ) -> LLMMessage {
-        LLMMessage(role: .user, contents: [.toolResult(toolCallId: toolCallId, name: name, content: content, isError: isError)])
+        LLMMessage(role: .user, contents: [.toolResult(toolCallId: toolCallId, name: name, content: .success(content))])
+    }
+
+    /// ツール実行エラーメッセージを作成（ユーザー）
+    ///
+    /// ツール実行時のエラーを LLM に返すためのメッセージ。
+    ///
+    /// - Parameters:
+    ///   - toolCallId: 対応するツール呼び出しID
+    ///   - name: ツール名
+    ///   - error: エラーメッセージ
+    public static func toolError(
+        toolCallId: String,
+        name: String,
+        error: String
+    ) -> LLMMessage {
+        LLMMessage(role: .user, contents: [.toolResult(toolCallId: toolCallId, name: name, content: .failure(error))])
     }
 
     /// 複数のツール実行結果を含むメッセージを作成（ユーザー）
     ///
     /// - Parameter results: ツール結果情報の配列
-    public static func toolResults(_ results: [(toolCallId: String, name: String, content: String, isError: Bool)]) -> LLMMessage {
+    public static func toolResults(_ results: [(toolCallId: String, name: String, content: ToolResultContent)]) -> LLMMessage {
         let contents = results.map {
-            MessageContent.toolResult(toolCallId: $0.toolCallId, name: $0.name, content: $0.content, isError: $0.isError)
+            MessageContent.toolResult(toolCallId: $0.toolCallId, name: $0.name, content: $0.content)
         }
         return LLMMessage(role: .user, contents: contents)
     }

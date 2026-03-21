@@ -67,16 +67,16 @@ public struct JSONSchema: Sendable, Encodable, Equatable {
     // MARK: - 数値制約
 
     /// 最小値（この値を含む）
-    public let minimum: Int?
+    public let minimum: Double?
 
     /// 最大値（この値を含む）
-    public let maximum: Int?
+    public let maximum: Double?
 
     /// 最小値（この値を含まない）
-    public let exclusiveMinimum: Int?
+    public let exclusiveMinimum: Double?
 
     /// 最大値（この値を含まない）
-    public let exclusiveMaximum: Int?
+    public let exclusiveMaximum: Double?
 
     // MARK: - 文字列制約
 
@@ -128,10 +128,10 @@ public struct JSONSchema: Sendable, Encodable, Equatable {
         additionalProperties: Bool? = nil,
         minItems: Int? = nil,
         maxItems: Int? = nil,
-        minimum: Int? = nil,
-        maximum: Int? = nil,
-        exclusiveMinimum: Int? = nil,
-        exclusiveMaximum: Int? = nil,
+        minimum: Double? = nil,
+        maximum: Double? = nil,
+        exclusiveMinimum: Double? = nil,
+        exclusiveMaximum: Double? = nil,
         minLength: Int? = nil,
         maxLength: Int? = nil,
         pattern: String? = nil,

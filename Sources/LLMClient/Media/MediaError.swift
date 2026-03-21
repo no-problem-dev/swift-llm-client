@@ -39,7 +39,7 @@ public enum MediaError: Error, Sendable, Equatable {
     case notSupportedByProvider(feature: String, provider: ProviderType)
 
     /// ファイル読み込みエラー
-    case fileReadError(Error)
+    case fileReadError(any Error & Sendable)
 
     /// 無効なメディアデータ
     case invalidMediaData(String)

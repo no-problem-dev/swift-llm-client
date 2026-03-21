@@ -22,7 +22,7 @@ import Foundation
 /// print(imageType.isSupported(by: .anthropic))  // true
 /// print(imageType.fileExtension)  // "jpg"
 /// ```
-public enum ImageMediaType: String, Sendable, Codable, CaseIterable {
+public enum ImageMediaType: String, Sendable, Codable, CaseIterable, Equatable, Hashable {
     case jpeg = "image/jpeg"
     case png = "image/png"
     case gif = "image/gif"
@@ -105,7 +105,7 @@ public enum ImageMediaType: String, Sendable, Codable, CaseIterable {
 /// let audioType: AudioMediaType = .wav
 /// print(AudioMediaType.openaiChatTypes.contains(audioType))  // true
 /// ```
-public enum AudioMediaType: String, Sendable, Codable, CaseIterable {
+public enum AudioMediaType: String, Sendable, Codable, CaseIterable, Equatable, Hashable {
     case wav = "audio/wav"
     case mp3 = "audio/mp3"
     case aac = "audio/aac"
@@ -187,7 +187,7 @@ public enum AudioMediaType: String, Sendable, Codable, CaseIterable {
 /// print(videoType.isSupported(by: .gemini))  // true
 /// print(videoType.isSupported(by: .openai))  // false
 /// ```
-public enum VideoMediaType: String, Sendable, Codable, CaseIterable {
+public enum VideoMediaType: String, Sendable, Codable, CaseIterable, Equatable, Hashable {
     case mp4 = "video/mp4"
     case avi = "video/avi"
     case mov = "video/quicktime"
@@ -250,13 +250,23 @@ public enum VideoMediaType: String, Sendable, Codable, CaseIterable {
     }
 }
 
+// MARK: - Provider Capabilities Protocol
+
+/// プロバイダーの機能・能力を定義するプロトコル
+public protocol ProviderCapabilities: Sendable {
+    /// プロバイダーの表示名
+    var displayName: String { get }
+    /// 指定されたメディアタイプをサポートしているか
+    func supports<T: MediaType>(_ mediaType: T) -> Bool
+}
+
 // MARK: - Provider Type
 
 /// プロバイダー識別子
 ///
 /// LLMプロバイダーを識別するための列挙型です。
 /// メディア機能のサポート確認やエラーメッセージに使用されます。
-public enum ProviderType: String, Sendable, Codable {
+public enum ProviderType: String, Sendable, Codable, ProviderCapabilities {
     case anthropic
     case openai
     case gemini
@@ -269,6 +279,11 @@ public enum ProviderType: String, Sendable, Codable {
         case .gemini: return "Google Gemini"
         }
     }
+
+    /// 指定されたメディアタイプをサポートしているか
+    public func supports<T: MediaType>(_ mediaType: T) -> Bool {
+        mediaType.isSupported(by: self)
+    }
 }
 
 // MARK: - Media Type Protocol
@@ -276,7 +291,7 @@ public enum ProviderType: String, Sendable, Codable {
 /// メディアタイプ共通プロトコル
 ///
 /// すべてのメディアタイプ列挙型が準拠するプロトコルです。
-public protocol MediaType: RawRepresentable, Sendable, Codable, CaseIterable where RawValue == String {
+public protocol MediaType: RawRepresentable, Sendable, Codable, CaseIterable, Equatable, Hashable where RawValue == String {
     /// ファイル拡張子
     var fileExtension: String { get }
     /// MIME タイプ文字列

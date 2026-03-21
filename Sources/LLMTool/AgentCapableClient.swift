@@ -20,6 +20,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     ///   - tools: 使用可能なツール
     ///   - toolChoice: ツール選択設定
     ///   - responseSchema: 期待する出力スキーマ（最終出力用）
+    ///   - thinkingMode: Extended Thinking のモード
     ///   - maxTokens: 最大出力トークン数（nil の場合はプロバイダーのデフォルト値を使用）
     /// - Returns: LLM レスポンス
     func executeAgentStep(
@@ -29,6 +30,7 @@ public protocol AgentCapableClient: ToolCallableClient {
         tools: ToolSet,
         toolChoice: ToolChoice?,
         responseSchema: JSONSchema?,
+        thinkingMode: ThinkingMode,
         maxTokens: Int?
     ) async throws -> LLMResponse
 
@@ -85,6 +87,7 @@ extension AgentCapableClient {
                         tools: tools,
                         toolChoice: toolChoice,
                         responseSchema: responseSchema,
+                        thinkingMode: thinkingMode,
                         maxTokens: maxTokens
                     )
                     continuation.yield(.completed(response))

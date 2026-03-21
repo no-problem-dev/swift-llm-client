@@ -65,7 +65,7 @@ extension ChatCapableClient {
         input: LLMInput,
         history: History,
         model: Model,
-        systemPrompt: String? = nil,
+        systemPrompt: SystemPrompt? = nil,
         temperature: Double? = nil,
         maxTokens: Int? = nil
     ) async throws -> T {
@@ -78,7 +78,7 @@ extension ChatCapableClient {
             let response: ChatResponse<T> = try await chat(
                 messages: messages,
                 model: model,
-                systemPrompt: systemPrompt,
+                systemPrompt: systemPrompt?.render(),
                 temperature: temperature,
                 maxTokens: maxTokens
             )
@@ -118,7 +118,7 @@ extension ChatCapableClient {
         input: LLMInput,
         history: History,
         model: Model,
-        systemPrompt: String? = nil,
+        systemPrompt: SystemPrompt? = nil,
         temperature: Double? = nil,
         maxTokens: Int? = nil
     ) async throws -> ChatResponse<T> {
@@ -131,7 +131,7 @@ extension ChatCapableClient {
             let response: ChatResponse<T> = try await chat(
                 messages: messages,
                 model: model,
-                systemPrompt: systemPrompt,
+                systemPrompt: systemPrompt?.render(),
                 temperature: temperature,
                 maxTokens: maxTokens
             )
@@ -153,83 +153,5 @@ extension ChatCapableClient {
             await history.emitError(llmError)
             throw llmError
         }
-    }
-
-    // MARK: - Conversation with Structured Prompt
-
-    /// 会話履歴と構造化システムプロンプトを使用して構造化出力を生成
-    ///
-    /// DSL で構築した `SystemPrompt` をシステムプロンプトとして使用できます。
-    ///
-    /// ## 使用例
-    ///
-    /// ```swift
-    /// let systemPrompt = SystemPrompt {
-    ///     PromptComponent.role("データ分析の専門家")
-    ///     PromptComponent.behavior("正確性を最優先する")
-    /// }
-    ///
-    /// let history = ConversationHistory()
-    /// let result: UserInfo = try await client.chat(
-    ///     input: "山田太郎さんは35歳です",
-    ///     history: history,
-    ///     model: .sonnet,
-    ///     systemPrompt: systemPrompt
-    /// )
-    /// ```
-    ///
-    /// - Parameters:
-    ///   - input: LLM 入力
-    ///   - history: 会話履歴
-    ///   - model: 使用するモデル
-    ///   - systemPrompt: 構造化システムプロンプト
-    ///   - temperature: 温度パラメータ（オプション）
-    ///   - maxTokens: 最大トークン数（オプション）
-    /// - Returns: 指定された型にデコードされた構造化出力
-    /// - Throws: `LLMError` - API エラー、デコードエラーなど
-    public func chat<T: StructuredProtocol, History: ConversationHistoryProtocol>(
-        input: LLMInput,
-        history: History,
-        model: Model,
-        systemPrompt: SystemPrompt,
-        temperature: Double? = nil,
-        maxTokens: Int? = nil
-    ) async throws -> T {
-        try await chat(
-            input: input,
-            history: history,
-            model: model,
-            systemPrompt: systemPrompt.render(),
-            temperature: temperature,
-            maxTokens: maxTokens
-        )
-    }
-
-    /// 会話履歴と構造化システムプロンプトを使用して詳細な応答を取得
-    ///
-    /// - Parameters:
-    ///   - input: LLM 入力
-    ///   - history: 会話履歴
-    ///   - model: 使用するモデル
-    ///   - systemPrompt: 構造化システムプロンプト
-    ///   - temperature: 温度パラメータ（オプション）
-    ///   - maxTokens: 最大トークン数（オプション）
-    /// - Returns: 構造化出力と会話継続情報を含む `ChatResponse`
-    public func chatWithDetails<T: StructuredProtocol, History: ConversationHistoryProtocol>(
-        input: LLMInput,
-        history: History,
-        model: Model,
-        systemPrompt: SystemPrompt,
-        temperature: Double? = nil,
-        maxTokens: Int? = nil
-    ) async throws -> ChatResponse<T> {
-        try await chatWithDetails(
-            input: input,
-            history: history,
-            model: model,
-            systemPrompt: systemPrompt.render(),
-            temperature: temperature,
-            maxTokens: maxTokens
-        )
     }
 }

@@ -54,7 +54,7 @@ public protocol ToolCallableClient: StructuredLLMClient {
         model: Model,
         tools: ToolSet,
         toolChoice: ToolChoice?,
-        systemPrompt: String?,
+        systemPrompt: SystemPrompt?,
         temperature: Double?,
         maxTokens: Int?
     ) async throws -> ToolCallResponse
@@ -75,7 +75,7 @@ public protocol ToolCallableClient: StructuredLLMClient {
         model: Model,
         tools: ToolSet,
         toolChoice: ToolChoice?,
-        systemPrompt: String?,
+        systemPrompt: SystemPrompt?,
         temperature: Double?,
         maxTokens: Int?
     ) async throws -> ToolCallResponse
@@ -90,7 +90,7 @@ extension ToolCallableClient {
         model: Model,
         tools: ToolSet,
         toolChoice: ToolChoice? = nil,
-        systemPrompt: String? = nil,
+        systemPrompt: SystemPrompt? = nil,
         temperature: Double? = nil,
         maxTokens: Int? = nil
     ) async throws -> ToolCallResponse {

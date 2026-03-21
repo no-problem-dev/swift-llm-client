@@ -177,7 +177,7 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         // 整数値の場合
         if let intLiteral = firstArg.expression.as(IntegerLiteralExprSyntax.self) {
             let value = intLiteral.literal.text
-            return ConstraintInfo(name: constraintName, intValue: Int(value))
+            return ConstraintInfo(name: constraintName, intValue: Int(value) ?? 0)
         }
 
         // 文字列値の場合
@@ -367,32 +367,26 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
     /// 制約をコードに変換
     private static func generateConstraintCode(_ constraint: ConstraintInfo) -> String? {
         switch constraint.name {
-        case "minItems":
-            return constraint.intValue.map { "minItems: \($0)" }
-        case "maxItems":
-            return constraint.intValue.map { "maxItems: \($0)" }
-        case "minimum":
-            return constraint.intValue.map { "minimum: \($0)" }
-        case "maximum":
-            return constraint.intValue.map { "maximum: \($0)" }
-        case "exclusiveMinimum":
-            return constraint.intValue.map { "exclusiveMinimum: \($0)" }
-        case "exclusiveMaximum":
-            return constraint.intValue.map { "exclusiveMaximum: \($0)" }
-        case "minLength":
-            return constraint.intValue.map { "minLength: \($0)" }
-        case "maxLength":
-            return constraint.intValue.map { "maxLength: \($0)" }
-        case "pattern":
-            return constraint.stringValue.map { "pattern: \"\($0)\"" }
+        case "minItems", "maxItems", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength":
+            if case .int(let value) = constraint.value {
+                return "\(constraint.name): \(value)"
+            }
+            return nil
+        case "pattern", "format":
+            if case .string(let value) = constraint.value {
+                if constraint.name == "format" {
+                    return "format: \"\(formatToJSONSchemaFormat(value))\""
+                } else {
+                    return "pattern: \"\(value)\""
+                }
+            }
+            return nil
         case "enum":
-            if let values = constraint.arrayValue {
+            if case .array(let values) = constraint.value {
                 let quoted = values.map { "\"\($0)\"" }.joined(separator: ", ")
                 return "enum: [\(quoted)]"
             }
             return nil
-        case "format":
-            return constraint.stringValue.map { "format: \"\(formatToJSONSchemaFormat($0))\"" }
         default:
             return nil
         }
@@ -426,16 +420,28 @@ struct PropertyInfo {
 /// 制約情報
 struct ConstraintInfo {
     let name: String
-    var intValue: Int?
-    var stringValue: String?
-    var arrayValue: [String]?
+    let value: ConstraintValue
 
-    init(name: String, intValue: Int? = nil, stringValue: String? = nil, arrayValue: [String]? = nil) {
+    init(name: String, intValue: Int) {
         self.name = name
-        self.intValue = intValue
-        self.stringValue = stringValue
-        self.arrayValue = arrayValue
+        self.value = .int(intValue)
     }
+
+    init(name: String, stringValue: String) {
+        self.name = name
+        self.value = .string(stringValue)
+    }
+
+    init(name: String, arrayValue: [String]) {
+        self.name = name
+        self.value = .array(arrayValue)
+    }
+}
+
+enum ConstraintValue {
+    case int(Int)
+    case string(String)
+    case array([String])
 }
 
 // MARK: - String Extension

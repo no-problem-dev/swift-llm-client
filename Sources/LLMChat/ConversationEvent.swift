@@ -38,6 +38,12 @@ public enum ConversationEvent: Sendable {
     /// アシスタントメッセージが追加された
     case assistantMessage(LLMMessage)
 
+    /// ツール呼び出しメッセージが追加された
+    case toolCallMessage(LLMMessage)
+
+    /// ツール結果メッセージが追加された
+    case toolResultMessage(LLMMessage)
+
     /// トークン使用量が更新された
     case usageUpdated(TokenUsage)
 

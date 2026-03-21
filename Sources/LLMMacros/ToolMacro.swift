@@ -296,7 +296,7 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
 
         if let intLiteral = firstArg.expression.as(IntegerLiteralExprSyntax.self) {
             let value = intLiteral.literal.text
-            return ConstraintInfo(name: constraintName, intValue: Int(value))
+            return ConstraintInfo(name: constraintName, intValue: Int(value) ?? 0)
         }
 
         if let stringLiteral = firstArg.expression.as(StringLiteralExprSyntax.self),

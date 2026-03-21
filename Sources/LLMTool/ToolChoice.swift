@@ -51,7 +51,7 @@ public enum ToolChoice: Sendable, Equatable {
     ///
     /// LLM はツールを使用せず、テキストのみで応答します。
     /// ツールが定義されていても無視されます。
-    case none
+    case disabled
 
     /// 特定のツールを強制
     ///
@@ -69,15 +69,15 @@ extension ToolChoice {
     ///
     /// - `auto` → `{"type": "auto"}`
     /// - `required` → `{"type": "any"}`
-    /// - `none` → ツールを送信しない（nil を返す）
+    /// - `disabled` → ツールを送信しない（nil を返す）
     /// - `tool(name)` → `{"type": "tool", "name": "..."}`
-    func toAnthropicFormat() -> [String: Any]? {
+    public func toAnthropicFormat() -> [String: Any]? {
         switch self {
         case .auto:
             return ["type": "auto"]
         case .required:
             return ["type": "any"]
-        case .none:
+        case .disabled:
             // Anthropic では none の場合、ツール自体を送信しない
             return nil
         case .tool(let name):
@@ -89,15 +89,15 @@ extension ToolChoice {
     ///
     /// - `auto` → `"auto"`
     /// - `required` → `"required"`
-    /// - `none` → `"none"`
+    /// - `disabled` → `"none"`
     /// - `tool(name)` → `{"type": "function", "function": {"name": "..."}}`
-    func toOpenAIFormat() -> Any {
+    public func toOpenAIFormat() -> Any {
         switch self {
         case .auto:
             return "auto"
         case .required:
             return "required"
-        case .none:
+        case .disabled:
             return "none"
         case .tool(let name):
             return [
@@ -111,15 +111,15 @@ extension ToolChoice {
     ///
     /// - `auto` → `{"mode": "AUTO"}`
     /// - `required` → `{"mode": "ANY"}`
-    /// - `none` → `{"mode": "NONE"}`
+    /// - `disabled` → `{"mode": "NONE"}`
     /// - `tool(name)` → `{"mode": "ANY", "allowed_function_names": ["..."]}`
-    func toGeminiFormat() -> [String: Any] {
+    public func toGeminiFormat() -> [String: Any] {
         switch self {
         case .auto:
             return ["mode": "AUTO"]
         case .required:
             return ["mode": "ANY"]
-        case .none:
+        case .disabled:
             return ["mode": "NONE"]
         case .tool(let name):
             return [

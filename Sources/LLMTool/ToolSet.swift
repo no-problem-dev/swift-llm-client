@@ -194,19 +194,13 @@ extension ToolSet {
     ///   - adapter: スキーマアダプター
     ///   - formatBuilder: 各ツールをプロバイダー形式に変換するクロージャ
     /// - Returns: 変換されたツール定義の配列
-    public func toProviderFormat(
+    public func toProviderFormat<Definition>(
         adapter: some ProviderSchemaAdapter,
-        formatBuilder: (any Tool, _ adaptedSchema: [String: Any]?) -> [String: Any]
-    ) -> [[String: Any]] {
-        tools.map { tool in
-            let adaptedSchemaDict: [String: Any]?
-            if let schemaData = try? adapter.adapt(tool.inputSchema).toJSONData(),
-               let schemaDict = try? JSONSerialization.jsonObject(with: schemaData) as? [String: Any] {
-                adaptedSchemaDict = schemaDict
-            } else {
-                adaptedSchemaDict = nil
-            }
-            return formatBuilder(tool, adaptedSchemaDict)
+        formatBuilder: (any Tool, _ adaptedSchema: JSONSchema) -> Definition
+    ) -> [Definition] {
+        tools.compactMap { tool in
+            let adaptedSchema = adapter.adapt(tool.inputSchema)
+            return formatBuilder(tool, adaptedSchema)
         }
     }
 }

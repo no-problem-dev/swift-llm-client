@@ -36,7 +36,7 @@ extension Array where Element == LLMMessage {
                 if nextMessage.role == .user {
                     let existingResultIds = Set(
                         nextMessage.contents.compactMap { content -> String? in
-                            guard case .toolResult(let toolCallId, _, _, _) = content else {
+                            guard case .toolResult(let toolCallId, _, _) = content else {
                                 return nil
                             }
                             return toolCallId
@@ -57,8 +57,7 @@ extension Array where Element == LLMMessage {
                         LLMMessage.MessageContent.toolResult(
                             toolCallId: missing.id,
                             name: missing.name,
-                            content: "Error: Tool execution was interrupted unexpectedly. Please retry.",
-                            isError: true
+                            content: .failure("Error: Tool execution was interrupted unexpectedly. Please retry.")
                         )
                     }
                     let mergedContents = nextMessage.contents + syntheticResults
@@ -74,8 +73,7 @@ extension Array where Element == LLMMessage {
                 LLMMessage.MessageContent.toolResult(
                     toolCallId: toolUse.id,
                     name: toolUse.name,
-                    content: "Error: Tool execution was interrupted unexpectedly. Please retry.",
-                    isError: true
+                    content: .failure("Error: Tool execution was interrupted unexpectedly. Please retry.")
                 )
             }
             let syntheticMessage = LLMMessage(role: .user, contents: syntheticContents)

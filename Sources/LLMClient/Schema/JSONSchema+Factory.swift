@@ -52,10 +52,10 @@ extension JSONSchema {
     /// ```
     public static func integer(
         description: String? = nil,
-        minimum: Int? = nil,
-        maximum: Int? = nil,
-        exclusiveMinimum: Int? = nil,
-        exclusiveMaximum: Int? = nil
+        minimum: Double? = nil,
+        maximum: Double? = nil,
+        exclusiveMinimum: Double? = nil,
+        exclusiveMaximum: Double? = nil
     ) -> JSONSchema {
         JSONSchema(
             type: .integer,
@@ -80,8 +80,8 @@ extension JSONSchema {
     /// ```
     public static func number(
         description: String? = nil,
-        minimum: Int? = nil,
-        maximum: Int? = nil
+        minimum: Double? = nil,
+        maximum: Double? = nil
     ) -> JSONSchema {
         JSONSchema(
             type: .number,

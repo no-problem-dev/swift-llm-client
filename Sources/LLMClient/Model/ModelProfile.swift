@@ -30,8 +30,8 @@ public struct ModelProfile: Sendable, Hashable, Codable {
     /// 最大出力トークン数
     public let maxOutputTokens: Int?
 
-    /// 知識カットオフ（例: "2025-04"）
-    public let knowledgeCutoff: String?
+    /// 知識カットオフ
+    public let knowledgeCutoff: YearMonth?
 
     /// 主な強み（例: ["複雑な推論", "コード生成"]）
     public let strengths: [String]?
@@ -70,7 +70,7 @@ public struct ModelProfile: Sendable, Hashable, Codable {
         description: String? = nil,
         contextWindow: Int? = nil,
         maxOutputTokens: Int? = nil,
-        knowledgeCutoff: String? = nil,
+        knowledgeCutoff: YearMonth? = nil,
         strengths: [String]? = nil,
         bestFor: [String]? = nil,
         toolCallSupport: ToolCallSupport,
@@ -98,10 +98,24 @@ public struct ModelProfile: Sendable, Hashable, Codable {
     }
 }
 
+// MARK: - SupportLevel Protocol
+
+/// サポートレベルの共通プロトコル
+public protocol SupportLevel: RawRepresentable, Sendable, Hashable, Codable, Comparable where RawValue == String {
+    /// サポートレベルの並び順
+    var sortOrder: Int { get }
+}
+
+extension SupportLevel {
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.sortOrder < rhs.sortOrder
+    }
+}
+
 // MARK: - ToolCallSupport
 
 /// ツール呼び出しサポートレベル
-public enum ToolCallSupport: String, Sendable, Hashable, Codable, Comparable {
+public enum ToolCallSupport: String, Sendable, Hashable, Codable, SupportLevel, CaseIterable {
     /// 高品質・安定（Qwen3, Claude）
     case excellent
     /// 大半のケースで動作（Llama, Mistral）
@@ -111,7 +125,7 @@ public enum ToolCallSupport: String, Sendable, Hashable, Codable, Comparable {
     /// 非対応（DeepSeek R1, SmolLM）
     case unsupported
 
-    private var sortOrder: Int {
+    public var sortOrder: Int {
         switch self {
         case .excellent: return 3
         case .good: return 2
@@ -119,16 +133,12 @@ public enum ToolCallSupport: String, Sendable, Hashable, Codable, Comparable {
         case .unsupported: return 0
         }
     }
-
-    public static func < (lhs: ToolCallSupport, rhs: ToolCallSupport) -> Bool {
-        lhs.sortOrder < rhs.sortOrder
-    }
 }
 
 // MARK: - LanguageSupport
 
 /// 言語サポートレベル
-public enum LanguageSupport: String, Sendable, Hashable, Codable, Comparable {
+public enum LanguageSupport: String, Sendable, Hashable, Codable, SupportLevel, CaseIterable {
     /// ネイティブ級・FT 済み
     case excellent
     /// 良好
@@ -138,17 +148,13 @@ public enum LanguageSupport: String, Sendable, Hashable, Codable, Comparable {
     /// 非対応
     case unsupported
 
-    private var sortOrder: Int {
+    public var sortOrder: Int {
         switch self {
         case .excellent: return 3
         case .good: return 2
         case .basic: return 1
         case .unsupported: return 0
         }
-    }
-
-    public static func < (lhs: LanguageSupport, rhs: LanguageSupport) -> Bool {
-        lhs.sortOrder < rhs.sortOrder
     }
 }
 
@@ -164,6 +170,16 @@ public enum Modality: String, Sendable, Hashable, Codable {
     case audio
     /// コード生成特化
     case code
+
+    /// 表示名
+    public var displayName: String {
+        switch self {
+        case .text: return "テキスト"
+        case .vision: return "画像入力（VLM）"
+        case .audio: return "音声"
+        case .code: return "コード生成"
+        }
+    }
 }
 
 // MARK: - Pricing
@@ -198,4 +214,13 @@ public enum InferenceSpeed: String, Sendable, Hashable, Codable {
     case medium
     /// 低速（大型モデル）
     case slow
+
+    /// 表示名
+    public var displayName: String {
+        switch self {
+        case .fast: return "高速"
+        case .medium: return "標準"
+        case .slow: return "低速"
+        }
+    }
 }

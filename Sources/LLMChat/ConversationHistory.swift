@@ -68,6 +68,12 @@ public actor ConversationHistory: ConversationHistoryProtocol {
     /// 累計トークン使用量
     private var totalUsage: TokenUsage
 
+    /// ターン数（ツール結果を除くユーザーメッセージの数）
+    private var userTurnCount: Int
+
+    /// sanitize が必要かどうか（ツール関連メッセージ追加後に true）
+    private var needsSanitization: Bool = false
+
     /// イベントストリーム
     public nonisolated let eventStream: AsyncStream<ConversationEvent>
 
@@ -80,6 +86,7 @@ public actor ConversationHistory: ConversationHistoryProtocol {
     public init() {
         self.messages = []
         self.totalUsage = TokenUsage(inputTokens: 0, outputTokens: 0)
+        self.userTurnCount = 0
         (self.eventStream, self.continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
     }
 
@@ -89,6 +96,8 @@ public actor ConversationHistory: ConversationHistoryProtocol {
     public init(messages: [LLMMessage]) {
         self.messages = messages
         self.totalUsage = TokenUsage(inputTokens: 0, outputTokens: 0)
+        // 初期化時に既存メッセージからターン数を計算
+        self.userTurnCount = messages.filter { !$0.hasToolResult && $0.role == .user }.count
         (self.eventStream, self.continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
     }
 
@@ -100,13 +109,19 @@ public actor ConversationHistory: ConversationHistoryProtocol {
     public init(messages: [LLMMessage], totalUsage: TokenUsage) {
         self.messages = messages
         self.totalUsage = totalUsage
+        // 初期化時に既存メッセージからターン数を計算
+        self.userTurnCount = messages.filter { !$0.hasToolResult && $0.role == .user }.count
         (self.eventStream, self.continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
     }
 
     // MARK: - ConversationHistoryProtocol
 
     public func getMessages() -> [LLMMessage] {
-        messages
+        if needsSanitization {
+            messages.sanitizeOrphanedToolUses()
+            needsSanitization = false
+        }
+        return messages
     }
 
     public func getTotalUsage() -> TokenUsage {
@@ -114,16 +129,26 @@ public actor ConversationHistory: ConversationHistoryProtocol {
     }
 
     public var turnCount: Int {
-        messages.count / 2
+        userTurnCount
     }
 
     public func append(_ message: LLMMessage) {
         messages.append(message)
 
-        // イベントを発行
-        let event: ConversationEvent = message.role == .user
-            ? .userMessage(message)
-            : .assistantMessage(message)
+        // イベントを発行し、ユーザーターンをカウント
+        let event: ConversationEvent
+        if message.hasToolResult {
+            event = .toolResultMessage(message)
+            needsSanitization = true
+        } else if message.hasToolUse {
+            event = .toolCallMessage(message)
+            needsSanitization = true
+        } else if message.role == .user {
+            event = .userMessage(message)
+            userTurnCount += 1
+        } else {
+            event = .assistantMessage(message)
+        }
         emit(event)
     }
 
@@ -143,6 +168,12 @@ public actor ConversationHistory: ConversationHistoryProtocol {
 
     public func emitError(_ error: LLMError) {
         emit(.error(error))
+    }
+
+    // MARK: - Cleanup
+
+    deinit {
+        continuation.finish()
     }
 
     // MARK: - Private Methods

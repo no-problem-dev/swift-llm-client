@@ -436,8 +436,6 @@ public struct VideoContent: Sendable, Equatable, Codable {
 ///
 /// 全てのメディアコンテンツ型が準拠するプロトコルです。
 public protocol MediaContentProtocol: Sendable, Equatable, Codable {
-    associatedtype MediaTypeEnum: MediaType
-
     /// データソース
     var source: MediaSource { get }
 
@@ -449,19 +447,13 @@ public protocol MediaContentProtocol: Sendable, Equatable, Codable {
 }
 
 extension ImageContent: MediaContentProtocol {
-    public typealias MediaTypeEnum = ImageMediaType
-
     public var mimeType: String { mediaType.mimeType }
 }
 
 extension AudioContent: MediaContentProtocol {
-    public typealias MediaTypeEnum = AudioMediaType
-
     public var mimeType: String { mediaType.mimeType }
 }
 
 extension VideoContent: MediaContentProtocol {
-    public typealias MediaTypeEnum = VideoMediaType
-
     public var mimeType: String { mediaType.mimeType }
 }
