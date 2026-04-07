@@ -106,12 +106,14 @@ public enum ConstraintType: String, Sendable, Equatable {
 /// 制約の値
 public enum ConstraintValue: Sendable, Equatable {
     case int(Int)
+    case double(Double)
     case string(String)
 
     /// 文字列表現
     public var stringValue: String {
         switch self {
         case .int(let value): return String(value)
+        case .double(let value): return String(value)
         case .string(let value): return value
         }
     }

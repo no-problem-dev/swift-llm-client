@@ -9,6 +9,7 @@ let package = Package(
         .library(name: "LLMClient", targets: ["LLMClient"]),
         .library(name: "LLMTool", targets: ["LLMTool"]),
         .library(name: "LLMChat", targets: ["LLMChat"]),
+        .library(name: "LLMDynamicStructured", targets: ["LLMDynamicStructured"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
@@ -23,6 +24,7 @@ let package = Package(
         .target(name: "LLMClient", dependencies: ["LLMMacros"]),
         .target(name: "LLMTool", dependencies: ["LLMClient"]),
         .target(name: "LLMChat", dependencies: ["LLMClient"]),
+        .target(name: "LLMDynamicStructured", dependencies: ["LLMClient"]),
         // Tests
         .testTarget(name: "LLMClientTests", dependencies: ["LLMClient"]),
         .testTarget(name: "LLMToolTests", dependencies: ["LLMTool", "LLMClient"]),
