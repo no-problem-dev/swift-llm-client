@@ -3,7 +3,7 @@ import Foundation
 /// 年月を表現する値型
 ///
 /// "YYYY-MM" 形式でコーディング/デコードされます。
-public struct YearMonth: Sendable, Equatable, Hashable, Comparable, Codable {
+public struct YearMonth: Sendable, Equatable, Hashable, Comparable, Codable, ExpressibleByStringLiteral {
     public let year: Int
     public let month: Int
 
@@ -15,6 +15,22 @@ public struct YearMonth: Sendable, Equatable, Hashable, Comparable, Codable {
     public init(year: Int, month: Int) {
         self.year = year
         self.month = max(1, min(12, month))
+    }
+
+    // MARK: - ExpressibleByStringLiteral
+
+    /// "YYYY-MM" 形式の文字列リテラルから初期化
+    public init(stringLiteral value: String) {
+        let components = value.split(separator: "-").map(String.init)
+        if components.count == 2,
+           let year = Int(components[0]),
+           let month = Int(components[1]) {
+            self.year = year
+            self.month = max(1, min(12, month))
+        } else {
+            self.year = 2000
+            self.month = 1
+        }
     }
 
     // MARK: - Comparable
