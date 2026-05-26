@@ -21,6 +21,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     ///   - toolChoice: ツール選択設定
     ///   - responseSchema: 期待する出力スキーマ（最終出力用）
     ///   - thinkingMode: Extended Thinking のモード
+    ///   - reasoningEffort: OpenAI reasoning モデルの `reasoning_effort`（非対応プロバイダーは無視）
     ///   - maxTokens: 最大出力トークン数（nil の場合はプロバイダーのデフォルト値を使用）
     /// - Returns: LLM レスポンス
     func executeAgentStep(
@@ -31,6 +32,7 @@ public protocol AgentCapableClient: ToolCallableClient {
         toolChoice: ToolChoice?,
         responseSchema: JSONSchema?,
         thinkingMode: ThinkingMode,
+        reasoningEffort: ReasoningEffort?,
         maxTokens: Int?
     ) async throws -> LLMResponse
 
@@ -47,6 +49,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     ///   - toolChoice: ツール選択設定
     ///   - responseSchema: 期待する出力スキーマ
     ///   - thinkingMode: Extended Thinking のモード
+    ///   - reasoningEffort: OpenAI reasoning モデルの `reasoning_effort`（非対応プロバイダーは無視）
     ///   - maxTokens: 最大出力トークン数（nil の場合はプロバイダーのデフォルト値を使用）
     /// - Returns: ストリーミングイベントの AsyncThrowingStream
     func streamAgentStep(
@@ -57,6 +60,7 @@ public protocol AgentCapableClient: ToolCallableClient {
         toolChoice: ToolChoice?,
         responseSchema: JSONSchema?,
         thinkingMode: ThinkingMode,
+        reasoningEffort: ReasoningEffort?,
         maxTokens: Int?
     ) -> AsyncThrowingStream<StreamingAgentEvent, Error>
 }
@@ -75,6 +79,7 @@ extension AgentCapableClient {
         toolChoice: ToolChoice?,
         responseSchema: JSONSchema?,
         thinkingMode: ThinkingMode,
+        reasoningEffort: ReasoningEffort?,
         maxTokens: Int?
     ) -> AsyncThrowingStream<StreamingAgentEvent, Error> {
         makeCancellableStream { continuation in
@@ -88,6 +93,7 @@ extension AgentCapableClient {
                         toolChoice: toolChoice,
                         responseSchema: responseSchema,
                         thinkingMode: thinkingMode,
+                        reasoningEffort: reasoningEffort,
                         maxTokens: maxTokens
                     )
                     continuation.yield(.completed(response))
