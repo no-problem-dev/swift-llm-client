@@ -16,7 +16,7 @@ struct ModelProfileTests {
             toolCallSupport: .excellent,
             japaneseSupport: .good,
             modalities: [.text, .code, .vision],
-            pricing: Pricing(inputPerMTok: 3.0, outputPerMTok: 15.0, cacheInputPerMTok: 0.375),
+            pricing: .flat(inputPerMTok: 3.0, outputPerMTok: 15.0, cacheReadPerMTok: 0.30),
             quantization: "4bit",
             inferenceSpeed: .medium
         )
@@ -33,7 +33,8 @@ struct ModelProfileTests {
         #expect(decoded.modalities.contains(.text))
         #expect(decoded.modalities.contains(.code))
         #expect(decoded.modalities.contains(.vision))
-        #expect(decoded.pricing?.inputPerMTok == 3.0)
+        #expect(decoded.pricing?.tiers.first?.inputPerMTok == 3.0)
+        #expect(decoded.pricing?.cacheReadPerMTok == 0.30)
         #expect(decoded.quantization == "4bit")
         #expect(decoded.inferenceSpeed == .medium)
     }
@@ -110,7 +111,13 @@ struct ModelProfileTests {
 
     @Test("Pricing Codable round-trip")
     func pricingCodableRoundTrip() throws {
-        let original = Pricing(inputPerMTok: 15, outputPerMTok: 75, cacheInputPerMTok: 1.875)
+        let original = Pricing.flat(
+            inputPerMTok: 5,
+            outputPerMTok: 25,
+            cacheReadPerMTok: 0.50,
+            cacheWriteShortPerMTok: 6.25,
+            cacheWriteLongPerMTok: 10
+        )
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Pricing.self, from: data)
         #expect(decoded == original)

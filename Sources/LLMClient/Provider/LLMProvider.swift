@@ -177,32 +177,7 @@ public struct LLMResponse: Sendable {
     }
 }
 
-// MARK: - TokenUsage
-
-/// トークン使用量
-public struct TokenUsage: Sendable {
-    public let inputTokens: Int
-    public let outputTokens: Int
-    public let cacheCreationTokens: Int?
-    public let cacheReadTokens: Int?
-    public let reasoningTokens: Int?
-
-    public var totalTokens: Int { inputTokens + outputTokens }
-
-    public init(
-        inputTokens: Int,
-        outputTokens: Int,
-        cacheCreationTokens: Int? = nil,
-        cacheReadTokens: Int? = nil,
-        reasoningTokens: Int? = nil
-    ) {
-        self.inputTokens = inputTokens
-        self.outputTokens = outputTokens
-        self.cacheCreationTokens = cacheCreationTokens
-        self.cacheReadTokens = cacheReadTokens
-        self.reasoningTokens = reasoningTokens
-    }
-}
+// TokenUsage は Cost/TokenUsage.swift に分離。
 
 // MARK: - LLMMessage
 

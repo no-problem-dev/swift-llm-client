@@ -182,27 +182,7 @@ public enum Modality: String, Sendable, Hashable, Codable {
     }
 }
 
-// MARK: - Pricing
-
-/// コスト情報（USD / 1M tokens）
-public struct Pricing: Sendable, Hashable, Codable {
-    /// 入力トークンあたりのコスト（USD/1M tokens）
-    public let inputPerMTok: Double?
-    /// 出力トークンあたりのコスト（USD/1M tokens）
-    public let outputPerMTok: Double?
-    /// キャッシュ入力トークンあたりのコスト（USD/1M tokens）
-    public let cacheInputPerMTok: Double?
-
-    public init(
-        inputPerMTok: Double? = nil,
-        outputPerMTok: Double? = nil,
-        cacheInputPerMTok: Double? = nil
-    ) {
-        self.inputPerMTok = inputPerMTok
-        self.outputPerMTok = outputPerMTok
-        self.cacheInputPerMTok = cacheInputPerMTok
-    }
-}
+// Pricing は Cost/Pricing.swift に分離。
 
 // MARK: - InferenceSpeed
 
