@@ -1,203 +1,138 @@
 import Foundation
+import StructuredDataCore
+import JSONParsing
 
 // MARK: - DynamicJSON
 
 /// 動的 JSON データの型安全アクセサ
 ///
-/// LLM から返された JSON データや、ツール引数として渡された JSON データを
-/// 動的に扱うための型です。
-/// Dictionary ライクなアクセスと、型安全なヘルパーメソッドを提供します。
-///
-/// ## 使用例
+/// LLM から返された JSON データやツール引数を動的に扱うための型です。
+/// 内部表現は swift-structured-data の ``StructuredValue`` に統一されており、
+/// 数値の精度とキー順序を保持します（独自の `[String: Any]` 実装は廃止）。
 ///
 /// ```swift
 /// let json = try DynamicJSON(from: data)
-///
-/// // subscript アクセス
-/// let name = json["name"]  // Any?
-///
-/// // 型安全なアクセス
-/// let nameString = json.string("name")  // String?
-/// let age = json.int("age")             // Int?
-///
-/// // ネストされた構造へのアクセス
+/// let name = json.string("name")
 /// let city = json.nested("address")?.string("city")
 /// ```
-///
-/// - Note: この型は `@unchecked Sendable` です。
-///   内部の辞書は `let` で不変であるため、スレッドセーフです。
-public struct DynamicJSON: @unchecked Sendable {
-    /// 内部の値を保持する辞書
-    private let values: [String: Any]
+public struct DynamicJSON: Sendable {
+    /// 統一中間表現。新 API を直接使いたい場合に利用する。
+    public let structuredValue: StructuredValue
 
-    // MARK: - Initializers
-
-    /// 辞書から初期化
-    ///
-    /// - Parameter values: フィールド名と値のマッピング
-    public init(values: [String: Any]) {
-        self.values = values
+    public init(value: StructuredValue) {
+        self.structuredValue = value
     }
 
-    /// JSON データからデコードして初期化
-    ///
-    /// - Parameter data: JSON データ
-    /// - Throws: `DynamicJSONError` デコードエラー
+    public init(values: [String: Any]) {
+        self.structuredValue = .object(OrderedObject(values.map { ($0.key, DynamicJSON.structured(from: $0.value)) }))
+    }
+
+    /// JSON データからデコードして初期化（トップレベルはオブジェクトを要求）。
     public init(from data: Data) throws {
+        let value: StructuredValue
         do {
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                throw DynamicJSONError.invalidJSON
-            }
-            self.values = json
-        } catch is DynamicJSONError {
-            throw DynamicJSONError.invalidJSON
+            value = try JSONParser().parse(data)
         } catch {
             throw DynamicJSONError.invalidJSON
         }
+        guard case .object = value else { throw DynamicJSONError.invalidJSON }
+        self.structuredValue = value
     }
 
-    /// JSON 文字列からデコードして初期化
-    ///
-    /// - Parameter jsonString: JSON 文字列
-    /// - Throws: デコードエラー
     public init(from jsonString: String) throws {
-        guard let data = jsonString.data(using: .utf8) else {
-            throw DynamicJSONError.invalidEncoding
-        }
+        guard let data = jsonString.data(using: .utf8) else { throw DynamicJSONError.invalidEncoding }
         try self.init(from: data)
     }
 
-    // MARK: - Subscript Access
+    // MARK: - Access
 
-    /// フィールド値への subscript アクセス
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: フィールドの値、または nil
     public subscript(key: String) -> Any? {
-        values[key]
+        guard let child = structuredValue.objectValue?[key] else { return nil }
+        return DynamicJSON.any(from: child)
     }
 
-    // MARK: - Type-Safe Accessors
+    public func string(_ key: String) -> String? { structuredValue.string(key) }
+    public func int(_ key: String) -> Int? { structuredValue.int(key) }
+    public func double(_ key: String) -> Double? { structuredValue.double(key) }
+    public func bool(_ key: String) -> Bool? { structuredValue.bool(key) }
 
-    /// 文字列として取得
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: 文字列値、または nil
-    public func string(_ key: String) -> String? {
-        values[key] as? String
-    }
-
-    /// 整数として取得
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: 整数値、または nil
-    public func int(_ key: String) -> Int? {
-        if let intValue = values[key] as? Int {
-            return intValue
-        }
-        // JSON では数値が Double として解釈される場合がある
-        if let doubleValue = values[key] as? Double {
-            return Int(doubleValue)
-        }
-        return nil
-    }
-
-    /// 浮動小数点数として取得
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: 浮動小数点数値、または nil
-    public func double(_ key: String) -> Double? {
-        if let doubleValue = values[key] as? Double {
-            return doubleValue
-        }
-        if let intValue = values[key] as? Int {
-            return Double(intValue)
-        }
-        return nil
-    }
-
-    /// 真偽値として取得
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: 真偽値、または nil
-    public func bool(_ key: String) -> Bool? {
-        values[key] as? Bool
-    }
-
-    /// 文字列配列として取得
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: 文字列配列、または nil
     public func stringArray(_ key: String) -> [String]? {
-        values[key] as? [String]
+        guard let array = structuredValue.array(key) else { return nil }
+        return allOrNothing(array) { $0.stringValue }
     }
 
-    /// 整数配列として取得
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: 整数配列、または nil
     public func intArray(_ key: String) -> [Int]? {
-        if let intArray = values[key] as? [Int] {
-            return intArray
-        }
-        // Double 配列を Int 配列に変換
-        if let doubleArray = values[key] as? [Double] {
-            return doubleArray.map { Int($0) }
-        }
-        return nil
+        guard let array = structuredValue.array(key) else { return nil }
+        return allOrNothing(array) { $0.int }
     }
 
-    /// ネストされたオブジェクトとして取得
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: ネストされた DynamicJSON、または nil
     public func nested(_ key: String) -> DynamicJSON? {
-        guard let dict = values[key] as? [String: Any] else {
-            return nil
-        }
-        return DynamicJSON(values: dict)
+        guard let child = structuredValue.objectValue?[key], case .object = child else { return nil }
+        return DynamicJSON(value: child)
     }
 
-    /// ネストされたオブジェクトの配列として取得
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: ネストされた DynamicJSON の配列、または nil
     public func nestedArray(_ key: String) -> [DynamicJSON]? {
-        guard let array = values[key] as? [[String: Any]] else {
-            return nil
+        guard let array = structuredValue.array(key) else { return nil }
+        return allOrNothing(array) { element in
+            if case .object = element { return DynamicJSON(value: element) } else { return nil }
         }
-        return array.map { DynamicJSON(values: $0) }
     }
 
-    // MARK: - Utility Methods
+    public var keys: [String] { structuredValue.keys }
+    public func hasKey(_ key: String) -> Bool { structuredValue.has(key) }
 
-    /// すべてのキーを取得
-    public var keys: [String] {
-        Array(values.keys)
-    }
-
-    /// 指定されたキーが存在するか確認
-    ///
-    /// - Parameter key: フィールド名
-    /// - Returns: キーが存在する場合 true
-    public func hasKey(_ key: String) -> Bool {
-        values[key] != nil
-    }
-
-    /// 生の辞書として取得
     public var rawValues: [String: Any] {
-        values
+        guard case .object(let object) = structuredValue else { return [:] }
+        return object.entries.reduce(into: [:]) { $0[$1.key] = DynamicJSON.any(from: $1.value) }
+    }
+
+    private func allOrNothing<T>(_ array: [StructuredValue], _ transform: (StructuredValue) -> T?) -> [T]? {
+        var result: [T] = []
+        result.reserveCapacity(array.count)
+        for element in array {
+            guard let value = transform(element) else { return nil }
+            result.append(value)
+        }
+        return result
+    }
+}
+
+// MARK: - Any bridging
+
+extension DynamicJSON {
+    /// JSONSerialization 互換の `Any` を ``StructuredValue`` へ変換する。
+    static func structured(from any: Any) -> StructuredValue {
+        if any is NSNull { return .null }
+        if let number = any as? NSNumber {
+            if CFGetTypeID(number) == CFBooleanGetTypeID() { return .bool(number.boolValue) }
+            return .number(StructuredNumber(unchecked: number.stringValue))
+        }
+        if let bool = any as? Bool { return .bool(bool) }
+        if let string = any as? String { return .string(string) }
+        if let array = any as? [Any] { return .array(array.map(structured(from:))) }
+        if let dictionary = any as? [String: Any] {
+            return .object(OrderedObject(dictionary.map { ($0.key, structured(from: $0.value)) }))
+        }
+        return .null
+    }
+
+    /// ``StructuredValue`` を JSONSerialization 互換の `Any` へ戻す。
+    static func any(from value: StructuredValue) -> Any {
+        switch value {
+        case .null: return NSNull()
+        case .bool(let bool): return bool
+        case .number(let number): return number.int ?? number.double
+        case .string(let string): return string
+        case .array(let array): return array.map(any(from:))
+        case .object(let object): return object.entries.reduce(into: [String: Any]()) { $0[$1.key] = any(from: $1.value) }
+        }
     }
 }
 
 // MARK: - Errors
 
-/// DynamicJSON のエラー
 public enum DynamicJSONError: Error, Sendable {
-    /// 無効な JSON データ
     case invalidJSON
-
-    /// 無効なエンコーディング
     case invalidEncoding
 }
 
@@ -205,10 +140,7 @@ public enum DynamicJSONError: Error, Sendable {
 
 extension DynamicJSON: CustomDebugStringConvertible {
     public var debugDescription: String {
-        guard let data = try? JSONSerialization.data(withJSONObject: values, options: .prettyPrinted),
-              let string = String(data: data, encoding: .utf8) else {
-            return "DynamicJSON(\(values.keys.joined(separator: ", ")))"
-        }
-        return "DynamicJSON: \(string)"
+        let json = JSONSerializer(options: .init(prettyPrinted: true)).string(from: structuredValue)
+        return "DynamicJSON: \(json)"
     }
 }

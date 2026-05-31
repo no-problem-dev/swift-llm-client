@@ -14,6 +14,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.0"),
+        .package(url: "https://github.com/no-problem-dev/swift-structured-data.git", from: "1.0.0"),
     ],
     targets: [
         .macro(name: "LLMMacros", dependencies: [
@@ -21,7 +22,12 @@ let package = Package(
             .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
             .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
         ]),
-        .target(name: "LLMClient", dependencies: ["LLMMacros"]),
+        .target(name: "LLMClient", dependencies: [
+            "LLMMacros",
+            .product(name: "StructuredDataCore", package: "swift-structured-data"),
+            .product(name: "JSONParsing", package: "swift-structured-data"),
+            .product(name: "XMLCoding", package: "swift-structured-data"),
+        ]),
         .target(name: "LLMTool", dependencies: ["LLMClient"]),
         .target(name: "LLMChat", dependencies: ["LLMClient"]),
         .target(name: "LLMDynamicStructured", dependencies: ["LLMClient"]),
