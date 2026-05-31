@@ -1,11 +1,10 @@
-import LLMClient
+import StructuredDataCore
 
-/// ツール引数の型エイリアス
+/// ツール引数の型エイリアス。
 ///
-/// `DynamicTool` のハンドラーで引数にアクセスする際に使用します。
-/// `DynamicJSON` の型安全なアクセサメソッドを通じて引数値を取得できます。
-///
-/// ## 使用例
+/// `DynamicTool` のハンドラーで引数にアクセスする際に使用します。中立中間表現
+/// ``StructuredValue`` の型安全アクセサ(`string(_:)` / `int(_:)` / dynamicMemberLookup /
+/// 型付き subscript 等)で引数値を取得できます。
 ///
 /// ```swift
 /// let tool = DynamicTool("get_weather", description: "天気を取得") {
@@ -15,4 +14,4 @@ import LLMClient
 ///     return .text("Weather in \(city): 25°C")
 /// }
 /// ```
-public typealias ToolArguments = DynamicJSON
+public typealias ToolArguments = StructuredValue

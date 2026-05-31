@@ -28,7 +28,11 @@ let package = Package(
             .product(name: "JSONParsing", package: "swift-structured-data"),
             .product(name: "XMLCoding", package: "swift-structured-data"),
         ]),
-        .target(name: "LLMTool", dependencies: ["LLMClient"]),
+        .target(name: "LLMTool", dependencies: [
+            "LLMClient",
+            .product(name: "StructuredDataCore", package: "swift-structured-data"),
+            .product(name: "JSONParsing", package: "swift-structured-data"),
+        ]),
         .target(name: "LLMChat", dependencies: ["LLMClient"]),
         .target(name: "LLMDynamicStructured", dependencies: ["LLMClient"]),
         // Tests

@@ -1,4 +1,6 @@
 import Foundation
+import StructuredDataCore
+import JSONParsing
 
 // MARK: - ToolCall
 
@@ -73,21 +75,15 @@ public struct ToolCall: Sendable, Equatable {
         return try decoder.decode(type, from: arguments)
     }
 
-    /// 引数を辞書形式で取得
-    ///
-    /// - Returns: 引数の辞書表現
-    /// - Throws: JSON パースエラー
+    /// 引数を中立表現 ``StructuredValue`` として取得（型安全アクセサ経由で値を読む）。
     ///
     /// ```swift
-    /// let dict = try call.argumentsDictionary()
-    /// if let location = dict["location"] as? String {
+    /// let args = try call.argumentsJSON()
+    /// if let location = args.string("location") {
     ///     print(location)
     /// }
     /// ```
-    public func argumentsDictionary() throws -> [String: Any] {
-        guard let dict = try JSONSerialization.jsonObject(with: arguments) as? [String: Any] else {
-            return [:]
-        }
-        return dict
+    public func argumentsJSON() throws -> StructuredValue {
+        try JSONParser().parse(arguments)
     }
 }

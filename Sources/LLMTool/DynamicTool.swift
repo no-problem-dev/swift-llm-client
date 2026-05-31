@@ -1,5 +1,6 @@
 import Foundation
 import LLMClient
+import JSONParsing
 
 // MARK: - DynamicTool
 
@@ -64,7 +65,7 @@ public struct DynamicTool: Tool, Sendable {
         self.inputSchema = JSONSchema.object(fields: fields, additionalProperties: false)
         self.annotations = annotations
         self.executeHandler = { data in
-            let args = try ToolArguments(from: data)
+            let args = try JSONParser().parse(data)
             return try await handler(args)
         }
     }
@@ -116,7 +117,7 @@ public struct DynamicTool: Tool, Sendable {
         self.inputSchema = inputSchema
         self.annotations = annotations
         self.executeHandler = { data in
-            let args = try ToolArguments(from: data)
+            let args = try JSONParser().parse(data)
             return try await handler(args)
         }
     }
