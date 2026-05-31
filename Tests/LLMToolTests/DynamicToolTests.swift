@@ -2,6 +2,8 @@ import Testing
 @testable import LLMTool
 @testable import LLMClient
 import Foundation
+import StructuredDataCore
+import JSONParsing
 
 @Suite("DynamicTool Tests")
 struct DynamicToolTests {
@@ -26,7 +28,7 @@ struct DynamicToolTests {
         #expect(tool.inputSchema.required == ["city"])
 
         // Execute
-        let argsData = try JSONSerialization.data(withJSONObject: ["city": "Tokyo"])
+        let argsData = try JSONSerializer().serialize(["city": "Tokyo"])
         let result = try await tool.execute(with: argsData)
         #expect(result == .text("Weather in Tokyo: 25°C"))
     }
@@ -51,12 +53,12 @@ struct DynamicToolTests {
         let tool = DynamicTool("raw_tool", description: "Raw handler") {
             JSONSchema.string().named("input")
         } rawHandler: { data in
-            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            let input = json?["input"] as? String ?? ""
+            let json = try? JSONParser().parse(data)
+            let input = json?.string("input") ?? ""
             return .text("raw: \(input)")
         }
 
-        let argsData = try JSONSerialization.data(withJSONObject: ["input": "hello"])
+        let argsData = try JSONSerializer().serialize(["input": "hello"])
         let result = try await tool.execute(with: argsData)
         #expect(result == .text("raw: hello"))
     }
@@ -80,7 +82,7 @@ struct DynamicToolTests {
 
         #expect(tool.toolName == "direct_tool")
 
-        let argsData = try JSONSerialization.data(withJSONObject: ["x": 42])
+        let argsData = try JSONSerializer().serialize(["x": 42])
         let result = try await tool.execute(with: argsData)
         #expect(result == .text("x=42"))
     }
@@ -157,7 +159,7 @@ struct DynamicToolTests {
         #expect(toolSet.toolNames.contains("no_param"))
 
         // Execute through ToolSet
-        let data = try JSONSerialization.data(withJSONObject: ["input": "test"])
+        let data = try JSONSerializer().serialize(["input": "test"])
         let result = try await toolSet.execute(toolNamed: "dynamic", with: data)
         #expect(result == .text("dynamic: test"))
     }
@@ -184,7 +186,7 @@ struct DynamicToolTests {
             throw TestError()
         }
 
-        let data = try! JSONSerialization.data(withJSONObject: ["x": "val"])
+        let data = try! JSONSerializer().serialize(["x": "val"])
         do {
             _ = try await tool.execute(with: data)
             Issue.record("Expected error to be thrown")
