@@ -13,7 +13,7 @@ import Foundation
 /// let schema = JSONSchema(type: .string, description: "名前")
 /// let objectSchema = JSONSchema(type: .object, properties: [...])
 /// ```
-public enum JSONSchemaType: String, Sendable, Encodable, Equatable {
+public enum JSONSchemaType: String, Sendable, Codable, Equatable {
     /// オブジェクト型（キーと値のペア）
     case object
 

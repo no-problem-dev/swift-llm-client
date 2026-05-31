@@ -37,7 +37,7 @@ import Foundation
 /// 各 LLM プロバイダーは JSON Schema のサポート範囲が異なります。
 /// このライブラリでは、プロバイダーごとにスキーマを自動的に適合させるため、
 /// ユーザーが直接プロバイダー固有の変換を意識する必要はありません。
-public struct JSONSchema: Sendable, Encodable, Equatable {
+public struct JSONSchema: Sendable, Codable, Equatable {
     /// スキーマの型
     public let type: JSONSchemaType
 

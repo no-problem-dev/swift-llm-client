@@ -23,6 +23,29 @@ extension JSONSchema {
         case format
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            type: try container.decodeIfPresent(JSONSchemaType.self, forKey: .type) ?? .object,
+            description: try container.decodeIfPresent(String.self, forKey: .description),
+            properties: try container.decodeIfPresent([String: JSONSchema].self, forKey: .properties),
+            required: try container.decodeIfPresent([String].self, forKey: .required),
+            items: try container.decodeIfPresent(Box<JSONSchema>.self, forKey: .items)?.value,
+            additionalProperties: try container.decodeIfPresent(Bool.self, forKey: .additionalProperties),
+            minItems: try container.decodeIfPresent(Int.self, forKey: .minItems),
+            maxItems: try container.decodeIfPresent(Int.self, forKey: .maxItems),
+            minimum: try container.decodeIfPresent(Double.self, forKey: .minimum),
+            maximum: try container.decodeIfPresent(Double.self, forKey: .maximum),
+            exclusiveMinimum: try container.decodeIfPresent(Double.self, forKey: .exclusiveMinimum),
+            exclusiveMaximum: try container.decodeIfPresent(Double.self, forKey: .exclusiveMaximum),
+            minLength: try container.decodeIfPresent(Int.self, forKey: .minLength),
+            maxLength: try container.decodeIfPresent(Int.self, forKey: .maxLength),
+            pattern: try container.decodeIfPresent(String.self, forKey: .pattern),
+            enum: try container.decodeIfPresent([String].self, forKey: .enum),
+            format: try container.decodeIfPresent(String.self, forKey: .format)
+        )
+    }
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 

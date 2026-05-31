@@ -54,3 +54,11 @@ public final class Box<T: Sendable & Encodable & Equatable>: Sendable, Encodable
         lhs.value == rhs.value
     }
 }
+
+// MARK: - Decodable
+
+extension Box: Decodable where T: Decodable {
+    public convenience init(from decoder: Decoder) throws {
+        self.init(try T(from: decoder))
+    }
+}
