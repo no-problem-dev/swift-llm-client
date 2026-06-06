@@ -67,6 +67,17 @@ public protocol Tool: Sendable {
     func execute(with argumentsData: Data) async throws -> ToolResult
 }
 
+// MARK: - TurnEndingTool
+
+/// 成功結果がエージェントターンを終了させるツール（ADK の `skip_summarization` 相当の契約）
+///
+/// ループランタイムは、このプロトコルに準拠したツールの非エラー結果を受け取ったら、
+/// 結果をモデルへ返す追加推論を行わずにターンを終える。エラー結果は通常どおりモデルへ
+/// 返り、ループは継続する（モデルが自己修正・謝罪できる）。
+///
+/// 宣言（ツール層）と実施（ループランタイム層）を分離するためのマーカープロトコル。
+public protocol TurnEndingTool: Tool {}
+
 // MARK: - Tool Convenience Properties
 
 extension Tool {
