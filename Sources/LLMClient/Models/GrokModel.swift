@@ -38,7 +38,7 @@ public enum GrokModel: Sendable, Equatable {
 
 extension GrokModel {
     /// UI選択用のプリセットモデル
-    public enum Preset: String, CaseIterable, Identifiable, Sendable {
+    public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         /// Grok 3（フラッグシップ）
         case grok3 = "grok3"
         /// Grok 3 Mini（軽量版）

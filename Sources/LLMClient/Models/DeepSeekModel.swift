@@ -33,7 +33,7 @@ public enum DeepSeekModel: Sendable, Equatable {
 
 extension DeepSeekModel {
     /// UI選択用のプリセットモデル
-    public enum Preset: String, CaseIterable, Identifiable, Sendable {
+    public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         /// DeepSeek-V3（汎用チャット）
         case v3 = "v3"
         /// DeepSeek-R1（推論特化）

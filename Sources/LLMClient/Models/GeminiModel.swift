@@ -137,7 +137,7 @@ extension GeminiModel: RawRepresentable {
 // MARK: - Preset
 
 extension GeminiModel {
-    public enum Preset: String, CaseIterable, Identifiable, Sendable {
+    public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         case flash35 = "flash35"
         case pro31Preview = "pro31Preview"
         case flashLite31 = "flashLite31"

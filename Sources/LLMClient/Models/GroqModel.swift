@@ -43,7 +43,7 @@ public enum GroqModel: Sendable, Equatable {
 
 extension GroqModel {
     /// UI選択用のプリセットモデル
-    public enum Preset: String, CaseIterable, Identifiable, Sendable {
+    public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         /// Llama 4 Scout 17B
         case llama4Scout = "llama4Scout"
         /// Llama 3.3 70B Versatile

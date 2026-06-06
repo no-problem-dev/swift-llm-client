@@ -146,7 +146,7 @@ public enum GPTModel: Sendable, Equatable {
 // MARK: - Preset
 
 extension GPTModel {
-    public enum Preset: String, CaseIterable, Identifiable, Sendable {
+    public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         case gpt5_5 = "gpt5_5"
         case gpt5_4 = "gpt5_4"
         case gpt5_4Mini = "gpt5_4Mini"

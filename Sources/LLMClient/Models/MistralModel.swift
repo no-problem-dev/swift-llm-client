@@ -43,7 +43,7 @@ public enum MistralModel: Sendable, Equatable {
 
 extension MistralModel {
     /// UI選択用のプリセットモデル
-    public enum Preset: String, CaseIterable, Identifiable, Sendable {
+    public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         /// Mistral Small（軽量版）
         case small = "small"
         /// Mistral Medium（中間版）

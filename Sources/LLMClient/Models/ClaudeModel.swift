@@ -143,7 +143,7 @@ public enum ClaudeModel: Sendable, Equatable {
 // MARK: - Preset
 
 extension ClaudeModel {
-    public enum Preset: String, CaseIterable, Identifiable, Sendable {
+    public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         case opus = "opus"
         case sonnet = "sonnet"
         case haiku = "haiku"
