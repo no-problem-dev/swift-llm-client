@@ -56,6 +56,13 @@ public protocol Tool: Sendable {
     /// ツールの入力パラメータを定義する JSON Schema です。
     var inputSchema: JSONSchema { get }
 
+    /// このツールがアタッチされたとき system prompt に同伴させる指示（ADK `process_llm_request` 相当）
+    ///
+    /// スキーマや手本など「ツールを正しく使うための前提知識」はツール自身が所有し、
+    /// ループランタイムがリクエスト組み立て時に system prompt の末尾へ追記する。
+    /// `nil` = 追記なし（既定）。
+    var systemInstruction: String? { get }
+
     /// ツールを実行
     ///
     /// LLM から呼び出された際に実行されるメソッドです。
@@ -81,6 +88,9 @@ public protocol TurnEndingTool: Tool {}
 // MARK: - Tool Convenience Properties
 
 extension Tool {
+    /// 既定では system prompt への追記なし
+    public var systemInstruction: String? { nil }
+
     /// ツール名へのエイリアス
     public var name: String { toolName }
 
