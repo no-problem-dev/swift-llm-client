@@ -58,9 +58,8 @@ public protocol Tool: Sendable {
 
     /// このツールがアタッチされたとき system prompt に同伴させる指示（ADK `process_llm_request` 相当）
     ///
-    /// スキーマや手本など「ツールを正しく使うための前提知識」はツール自身が所有し、
-    /// ループランタイムがリクエスト組み立て時に system prompt の末尾へ追記する。
-    /// `nil` = 追記なし（既定）。
+    /// スキーマ・手本などツールの前提知識はツール自身が所有し、ループランタイムが
+    /// system prompt の末尾へ追記する。`nil` = 追記なし（既定）。
     var systemInstruction: String? { get }
 
     /// ツールを実行

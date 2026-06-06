@@ -92,9 +92,6 @@ public struct ToolSet: Sendable {
     }
 
     /// 各ツールが system prompt へ同伴を要求する指示（宣言順、nil は除外）
-    ///
-    /// ループランタイムはリクエスト組み立て時にこれを system prompt の末尾へ追記する
-    /// （ADK `process_llm_request` 相当の実施側）。
     public var systemInstructions: [String] {
         tools.compactMap { $0.systemInstruction }
     }
