@@ -23,6 +23,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     ///   - thinkingMode: Extended Thinking のモード
     ///   - reasoningEffort: OpenAI reasoning モデルの `reasoning_effort`（非対応プロバイダーは無視）
     ///   - maxTokens: 最大出力トークン数（nil の場合はプロバイダーのデフォルト値を使用）
+    ///   - cachePolicy: 安定プレフィックス（システムプロンプト + ツール）のキャッシュ方針
     /// - Returns: LLM レスポンス
     func executeAgentStep(
         messages: [LLMMessage],
@@ -33,7 +34,8 @@ public protocol AgentCapableClient: ToolCallableClient {
         responseSchema: JSONSchema?,
         thinkingMode: ThinkingMode,
         reasoningEffort: ReasoningEffort?,
-        maxTokens: Int?
+        maxTokens: Int?,
+        cachePolicy: PromptCachePolicy
     ) async throws -> LLMResponse
 
     /// エージェントステップをストリーミング実行
@@ -51,6 +53,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     ///   - thinkingMode: Extended Thinking のモード
     ///   - reasoningEffort: OpenAI reasoning モデルの `reasoning_effort`（非対応プロバイダーは無視）
     ///   - maxTokens: 最大出力トークン数（nil の場合はプロバイダーのデフォルト値を使用）
+    ///   - cachePolicy: 安定プレフィックス（システムプロンプト + ツール）のキャッシュ方針
     /// - Returns: ストリーミングイベントの AsyncThrowingStream
     func streamAgentStep(
         messages: [LLMMessage],
@@ -61,7 +64,8 @@ public protocol AgentCapableClient: ToolCallableClient {
         responseSchema: JSONSchema?,
         thinkingMode: ThinkingMode,
         reasoningEffort: ReasoningEffort?,
-        maxTokens: Int?
+        maxTokens: Int?,
+        cachePolicy: PromptCachePolicy
     ) -> AsyncThrowingStream<StreamingAgentEvent, Error>
 }
 
@@ -80,7 +84,8 @@ extension AgentCapableClient {
         responseSchema: JSONSchema?,
         thinkingMode: ThinkingMode,
         reasoningEffort: ReasoningEffort?,
-        maxTokens: Int?
+        maxTokens: Int?,
+        cachePolicy: PromptCachePolicy
     ) -> AsyncThrowingStream<StreamingAgentEvent, Error> {
         makeCancellableStream { continuation in
             Task {
@@ -94,7 +99,8 @@ extension AgentCapableClient {
                         responseSchema: responseSchema,
                         thinkingMode: thinkingMode,
                         reasoningEffort: reasoningEffort,
-                        maxTokens: maxTokens
+                        maxTokens: maxTokens,
+                        cachePolicy: cachePolicy
                     )
                     continuation.yield(.completed(response))
                     continuation.finish()

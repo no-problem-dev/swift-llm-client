@@ -48,6 +48,7 @@ public protocol ToolCallableClient: StructuredLLMClient {
     ///   - systemPrompt: システムプロンプト（オプション）
     ///   - temperature: 温度パラメータ（オプション）
     ///   - maxTokens: 最大トークン数（オプション）
+    ///   - cachePolicy: 安定プレフィックス（システムプロンプト + ツール）のキャッシュ方針
     /// - Returns: ツール呼び出し計画を含むレスポンス
     func planToolCalls(
         prompt: String,
@@ -56,7 +57,8 @@ public protocol ToolCallableClient: StructuredLLMClient {
         toolChoice: ToolChoice?,
         systemPrompt: SystemPrompt?,
         temperature: Double?,
-        maxTokens: Int?
+        maxTokens: Int?,
+        cachePolicy: PromptCachePolicy
     ) async throws -> ToolCallResponse
 
     /// ツール呼び出しを計画する（会話履歴付き）
@@ -69,6 +71,7 @@ public protocol ToolCallableClient: StructuredLLMClient {
     ///   - systemPrompt: システムプロンプト（オプション）
     ///   - temperature: 温度パラメータ（オプション）
     ///   - maxTokens: 最大トークン数（オプション）
+    ///   - cachePolicy: 安定プレフィックス（システムプロンプト + ツール）のキャッシュ方針
     /// - Returns: ツール呼び出し計画を含むレスポンス
     func planToolCalls(
         messages: [LLMMessage],
@@ -77,7 +80,8 @@ public protocol ToolCallableClient: StructuredLLMClient {
         toolChoice: ToolChoice?,
         systemPrompt: SystemPrompt?,
         temperature: Double?,
-        maxTokens: Int?
+        maxTokens: Int?,
+        cachePolicy: PromptCachePolicy
     ) async throws -> ToolCallResponse
 }
 
@@ -92,7 +96,8 @@ extension ToolCallableClient {
         toolChoice: ToolChoice? = nil,
         systemPrompt: SystemPrompt? = nil,
         temperature: Double? = nil,
-        maxTokens: Int? = nil
+        maxTokens: Int? = nil,
+        cachePolicy: PromptCachePolicy = .implicit
     ) async throws -> ToolCallResponse {
         try await planToolCalls(
             messages: [.user(prompt)],
@@ -101,7 +106,8 @@ extension ToolCallableClient {
             toolChoice: toolChoice,
             systemPrompt: systemPrompt,
             temperature: temperature,
-            maxTokens: maxTokens
+            maxTokens: maxTokens,
+            cachePolicy: cachePolicy
         )
     }
 }

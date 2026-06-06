@@ -40,6 +40,9 @@ public struct LLMRequest: Sendable {
     /// 最大トークン数
     public let maxTokens: Int?
 
+    /// プロンプトキャッシングの方針
+    public let cachePolicy: PromptCachePolicy
+
     /// リクエストを初期化
     public init(
         model: LLMModel,
@@ -47,7 +50,8 @@ public struct LLMRequest: Sendable {
         systemPrompt: String? = nil,
         responseSchema: JSONSchema? = nil,
         temperature: Double? = nil,
-        maxTokens: Int? = nil
+        maxTokens: Int? = nil,
+        cachePolicy: PromptCachePolicy = .implicit
     ) {
         self.model = model
         self.messages = messages
@@ -55,6 +59,7 @@ public struct LLMRequest: Sendable {
         self.responseSchema = responseSchema
         self.temperature = temperature
         self.maxTokens = maxTokens
+        self.cachePolicy = cachePolicy
     }
 }
 
