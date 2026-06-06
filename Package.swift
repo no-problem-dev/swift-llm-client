@@ -26,7 +26,6 @@ let package = Package(
             "LLMMacros",
             .product(name: "StructuredDataCore", package: "swift-structured-data"),
             .product(name: "JSONParsing", package: "swift-structured-data"),
-            .product(name: "XMLCoding", package: "swift-structured-data"),
         ]),
         .target(name: "LLMTool", dependencies: [
             "LLMClient",

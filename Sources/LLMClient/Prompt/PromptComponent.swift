@@ -1,5 +1,4 @@
 import Foundation
-import XMLCoding
 
 // MARK: - PromptComponent
 
@@ -261,11 +260,11 @@ extension PromptComponent {
         }
     }
 
-    /// このコンポーネントを XML 要素ツリーに変換する。
+    /// プロンプトコンポーネントを疑似 XML タグでレンダリングする。
     ///
-    /// XML の構築・直列化は swift-structured-data の ``XMLCoding`` に委譲しており、
-    /// 値に含まれる `<`, `&` 等は正しくエスケープされる（従来は未エスケープだった）。
-    public func element() -> XMLCoding.XMLElement {
+    /// プロンプトのタグは構文ではなく区切り記法のため、内容は一切エスケープしない。
+    /// プリレンダ済みのタグ・JSON・コード片をそのまま埋め込める。
+    public func render() -> String {
         switch self {
         case .role(let value),
              .expertise(let value),
@@ -279,16 +278,11 @@ extension PromptComponent {
              .important(let value),
              .note(let value),
              .outputConstraint(let value):
-            return XMLCoding.XMLElement(tagName, text: value)
+            return "<\(tagName)>\(value)</\(tagName)>"
 
         case .example(let input, let output):
-            return XMLCoding.XMLElement(tagName, text: "Input: \(input)\nOutput: \(output)")
+            return "<\(tagName)>Input: \(input)\nOutput: \(output)</\(tagName)>"
         }
-    }
-
-    /// プロンプトコンポーネントを XML 形式でレンダリングする。
-    public func render() -> String {
-        element().rendered(options: .init(prettyPrinted: false))
     }
 }
 
