@@ -12,7 +12,8 @@ let package = Package(
         .library(name: "LLMDynamicStructured", targets: ["LLMDynamicStructured"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
+        // mlx-swift-lm 3.31.3（swift-syntax 600..<601 要求）と同一グラフで解決できるよう下限を 600 まで許容
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", "600.0.0"..<"604.0.0"),
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.0"),
         .package(url: "https://github.com/no-problem-dev/swift-structured-data.git", from: "1.0.0"),
     ],
