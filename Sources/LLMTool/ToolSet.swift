@@ -122,7 +122,10 @@ public struct ToolSet: Sendable {
         guard let tool = tool(named: name) else {
             throw ToolExecutionError.toolNotFound(name)
         }
-        return try await tool.execute(with: argumentsData)
+        // 小型モデルが数値・真偽値を文字列で出すケースをスキーマに沿って吸収する
+        // （例: {"max_results":"10"} → {"max_results":10}）。正常な引数は不変。
+        let coerced = tool.inputSchema.coerceArguments(argumentsData)
+        return try await tool.execute(with: coerced)
     }
 }
 

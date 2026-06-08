@@ -9,6 +9,16 @@
 
 なし
 
+## [3.5.0] - 2026-06-08
+
+### 追加
+- **ツール引数のスキーマ準拠型強制（coercion）**: `JSONSchema.coerceArguments(_:)` を追加し、
+  `ToolSet.execute(toolNamed:with:)` が引数 JSON をツールの `inputSchema` に沿って補正する。
+  小型ローカル LLM が数値・真偽値を文字列で出すケース（例: `{"max_results":"10"}`）を、
+  スキーマが `integer` / `number` / `boolean` を要求するフィールドに限って変換し、
+  厳格な `JSONDecoder` の型不一致エラーを防ぐ。正常な引数・`string` フィールドは不変。
+  プロバイダー非依存で全ツールに効く
+
 ## [3.4.2] - 2026-06-08
 
 ### 変更
