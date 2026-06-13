@@ -2,20 +2,20 @@ import Foundation
 
 /// Mistral AI モデル
 public enum MistralModel: Sendable, Equatable {
-    /// Mistral Small（軽量版）
+    /// Mistral Small 4（一般用途デフォルト）
     case small
 
-    /// Mistral Medium（中間版）
+    /// Mistral Medium 3.5（フロンティア・エージェント/コーディング）
     case medium
 
-    /// Mistral Large 最新版
+    /// Mistral Large 3（オープンウェイト・フラッグシップ）
     case large
 
     /// Codestral（コーディング特化）
     case codestral
 
-    /// Mistral Nemo（軽量版）
-    case nemo
+    /// Ministral 3 8B（軽量マルチモーダル）
+    case ministral8b
 
     /// カスタムモデルID
     case custom(String)
@@ -31,8 +31,8 @@ public enum MistralModel: Sendable, Equatable {
             return "mistral-large-latest"
         case .codestral:
             return "codestral-latest"
-        case .nemo:
-            return "open-mistral-nemo"
+        case .ministral8b:
+            return "ministral-3-8b-2512"
         case .custom(let id):
             return id
         }
@@ -44,16 +44,16 @@ public enum MistralModel: Sendable, Equatable {
 extension MistralModel {
     /// UI選択用のプリセットモデル
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
-        /// Mistral Small（軽量版）
+        /// Mistral Small 4（一般用途デフォルト）
         case small = "small"
-        /// Mistral Medium（中間版）
+        /// Mistral Medium 3.5（フロンティア・エージェント/コーディング）
         case medium = "medium"
-        /// Mistral Large（最高性能）
+        /// Mistral Large 3（オープンウェイト・フラッグシップ）
         case large = "large"
         /// Codestral（コーディング特化）
         case codestral = "codestral"
-        /// Mistral Nemo（軽量版）
-        case nemo = "nemo"
+        /// Ministral 3 8B（軽量マルチモーダル）
+        case ministral8b = "ministral8b"
 
         public var id: String { rawValue }
 
@@ -64,29 +64,29 @@ extension MistralModel {
             case .medium: return .medium
             case .large: return .large
             case .codestral: return .codestral
-            case .nemo: return .nemo
+            case .ministral8b: return .ministral8b
             }
         }
 
         /// 表示名
         public var displayName: String {
             switch self {
-            case .small: return "Mistral Small"
-            case .medium: return "Mistral Medium"
-            case .large: return "Mistral Large"
+            case .small: return "Mistral Small 4"
+            case .medium: return "Mistral Medium 3.5"
+            case .large: return "Mistral Large 3"
             case .codestral: return "Codestral"
-            case .nemo: return "Mistral Nemo"
+            case .ministral8b: return "Ministral 3 8B"
             }
         }
 
         /// 短い表示名
         public var shortName: String {
             switch self {
-            case .small: return "Small"
-            case .medium: return "Medium"
-            case .large: return "Large"
+            case .small: return "Small 4"
+            case .medium: return "Medium 3.5"
+            case .large: return "Large 3"
             case .codestral: return "Codestral"
-            case .nemo: return "Nemo"
+            case .ministral8b: return "Ministral 8B"
             }
         }
 
@@ -95,48 +95,48 @@ extension MistralModel {
             switch self {
             case .small:
                 return ModelProfile(
-                    summary: "軽量・高速。コスト効率に優れる",
+                    summary: "一般用途デフォルト。推論+コーディングのハイブリッド",
                     modelFamily: "Mistral",
-                    description: "Mistral Small は軽量で高速なモデルです。一般的なタスクに十分な品質を低コストで提供し、大量処理やリアルタイムアプリケーションに適しています。",
+                    description: "Mistral Small 4 は instruct・推論・コーディングを統合したハイブリッドモデルです。低コストながら高い汎用性能を発揮し、一般用途のデフォルトとして大量処理やリアルタイムアプリケーションに適しています。マルチモーダル（テキスト・画像・コード）に対応します。",
                     contextWindow: 32_000,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["軽量・高速", "コスト効率", "多言語対応", "関数呼び出し"],
-                    bestFor: ["軽量チャット", "分類・要約", "大量バッチ処理"],
+                    strengths: ["ハイブリッド推論", "コスト効率", "多言語対応", "マルチモーダル"],
+                    bestFor: ["一般用途デフォルト", "分類・要約", "大量バッチ処理"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
-                    modalities: [.text, .code],
+                    modalities: [.text, .vision, .code],
                     pricing: .flat(inputPerMTok: 0.10, outputPerMTok: 0.30)
                 )
             case .medium:
                 return ModelProfile(
-                    summary: "バランス型。品質と速度の両立",
+                    summary: "フロンティア・エージェント/コーディング特化",
                     modelFamily: "Mistral",
-                    description: "Mistral Medium は品質と速度のバランスに優れたモデルです。多くのビジネスユースケースに適した汎用モデルです。",
+                    description: "Mistral Medium 3.5 はエージェントワークフローと高度なコーディングに特化したフロンティアモデルです。複雑なツール連携や多段階タスクで高い実行精度を発揮し、マルチモーダル（テキスト・画像・コード）に対応します。",
                     contextWindow: 128_000,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["バランス型", "汎用性", "品質と速度の両立", "多言語"],
-                    bestFor: ["ビジネスタスク", "コンテンツ生成", "分析・要約"],
-                    toolCallSupport: .good,
+                    strengths: ["エージェント実行", "高度なコーディング", "ツール連携", "マルチモーダル"],
+                    bestFor: ["エージェントワークフロー", "コード生成", "複雑なタスク自動化"],
+                    toolCallSupport: .excellent,
                     japaneseSupport: .good,
-                    modalities: [.text, .code],
-                    pricing: .flat(inputPerMTok: 0.40, outputPerMTok: 2)
+                    modalities: [.text, .vision, .code],
+                    pricing: .flat(inputPerMTok: 1.50, outputPerMTok: 7.50)
                 )
             case .large:
                 return ModelProfile(
-                    summary: "最高性能。複雑な推論に最適",
+                    summary: "オープンウェイト・フラッグシップ MoE",
                     modelFamily: "Mistral",
-                    description: "Mistral Large は Mistral の最高性能モデルです。複雑な推論、多段階分析、高度なコード生成に優れ、128K のコンテキストウィンドウを持ちます。",
+                    description: "Mistral Large 3 はオープンウェイトのフラッグシップ MoE（Mixture-of-Experts）モデルです。複雑な推論、多段階分析、高度なコード生成に優れ、マルチモーダル（テキスト・画像・コード）に対応します。",
                     contextWindow: 128_000,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["高度な推論", "多言語", "コーディング", "関数呼び出し"],
+                    strengths: ["高度な推論", "MoE アーキテクチャ", "コーディング", "マルチモーダル"],
                     bestFor: ["複雑な推論", "コード生成", "多言語タスク"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
-                    modalities: [.text, .code],
-                    pricing: .flat(inputPerMTok: 2, outputPerMTok: 6)
+                    modalities: [.text, .vision, .code],
+                    pricing: .flat(inputPerMTok: 0.50, outputPerMTok: 1.50)
                 )
             case .codestral:
                 return ModelProfile(
@@ -153,19 +153,19 @@ extension MistralModel {
                     modalities: [.text, .code],
                     pricing: .flat(inputPerMTok: 0.30, outputPerMTok: 0.90)
                 )
-            case .nemo:
+            case .ministral8b:
                 return ModelProfile(
-                    summary: "超軽量。エッジ・オンデバイス向け",
+                    summary: "軽量マルチモーダル。低コスト・高速",
                     modelFamily: "Mistral",
-                    description: "Mistral Nemo は超軽量モデルで、エッジデバイスやオンデバイス推論に適しています。シンプルなタスクを高速に処理します。",
+                    description: "Ministral 3 8B は軽量なマルチモーダルモデルで、低コスト・高速にテキスト・画像・コードを処理します。エッジ寄りのユースケースや大量処理に適し、入出力が均一価格で扱いやすいモデルです。",
                     contextWindow: 128_000,
                     maxOutputTokens: 8_192,
-                    knowledgeCutoff: "2024-07",
-                    strengths: ["超軽量", "高速", "低コスト", "エッジ対応"],
-                    bestFor: ["シンプルなチャット", "軽量な分類", "エッジ推論"],
-                    toolCallSupport: .basic,
+                    knowledgeCutoff: nil,
+                    strengths: ["軽量マルチモーダル", "高速", "低コスト", "関数呼び出し"],
+                    bestFor: ["軽量チャット", "軽量な分類", "大量処理"],
+                    toolCallSupport: .good,
                     japaneseSupport: .basic,
-                    modalities: [.text, .code],
+                    modalities: [.text, .vision, .code],
                     pricing: .flat(inputPerMTok: 0.15, outputPerMTok: 0.15)
                 )
             }

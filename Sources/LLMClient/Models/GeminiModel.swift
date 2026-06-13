@@ -268,7 +268,7 @@ extension GeminiModel {
                 return ModelProfile(
                     summary: "高品質 Pro。複雑なタスクに強い",
                     modelFamily: "Gemini",
-                    description: "Gemini 2.5 Pro は深い推論とコーディングに優れたモデル。思考モードに対応し、100 万トークンの context で長大ドキュメント分析が可能。≤200K と >200K で単価が変わる。キャッシュは非対応。",
+                    description: "Gemini 2.5 Pro は深い推論とコーディングに優れたモデル。思考モードに対応し、100 万トークンの context で長大ドキュメント分析が可能。≤200K と >200K で単価が変わる。キャッシュ読み出しは ≤200K で $0.125/MTok。",
                     contextWindow: 1_048_576,
                     maxOutputTokens: 65_535,
                     knowledgeCutoff: "2025-01",
@@ -282,7 +282,7 @@ extension GeminiModel {
                             PricingTier(upToInputTokens: 200_000, inputPerMTok: 1.25, outputPerMTok: 10),
                             PricingTier(upToInputTokens: nil, inputPerMTok: 2.50, outputPerMTok: 15),
                         ],
-                        cacheReadPerMTok: nil
+                        cacheReadPerMTok: 0.125
                     )
                 )
             case .flash25:

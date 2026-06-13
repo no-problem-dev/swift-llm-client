@@ -33,7 +33,7 @@ import Foundation
 public enum ClaudeModel: Sendable, Equatable {
     // MARK: - Aliases (推奨)
 
-    /// Claude Opus 最新版（最高性能 / 現フラッグシップ = Opus 4.7）
+    /// Claude Opus 最新版（最高性能 / 現フラッグシップ = Opus 4.8）
     case opus
 
     /// Claude Sonnet 最新版（バランス型 / 現行 = Sonnet 4.6）
@@ -43,6 +43,9 @@ public enum ClaudeModel: Sendable, Equatable {
     case haiku
 
     // MARK: - Dateless Snapshots (4.6 generation onward)
+
+    /// Claude Opus 4.8（dateless = pinned snapshot）
+    case opus4_8
 
     /// Claude Opus 4.7（dateless = pinned snapshot）
     case opus4_7
@@ -66,6 +69,7 @@ public enum ClaudeModel: Sendable, Equatable {
 
     // MARK: - Fixed Versions
 
+    case opus4_8_version(String)
     case opus4_7_version(String)
     case opus4_6_version(String)
     case sonnet4_6_version(String)
@@ -86,7 +90,7 @@ public enum ClaudeModel: Sendable, Equatable {
     /// Opus 4.7 は Adaptive Thinking のみ（Extended Thinking 非対応）。Haiku は非対応。
     public var supportsExtendedThinking: Bool {
         switch self {
-        case .opus, .opus4_7, .opus4_7_version:
+        case .opus, .opus4_8, .opus4_8_version, .opus4_7, .opus4_7_version:
             return false
         case .haiku, .haiku4_5, .haiku4_5_version:
             return false
@@ -104,7 +108,9 @@ public enum ClaudeModel: Sendable, Equatable {
 
     public var id: String {
         switch self {
-        case .opus, .opus4_7:
+        case .opus, .opus4_8:
+            return "claude-opus-4-8"
+        case .opus4_7:
             return "claude-opus-4-7"
         case .sonnet, .sonnet4_6:
             return "claude-sonnet-4-6"
@@ -116,6 +122,8 @@ public enum ClaudeModel: Sendable, Equatable {
             return "claude-opus-4-5"
         case .sonnet4_5:
             return "claude-sonnet-4-5"
+        case .opus4_8_version(let version):
+            return "claude-opus-4-8-\(version)"
         case .opus4_7_version(let version):
             return "claude-opus-4-7-\(version)"
         case .opus4_6_version(let version):
@@ -160,7 +168,7 @@ extension ClaudeModel {
 
         public var displayName: String {
             switch self {
-            case .opus: return "Claude Opus 4.7"
+            case .opus: return "Claude Opus 4.8"
             case .sonnet: return "Claude Sonnet 4.6"
             case .haiku: return "Claude Haiku 4.5"
             }
@@ -180,7 +188,7 @@ extension ClaudeModel {
                 return ModelProfile(
                     summary: "最高性能。複雑な推論・コード生成に最適",
                     modelFamily: "Claude",
-                    description: "Claude Opus 4.7 は Anthropic の現フラッグシップ。複雑な多段階推論、高度なコード生成、エージェントワークフローに優れる。1M トークンの context window と 128K の出力に対応。Adaptive Thinking で複雑度に応じて計算リソースを自動配分。新トークナイザを採用しており、同じテキストでも 4.6 比で最大 35% トークンが増える場合がある。",
+                    description: "Claude Opus 4.8 は Anthropic の現フラッグシップ。複雑な多段階推論、高度なコード生成、エージェントワークフローに優れる。1M トークンの context window と 128K の出力に対応。Adaptive Thinking で複雑度に応じて計算リソースを自動配分。新トークナイザを採用しており、同じテキストでも 4.6 比で最大 35% トークンが増える場合がある。",
                     contextWindow: 1_000_000,
                     maxOutputTokens: 128_000,
                     knowledgeCutoff: "2026-01",
