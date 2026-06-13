@@ -11,21 +11,6 @@ public enum StreamDelta: Sendable {
     case textDelta(String)
 }
 
-// MARK: - StreamingAgentEvent
-
-/// ストリーミングエージェントステップのイベント
-///
-/// エージェントループ内の LLM 呼び出しをストリーミングする際に使用します。
-/// - `.delta`: ストリーミング中の差分（thinking/text）
-/// - `.completed`: ストリーミング完了後の完全なレスポンス
-public enum StreamingAgentEvent: Sendable {
-    /// ストリーミング中の差分イベント
-    case delta(StreamDelta)
-
-    /// ストリーミング完了、完全なレスポンス
-    case completed(LLMResponse)
-}
-
 // MARK: - ThinkingMode
 
 /// Extended Thinking のモード設定

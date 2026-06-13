@@ -1,5 +1,6 @@
 import Foundation
 import LLMClient
+import LLMTool
 
 // MARK: - AgentCapableClient Protocol
 

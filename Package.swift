@@ -8,6 +8,8 @@ let package = Package(
     products: [
         .library(name: "LLMClient", targets: ["LLMClient"]),
         .library(name: "LLMTool", targets: ["LLMTool"]),
+        // エージェントステップ契約（純粋な LLMClient/LLMTool から分離）
+        .library(name: "LLMAgentStep", targets: ["LLMAgentStep"]),
         .library(name: "LLMChat", targets: ["LLMChat"]),
         .library(name: "LLMDynamicStructured", targets: ["LLMDynamicStructured"]),
     ],
@@ -33,6 +35,7 @@ let package = Package(
             .product(name: "StructuredDataCore", package: "swift-structured-data"),
             .product(name: "JSONParsing", package: "swift-structured-data"),
         ]),
+        .target(name: "LLMAgentStep", dependencies: ["LLMClient", "LLMTool"]),
         .target(name: "LLMChat", dependencies: ["LLMClient"]),
         .target(name: "LLMDynamicStructured", dependencies: ["LLMClient"]),
         // Tests
