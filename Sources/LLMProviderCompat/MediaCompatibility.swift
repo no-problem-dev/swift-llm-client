@@ -4,6 +4,7 @@
 // Created by Claude on 2025-12-20.
 
 import Foundation
+import LLMCore
 
 // MARK: - Provider Capabilities Protocol
 

@@ -3,6 +3,7 @@
 // GeneratedAudio のプラットフォーム便利機能
 
 import Foundation
+import LLMCore
 
 #if canImport(AVFoundation)
 import AVFoundation

@@ -6,6 +6,10 @@ let package = Package(
     name: "swift-llm-client",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
+        // 純粋ドメイン層（Foundation のみ・プロバイダ/プラットフォーム非依存）
+        .library(name: "LLMCore", targets: ["LLMCore"]),
+        .library(name: "LLMProviderCompat", targets: ["LLMProviderCompat"]),
+        .library(name: "LLMMediaKit", targets: ["LLMMediaKit"]),
         .library(name: "LLMClient", targets: ["LLMClient"]),
         .library(name: "LLMTool", targets: ["LLMTool"]),
         // エージェントステップ契約（純粋な LLMClient/LLMTool から分離）
@@ -25,8 +29,16 @@ let package = Package(
             .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
             .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
         ]),
+        // 純粋ドメイン層: Foundation のみに依存（プロバイダ/プラットフォーム非依存）
+        .target(name: "LLMCore"),
+        // プロバイダ互換性判定: ドメイン型に内向き依存
+        .target(name: "LLMProviderCompat", dependencies: ["LLMCore"]),
+        // プラットフォーム I/O（UIImage/AVFoundation 変換等）の葉ターゲット
+        .target(name: "LLMMediaKit", dependencies: ["LLMCore"]),
         .target(name: "LLMClient", dependencies: [
             "LLMMacros",
+            "LLMCore",
+            "LLMProviderCompat",
             .product(name: "StructuredDataCore", package: "swift-structured-data"),
             .product(name: "JSONParsing", package: "swift-structured-data"),
         ]),

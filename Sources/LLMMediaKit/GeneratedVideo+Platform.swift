@@ -3,6 +3,7 @@
 // GeneratedVideo のネットワーク I/O 便利機能
 
 import Foundation
+import LLMCore
 
 #if canImport(FoundationNetworking)
 import FoundationNetworking

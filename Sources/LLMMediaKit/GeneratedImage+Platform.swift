@@ -3,6 +3,7 @@
 // GeneratedImage のプラットフォーム便利機能
 
 import Foundation
+import LLMCore
 
 #if canImport(CoreGraphics)
 import CoreGraphics
