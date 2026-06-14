@@ -1,5 +1,5 @@
 // LLMInputProtocol.swift
-// swift-llm-structured-outputs
+// swift-llm-client
 //
 // Created by Claude on 2025-12-21.
 

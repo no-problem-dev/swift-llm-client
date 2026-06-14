@@ -1,5 +1,5 @@
 // ImageGeneration.swift
-// swift-llm-structured-outputs
+// swift-llm-client
 //
 // 画像生成機能のプロトコルと関連型
 

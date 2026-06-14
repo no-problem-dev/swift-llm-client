@@ -1,5 +1,5 @@
 // AudioGeneration.swift
-// swift-llm-structured-outputs
+// swift-llm-client
 //
 // 音声生成（TTS）機能のプロトコルと関連型
 

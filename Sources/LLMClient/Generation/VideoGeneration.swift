@@ -1,5 +1,5 @@
 // VideoGeneration.swift
-// swift-llm-structured-outputs
+// swift-llm-client
 //
 // 動画生成機能のプロトコルと関連型
 

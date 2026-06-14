@@ -1,5 +1,5 @@
 // OutputMediaFormat.swift
-// swift-llm-structured-outputs
+// swift-llm-client
 //
 // 出力メディアフォーマットの定義
 

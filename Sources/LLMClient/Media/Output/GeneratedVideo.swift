@@ -1,5 +1,5 @@
 // GeneratedVideo.swift
-// swift-llm-structured-outputs
+// swift-llm-client
 //
 // 生成された動画コンテンツおよびジョブの定義
 

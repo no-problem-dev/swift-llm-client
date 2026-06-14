@@ -1,5 +1,5 @@
 // GeneratedAudio.swift
-// swift-llm-structured-outputs
+// swift-llm-client
 //
 // 生成された音声コンテンツの定義
 

@@ -1,5 +1,5 @@
 // GeneratedImage.swift
-// swift-llm-structured-outputs
+// swift-llm-client
 //
 // 生成された画像コンテンツの定義
 
