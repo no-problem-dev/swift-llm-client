@@ -16,6 +16,8 @@ let package = Package(
         .library(name: "LLMAgentStep", targets: ["LLMAgentStep"]),
         .library(name: "LLMChat", targets: ["LLMChat"]),
         .library(name: "LLMDynamicStructured", targets: ["LLMDynamicStructured"]),
+        // コンテキストウィンドウ内訳（差分減算）— 純粋ドメインロジック
+        .library(name: "LLMContext", targets: ["LLMContext"]),
     ],
     dependencies: [
         // mlx-swift-lm 3.31.3（swift-syntax 600..<601 要求）と同一グラフで解決できるよう下限を 600 まで許容
@@ -50,6 +52,8 @@ let package = Package(
         .target(name: "LLMAgentStep", dependencies: ["LLMClient", "LLMTool"]),
         .target(name: "LLMChat", dependencies: ["LLMClient"]),
         .target(name: "LLMDynamicStructured", dependencies: ["LLMClient"]),
+        // コンテキスト内訳: TokenCounting port(LLMTool) のみに依存。cloud 非依存の純ロジック。
+        .target(name: "LLMContext", dependencies: ["LLMTool", "LLMClient"]),
         // Tests
         .testTarget(name: "LLMClientTests", dependencies: ["LLMClient"]),
         .testTarget(name: "LLMToolTests", dependencies: [
@@ -58,6 +62,7 @@ let package = Package(
             .product(name: "JSONParsing", package: "swift-structured-data"),
         ]),
         .testTarget(name: "LLMChatTests", dependencies: ["LLMChat", "LLMClient"]),
+        .testTarget(name: "LLMContextTests", dependencies: ["LLMContext", "LLMTool", "LLMClient"]),
         .testTarget(name: "LLMMacrosTests", dependencies: [
             "LLMMacros", "LLMClient",
             .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),

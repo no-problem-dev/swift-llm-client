@@ -9,6 +9,24 @@
 
 なし
 
+## [3.8.0] - 2026-06-14
+
+コンテキストウィンドウ計測の基盤を追加。host/サブエージェント (A2) ごとに
+「ウィンドウのどれだけを、何（system prompt / tool 定義 / 会話履歴）が占有しているか」を
+可視化するための純粋ドメインロジックを提供する。
+
+### 追加
+- **`ContextOccupancy`（LLMCore）**: `TokenUsage` + ウィンドウサイズからライブ占有
+  （used / free / cached / fresh / 占有率）を算出する純粋値型。`usage`/`used`/`ModelProfile`/
+  ACP `usage_update` 各経路の初期化を提供。`contextWindow == nil` は free/率を `nil`
+  （占有率を捏造しない＝ silent fallback 排除）。
+- **`TokenCounting` プロトコル（LLMTool）**: `count_tokens` 能力の port（`modelID` 指定）。
+  実装は各プロバイダ adapter（swift-llm-cloud）が供給する。
+- **`LLMContext` ターゲット（新規 product）**: カテゴリ別内訳を **差分減算**で算出する
+  `SegmentBreakdownEngine`（per-request wrapper を相殺し、単独カウント合算による過大計上を構造的に回避）、
+  増分再計算 `BreakdownCache`、host/A2 集約 `AgentContextTracker`、表示変換 `ContextBarLayout`、
+  `ContextReport` / `SegmentBreakdown` / `ContextSegment`。
+
 ## [3.7.0] - 2026-06-14
 
 マルチモーダル基盤の整備。メディア層をヘキサゴナル原則に沿って再設計した。
