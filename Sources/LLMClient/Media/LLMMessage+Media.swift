@@ -101,6 +101,43 @@ extension LLMMessage {
         LLMMessage(role: .user, contents: [.video(video), .text(text)])
     }
 
+    // MARK: - ドキュメントメッセージ
+
+    /// テキストとドキュメントを含むユーザーメッセージを作成
+    ///
+    /// PDF やテキストファイルを送信して分析・要約・抽出を行う場合に使用します。
+    ///
+    /// ## 使用例
+    /// ```swift
+    /// let document = try DocumentContent.file(at: "/path/to/report.pdf")
+    /// let message = LLMMessage.user(
+    ///     "このPDFを要約してください",
+    ///     document: document
+    /// )
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - text: テキストメッセージ
+    ///   - document: ドキュメントコンテンツ
+    /// - Returns: ユーザーメッセージ
+    public static func user(_ text: String, document: DocumentContent) -> LLMMessage {
+        LLMMessage(role: .user, contents: [.document(document), .text(text)])
+    }
+
+    /// 複数のドキュメントを含むユーザーメッセージを作成
+    ///
+    /// 複数のドキュメントを同時に送信する場合に使用します。
+    ///
+    /// - Parameters:
+    ///   - text: テキストメッセージ
+    ///   - documents: ドキュメントコンテンツの配列
+    /// - Returns: ユーザーメッセージ
+    public static func user(_ text: String, documents: [DocumentContent]) -> LLMMessage {
+        var contents: [MessageContent] = documents.map { .document($0) }
+        contents.append(.text(text))
+        return LLMMessage(role: .user, contents: contents)
+    }
+
     // MARK: - 複合メッセージ
 
     /// 任意のコンテンツを含むユーザーメッセージを作成
@@ -154,13 +191,23 @@ extension LLMMessage {
         }
     }
 
+    /// ドキュメントコンテンツを取得
+    ///
+    /// メッセージに含まれる全てのドキュメントを配列で返します。
+    public var documents: [DocumentContent] {
+        contents.compactMap { content in
+            if case .document(let document) = content { return document }
+            return nil
+        }
+    }
+
     /// メディアコンテンツを含むかどうか
     ///
-    /// 画像、音声、または動画のいずれかを含む場合に `true` を返します。
+    /// 画像、音声、動画、またはドキュメントのいずれかを含む場合に `true` を返します。
     public var hasMediaContent: Bool {
         contents.contains { content in
             switch content {
-            case .image, .audio, .video: return true
+            case .image, .audio, .video, .document: return true
             default: return false
             }
         }
@@ -179,5 +226,10 @@ extension LLMMessage {
     /// 動画を含むかどうか
     public var hasVideo: Bool {
         contents.contains { if case .video = $0 { return true }; return false }
+    }
+
+    /// ドキュメントを含むかどうか
+    public var hasDocument: Bool {
+        contents.contains { if case .document = $0 { return true }; return false }
     }
 }

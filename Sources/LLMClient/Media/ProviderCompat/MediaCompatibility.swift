@@ -129,6 +129,16 @@ public enum MediaCompatibility {
         }
     }
 
+    // MARK: - Document Type Compatibility
+
+    /// 指定されたドキュメントタイプがプロバイダーでサポートされるか
+    public static func isSupported(_ type: DocumentMediaType, by provider: ProviderType) -> Bool {
+        switch provider {
+        case .anthropic, .openai, .gemini:
+            return true
+        }
+    }
+
     // MARK: - Image Output Format Compatibility
 
     /// 指定されたプロバイダーがサポートする画像出力フォーマット
@@ -197,6 +207,8 @@ public enum MediaCompatibility {
             return isSupported(audio, by: provider)
         case let video as VideoMediaType:
             return isSupported(video, by: provider)
+        case let document as DocumentMediaType:
+            return isSupported(document, by: provider)
         default:
             return false
         }
@@ -263,5 +275,12 @@ public enum MediaCompatibility {
                 provider: provider
             )
         }
+    }
+
+    /// ドキュメントコンテンツのプロバイダー互換性を検証
+    ///
+    /// - Throws: `ProviderCompatibilityError` 互換性がない場合
+    public static func validate(_ document: DocumentContent, for provider: ProviderType) throws {
+        try validateSupport(document.mediaType, for: provider)
     }
 }

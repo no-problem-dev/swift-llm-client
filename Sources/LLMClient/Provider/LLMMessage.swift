@@ -86,6 +86,14 @@ public struct LLMMessage: Sendable, Codable {
         /// - Gemini: ✓（MP4, AVI, MOV, MKV, WebM, FLV, MPEG, 3GP, WMV）
         case video(VideoContent)
 
+        /// ドキュメントコンテンツ
+        ///
+        /// サポート状況:
+        /// - Anthropic: ✓（PDF, テキスト）
+        /// - OpenAI: ✓（PDF, テキスト）
+        /// - Gemini: ✓（PDF, テキスト）
+        case document(DocumentContent)
+
         /// 思考コンテンツ（Extended Thinking）
         ///
         /// Claude の Extended Thinking で生成された思考プロセスを会話履歴に保持するために使用。
@@ -104,6 +112,7 @@ public struct LLMMessage: Sendable, Codable {
             case imageContent
             case audioContent
             case videoContent
+            case documentContent
             case signature
         }
 
@@ -114,6 +123,7 @@ public struct LLMMessage: Sendable, Codable {
             case image
             case audio
             case video
+            case document
             case thinking
         }
 
@@ -144,6 +154,9 @@ public struct LLMMessage: Sendable, Codable {
             case .video:
                 let videoContent = try container.decode(VideoContent.self, forKey: .videoContent)
                 self = .video(videoContent)
+            case .document:
+                let documentContent = try container.decode(DocumentContent.self, forKey: .documentContent)
+                self = .document(documentContent)
             case .thinking:
                 let text = try container.decode(String.self, forKey: .text)
                 let signature = try container.decodeIfPresent(String.self, forKey: .signature)
@@ -177,6 +190,9 @@ public struct LLMMessage: Sendable, Codable {
             case .video(let videoContent):
                 try container.encode(ContentType.video, forKey: .type)
                 try container.encode(videoContent, forKey: .videoContent)
+            case .document(let documentContent):
+                try container.encode(ContentType.document, forKey: .type)
+                try container.encode(documentContent, forKey: .documentContent)
             case .thinking(let text, let signature):
                 try container.encode(ContentType.thinking, forKey: .type)
                 try container.encode(text, forKey: .text)
