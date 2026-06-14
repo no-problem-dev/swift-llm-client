@@ -25,8 +25,23 @@ extension JSONSchema {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        // type は単一文字列(`"string"`) または null union 配列(`["string","null"]`) の両形を受ける。
+        var decodedType: JSONSchemaType = .object
+        var decodedNullable = false
+        if container.contains(.type) {
+            if let union = try? container.decode([String].self, forKey: .type) {
+                decodedNullable = union.contains(JSONSchemaType.null.rawValue)
+                if let primary = union.first(where: { $0 != JSONSchemaType.null.rawValue }),
+                   let parsed = JSONSchemaType(rawValue: primary) {
+                    decodedType = parsed
+                }
+            } else if let single = try? container.decode(JSONSchemaType.self, forKey: .type) {
+                decodedType = single
+            }
+        }
         self.init(
-            type: try container.decodeIfPresent(JSONSchemaType.self, forKey: .type) ?? .object,
+            type: decodedType,
+            nullable: decodedNullable,
             description: try container.decodeIfPresent(String.self, forKey: .description),
             properties: try container.decodeIfPresent([String: JSONSchema].self, forKey: .properties),
             required: try container.decodeIfPresent([String].self, forKey: .required),
@@ -49,7 +64,12 @@ extension JSONSchema {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
-        try container.encode(type, forKey: .type)
+        // nullable は型を `["<type>", "null"]` union として出力する（OpenAI strict の optional 表現）。
+        if nullable {
+            try container.encode([type.rawValue, JSONSchemaType.null.rawValue], forKey: .type)
+        } else {
+            try container.encode(type, forKey: .type)
+        }
 
         if let description {
             try container.encode(description, forKey: .description)

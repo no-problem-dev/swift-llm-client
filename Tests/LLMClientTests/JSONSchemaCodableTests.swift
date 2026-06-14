@@ -50,4 +50,30 @@ struct JSONSchemaCodableTests {
         let decoded = try JSONDecoder().decode(JSONSchema.self, from: Data("{}".utf8))
         #expect(decoded.type == .object)
     }
+
+    /// nullable は type を ["<type>","null"] union として出力する。
+    @Test func nullableEncodesAsTypeUnion() throws {
+        let schema = JSONSchema(type: .string, nullable: true, description: "maybe")
+        let json = try schema.toJSONString()
+        #expect(json.contains("[\"string\",\"null\"]"))
+        #expect(!json.contains("\"type\":\"string\""))
+    }
+
+    /// nullable union を読み戻すと nullable=true + 主型が復元される。
+    @Test func decodesNullableTypeUnion() throws {
+        let json = #"{"type":["integer","null"]}"#
+        let decoded = try JSONDecoder().decode(JSONSchema.self, from: Data(json.utf8))
+        #expect(decoded.type == .integer)
+        #expect(decoded.nullable == true)
+    }
+
+    /// 非 nullable は単一文字列のまま round-trip する。
+    @Test func nonNullableRoundTrips() throws {
+        let schema = JSONSchema(type: .string, nullable: false)
+        let data = try JSONEncoder().encode(schema)
+        let decoded = try JSONDecoder().decode(JSONSchema.self, from: data)
+        #expect(decoded.nullable == false)
+        #expect(decoded.type == .string)
+        #expect(decoded == schema)
+    }
 }

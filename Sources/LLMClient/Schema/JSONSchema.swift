@@ -41,6 +41,13 @@ public struct JSONSchema: Sendable, Codable, Equatable {
     /// スキーマの型
     public let type: JSONSchemaType
 
+    /// null を許容するか。
+    ///
+    /// `true` の場合、JSON Schema では型を `["<type>", "null"]` の union として出力する。
+    /// OpenAI strict mode では「optional なプロパティは required に含めつつ null 許容にする」
+    /// のが標準であり、その表現に用いる。
+    public let nullable: Bool
+
     /// スキーマの説明
     public let description: String?
 
@@ -121,6 +128,7 @@ public struct JSONSchema: Sendable, Codable, Equatable {
     ///   - format: 文字列フォーマット
     public init(
         type: JSONSchemaType,
+        nullable: Bool = false,
         description: String? = nil,
         properties: [String: JSONSchema]? = nil,
         required: [String]? = nil,
@@ -139,6 +147,7 @@ public struct JSONSchema: Sendable, Codable, Equatable {
         format: String? = nil
     ) {
         self.type = type
+        self.nullable = nullable
         self.description = description
         self.properties = properties
         self.required = required
