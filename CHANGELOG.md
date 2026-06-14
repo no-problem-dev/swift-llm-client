@@ -9,6 +9,34 @@
 
 なし
 
+## [3.7.0] - 2026-06-14
+
+マルチモーダル基盤の整備。メディア層をヘキサゴナル原則に沿って再設計した。
+破壊的変更を含むが運用方針によりマイナーバージョンで提供する。
+
+### 追加
+- **`DocumentContent`（PDF/プレーンテキスト入力）**: `MessageContent.document` ケースと
+  `DocumentMediaType`（pdf/plainText）、`LLMMessage.user(_:document:)` / `documents` を追加。
+  これまで型レベルで表現できなかった PDF 入力に対応。
+- **モジュール分割**: `LLMCore`（Foundation のみの純粋ドメイン）/ `LLMProviderCompat`
+  （プロバイダ互換性マトリクス）/ `LLMMediaKit`（UIImage 変換等のプラットフォーム機能）を
+  独立 product として公開。`LLMClient` は `@_exported import` で従来の `import LLMClient`
+  互換を維持。
+
+### 変更（破壊的）
+- **ドメイン値型からプロバイダ知識を排除**: `ImageContent.detail`（OpenAI 専用）を削除。
+  `ImageContent/AudioContent/VideoContent` の `validate(for:)`、`MediaType.isSupported(by:)`、
+  `ProviderType` を `MediaCompatibility`（LLMProviderCompat）へ移設。
+- **ドメイン値型からプラットフォーム依存を排除**: `GeneratedImage/Audio/Video` の
+  `uiImage`/`nsImage`/`cgImage`/`imageSize`/`audioPlayer`/`downloadData()` を `LLMMediaKit` へ移動。
+  コア値型は Foundation のみに。
+- `MediaError` から `.notSupportedByProvider` と `validateSupport(_:for:)` を削除
+  （`ProviderCompatibilityError` / `MediaCompatibility` へ移行）。`errorDomain` を修正。
+
+### 内部
+- God ファイル `LLMProvider.swift` を `LLMResponse`/`LLMMessage`/`LLMError` に分割。
+- 旧パッケージ名 `swift-llm-structured-outputs` の残骸を一掃。
+
 ## [3.5.0] - 2026-06-08
 
 ### 追加
