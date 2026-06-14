@@ -2,31 +2,20 @@ import Foundation
 
 /// xAI Grok モデル
 public enum GrokModel: Sendable, Equatable {
-    /// Grok 4.3（フラッグシップ）
+    /// Grok 4.3（フラッグシップ・汎用推奨）
     case grok43
 
-    /// Grok 4.1 Fast (Reasoning)（高速エージェント特化・推論版）
-    case grok41FastReasoning
+    /// Grok 4.20 Reasoning（高速エージェント特化・推論版）
+    case grok420Reasoning
 
-    /// Grok 4.1 Fast（高速・大量処理向け・非推論版）
-    case grok41Fast
+    /// Grok 4.20 Non-Reasoning（高速・大量処理向け・非推論版）
+    case grok420NonReasoning
+
+    /// Grok 4.20 Multi-Agent（マルチエージェント協調）
+    case grok420MultiAgent
 
     /// Grok Build（コーディング特化ベータ）
     case grokBuild
-
-    // MARK: Legacy（Preset 非掲載・後方互換のため保持）
-
-    /// Grok 3（レガシー）
-    case grok3
-
-    /// Grok 3 Mini（レガシー・軽量版）
-    case grok3Mini
-
-    /// Grok 3 Fast（レガシー・高速版）
-    case grok3Fast
-
-    /// Grok 3 Mini Fast（レガシー・軽量高速版）
-    case grok3MiniFast
 
     /// カスタムモデルID
     case custom(String)
@@ -36,20 +25,14 @@ public enum GrokModel: Sendable, Equatable {
         switch self {
         case .grok43:
             return "grok-4.3"
-        case .grok41FastReasoning:
-            return "grok-4-1-fast-reasoning"
-        case .grok41Fast:
-            return "grok-4-1-fast-non-reasoning"
+        case .grok420Reasoning:
+            return "grok-4.20-0309-reasoning"
+        case .grok420NonReasoning:
+            return "grok-4.20-0309-non-reasoning"
+        case .grok420MultiAgent:
+            return "grok-4.20-multi-agent-0309"
         case .grokBuild:
             return "grok-build-0.1"
-        case .grok3:
-            return "grok-3"
-        case .grok3Mini:
-            return "grok-3-mini"
-        case .grok3Fast:
-            return "grok-3-fast"
-        case .grok3MiniFast:
-            return "grok-3-mini-fast"
         case .custom(let id):
             return id
         }
@@ -63,10 +46,12 @@ extension GrokModel {
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         /// Grok 4.3（フラッグシップ・デフォルト）
         case grok43 = "grok43"
-        /// Grok 4.1 Fast (Reasoning)（高速エージェント・推論版）
-        case grok41FastReasoning = "grok41FastReasoning"
-        /// Grok 4.1 Fast（高速・大量処理向け・非推論版）
-        case grok41Fast = "grok41Fast"
+        /// Grok 4.20 Reasoning（高速エージェント・推論版）
+        case grok420Reasoning = "grok420Reasoning"
+        /// Grok 4.20 Non-Reasoning（高速・大量処理向け・非推論版）
+        case grok420NonReasoning = "grok420NonReasoning"
+        /// Grok 4.20 Multi-Agent（マルチエージェント協調）
+        case grok420MultiAgent = "grok420MultiAgent"
         /// Grok Build（コーディング特化ベータ）
         case grokBuild = "grokBuild"
 
@@ -79,8 +64,9 @@ extension GrokModel {
         public var model: GrokModel {
             switch self {
             case .grok43: return .grok43
-            case .grok41FastReasoning: return .grok41FastReasoning
-            case .grok41Fast: return .grok41Fast
+            case .grok420Reasoning: return .grok420Reasoning
+            case .grok420NonReasoning: return .grok420NonReasoning
+            case .grok420MultiAgent: return .grok420MultiAgent
             case .grokBuild: return .grokBuild
             }
         }
@@ -89,8 +75,9 @@ extension GrokModel {
         public var displayName: String {
             switch self {
             case .grok43: return "Grok 4.3"
-            case .grok41FastReasoning: return "Grok 4.1 Fast (Reasoning)"
-            case .grok41Fast: return "Grok 4.1 Fast"
+            case .grok420Reasoning: return "Grok 4.20 Reasoning"
+            case .grok420NonReasoning: return "Grok 4.20 Fast"
+            case .grok420MultiAgent: return "Grok 4.20 Multi-Agent"
             case .grokBuild: return "Grok Build"
             }
         }
@@ -99,8 +86,9 @@ extension GrokModel {
         public var shortName: String {
             switch self {
             case .grok43: return "4.3"
-            case .grok41FastReasoning: return "4.1 Fast R"
-            case .grok41Fast: return "4.1 Fast"
+            case .grok420Reasoning: return "4.20 R"
+            case .grok420NonReasoning: return "4.20 Fast"
+            case .grok420MultiAgent: return "4.20 MA"
             case .grokBuild: return "Build"
             }
         }
@@ -122,33 +110,47 @@ extension GrokModel {
                     modalities: [.text, .vision, .code],
                     pricing: .flat(inputPerMTok: 1.25, outputPerMTok: 2.50, cacheReadPerMTok: 0.20)
                 )
-            case .grok41FastReasoning:
+            case .grok420Reasoning:
                 return ModelProfile(
-                    summary: "高速エージェント特化。推論モード・200万トークン",
+                    summary: "高速エージェント特化。推論モード・低ハルシネーション",
                     modelFamily: "Grok",
-                    description: "Grok 4.1 Fast (Reasoning) は推論を有効化した高速バリアントです。200万トークンの超巨大コンテキストと優れたツール呼び出しを両立し、エージェント・高速推論用途で最良の選択肢です。",
-                    contextWindow: 2_000_000,
+                    description: "Grok 4.20 Reasoning は推論を有効化した高速バリアントです。強力な agentic ツール呼び出しと市場最低水準のハルシネーション率を両立し、エージェント・高速推論用途で最良の選択肢です。",
+                    contextWindow: 1_000_000,
                     knowledgeCutoff: "2024-11",
-                    strengths: ["高速推論", "超巨大コンテキスト", "エージェント向き", "ツール呼び出し"],
+                    strengths: ["高速推論", "agentic ツール呼び出し", "低ハルシネーション", "巨大コンテキスト"],
                     bestFor: ["エージェントワークフロー", "高速な推論タスク", "大規模文脈の処理"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
-                    pricing: .flat(inputPerMTok: 0.20, outputPerMTok: 0.50, cacheReadPerMTok: 0.05)
+                    pricing: .flat(inputPerMTok: 1.25, outputPerMTok: 2.50, cacheReadPerMTok: 0.20)
                 )
-            case .grok41Fast:
+            case .grok420NonReasoning:
                 return ModelProfile(
-                    summary: "最安・大量処理向け。非推論・200万トークン",
+                    summary: "大量処理向け。非推論・低レイテンシ",
                     modelFamily: "Grok",
-                    description: "Grok 4.1 Fast は推論を無効化した最もコスト効率の良い Grok モデルです。200万トークンのコンテキストと低レイテンシを活かし、大量処理や高頻度な呼び出しに最適です。",
-                    contextWindow: 2_000_000,
+                    description: "Grok 4.20 Non-Reasoning は推論を無効化したコスト効率重視の Grok モデルです。100万トークンのコンテキストと低レイテンシを活かし、大量処理や高頻度な呼び出しに最適です。",
+                    contextWindow: 1_000_000,
                     knowledgeCutoff: "2024-11",
-                    strengths: ["最低コスト", "大量処理向き", "超巨大コンテキスト", "低レイテンシ"],
+                    strengths: ["大量処理向き", "巨大コンテキスト", "低レイテンシ", "ツール呼び出し"],
                     bestFor: ["大量バッチ処理", "高頻度な呼び出し", "汎用チャット"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
-                    pricing: .flat(inputPerMTok: 0.20, outputPerMTok: 0.50, cacheReadPerMTok: 0.05)
+                    pricing: .flat(inputPerMTok: 1.25, outputPerMTok: 2.50, cacheReadPerMTok: 0.20)
+                )
+            case .grok420MultiAgent:
+                return ModelProfile(
+                    summary: "マルチエージェント協調。複数エージェントの並列推論",
+                    modelFamily: "Grok",
+                    description: "Grok 4.20 Multi-Agent は複数エージェントの協調推論に最適化されたモデルです。難度の高いタスクを並列に分割・統合し、単一エージェントを超える品質を狙います。",
+                    contextWindow: 1_000_000,
+                    knowledgeCutoff: "2024-11",
+                    strengths: ["マルチエージェント協調", "高難度タスク", "巨大コンテキスト", "ツール呼び出し"],
+                    bestFor: ["複雑な分割統合タスク", "高難度の推論", "エージェントワークフロー"],
+                    toolCallSupport: .excellent,
+                    japaneseSupport: .good,
+                    modalities: [.text, .vision, .code],
+                    pricing: .flat(inputPerMTok: 1.25, outputPerMTok: 2.50, cacheReadPerMTok: 0.20)
                 )
             case .grokBuild:
                 return ModelProfile(
