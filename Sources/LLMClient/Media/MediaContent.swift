@@ -11,11 +11,6 @@ import Foundation
 ///
 /// LLMに送信する画像データを表現します。
 ///
-/// ## サポートされるプロバイダー
-/// - **Anthropic**: JPEG, PNG, GIF, WebP（Base64またはURL）
-/// - **OpenAI**: JPEG, PNG, GIF, WebP（Base64またはURL、detailオプション付き）
-/// - **Gemini**: JPEG, PNG, GIF, WebP, HEIC, HEIF（Base64、URL、またはFile API）
-///
 /// ## 使用例
 /// ```swift
 /// // Base64データから
@@ -35,21 +30,6 @@ public struct ImageContent: Sendable, Equatable, Codable {
     /// メディアタイプ
     public let mediaType: ImageMediaType
 
-    /// 詳細レベル（OpenAI専用）
-    ///
-    /// 画像の解析詳細度を指定します。
-    /// - `low`: 低解像度処理（高速）
-    /// - `high`: 高解像度処理（詳細）
-    /// - `auto`: モデルが自動選択（デフォルト）
-    public let detail: ImageDetail?
-
-    /// 詳細レベル
-    public enum ImageDetail: String, Sendable, Codable, CaseIterable {
-        case low
-        case high
-        case auto
-    }
-
     // MARK: - Initializers
 
     /// 初期化
@@ -57,15 +37,12 @@ public struct ImageContent: Sendable, Equatable, Codable {
     /// - Parameters:
     ///   - source: データソース
     ///   - mediaType: 画像のMIMEタイプ
-    ///   - detail: 解析詳細度（OpenAI専用、省略可）
     public init(
         source: MediaSource,
-        mediaType: ImageMediaType,
-        detail: ImageDetail? = nil
+        mediaType: ImageMediaType
     ) {
         self.source = source
         self.mediaType = mediaType
-        self.detail = detail
     }
 
     // MARK: - Convenience Initializers
@@ -75,14 +52,12 @@ public struct ImageContent: Sendable, Equatable, Codable {
     /// - Parameters:
     ///   - data: 画像のバイナリデータ
     ///   - mediaType: 画像のMIMEタイプ
-    ///   - detail: 解析詳細度（OpenAI専用）
     /// - Returns: 画像コンテンツ
     public static func base64(
         _ data: Data,
-        mediaType: ImageMediaType,
-        detail: ImageDetail? = nil
+        mediaType: ImageMediaType
     ) -> ImageContent {
-        ImageContent(source: .base64(data), mediaType: mediaType, detail: detail)
+        ImageContent(source: .base64(data), mediaType: mediaType)
     }
 
     /// URLから初期化
@@ -90,14 +65,12 @@ public struct ImageContent: Sendable, Equatable, Codable {
     /// - Parameters:
     ///   - url: 画像のURL
     ///   - mediaType: 画像のMIMEタイプ
-    ///   - detail: 解析詳細度（OpenAI専用）
     /// - Returns: 画像コンテンツ
     public static func url(
         _ url: URL,
-        mediaType: ImageMediaType,
-        detail: ImageDetail? = nil
+        mediaType: ImageMediaType
     ) -> ImageContent {
-        ImageContent(source: .url(url), mediaType: mediaType, detail: detail)
+        ImageContent(source: .url(url), mediaType: mediaType)
     }
 
     /// ファイル参照から初期化
@@ -105,64 +78,37 @@ public struct ImageContent: Sendable, Equatable, Codable {
     /// - Parameters:
     ///   - id: File APIのファイルID
     ///   - mediaType: 画像のMIMEタイプ
-    ///   - detail: 解析詳細度（OpenAI専用）
     /// - Returns: 画像コンテンツ
     public static func fileReference(
         _ id: String,
-        mediaType: ImageMediaType,
-        detail: ImageDetail? = nil
+        mediaType: ImageMediaType
     ) -> ImageContent {
-        ImageContent(source: .fileReference(id: id), mediaType: mediaType, detail: detail)
+        ImageContent(source: .fileReference(id: id), mediaType: mediaType)
     }
 
     /// ファイルパスから初期化（メディアタイプを拡張子から推論）
     ///
-    /// - Parameters:
-    ///   - path: ファイルパス
-    ///   - detail: 解析詳細度（OpenAI専用）
+    /// - Parameter path: ファイルパス
     /// - Returns: 画像コンテンツ
     /// - Throws: `MediaError.unsupportedFormat` または `MediaError.fileReadError`
     public static func file(
-        at path: String,
-        detail: ImageDetail? = nil
+        at path: String
     ) throws -> ImageContent {
         let url = URL(fileURLWithPath: path)
-        return try file(at: url, detail: detail)
+        return try file(at: url)
     }
 
     /// ファイルURLから初期化（メディアタイプを拡張子から推論）
     ///
-    /// - Parameters:
-    ///   - url: ファイルURL
-    ///   - detail: 解析詳細度（OpenAI専用）
+    /// - Parameter url: ファイルURL
     /// - Returns: 画像コンテンツ
     /// - Throws: `MediaError.unsupportedFormat` または `MediaError.fileReadError`
     public static func file(
-        at url: URL,
-        detail: ImageDetail? = nil
+        at url: URL
     ) throws -> ImageContent {
         let source = try MediaSource.fromFile(at: url)
         let mediaType = try inferMediaType(from: url)
-        return ImageContent(source: source, mediaType: mediaType, detail: detail)
-    }
-
-    // MARK: - Validation
-
-    /// プロバイダー互換性をバリデーション
-    ///
-    /// - Parameter provider: ターゲットプロバイダー
-    /// - Throws: `MediaError` 互換性がない場合
-    public func validate(for provider: ProviderType) throws {
-        // メディアタイプのサポート確認
-        try MediaError.validateSupport(mediaType, for: provider)
-
-        // ファイル参照はAnthropicで未サポート
-        if source.isFileReference && provider == .anthropic {
-            throw MediaError.notSupportedByProvider(
-                feature: "File reference",
-                provider: provider
-            )
-        }
+        return ImageContent(source: source, mediaType: mediaType)
     }
 
     // MARK: - Private
@@ -266,33 +212,6 @@ public struct AudioContent: Sendable, Equatable, Codable {
         let source = try MediaSource.fromFile(at: url)
         let mediaType = try inferMediaType(from: url)
         return AudioContent(source: source, mediaType: mediaType)
-    }
-
-    // MARK: - Validation
-
-    /// プロバイダー互換性をバリデーション
-    ///
-    /// - Parameter provider: ターゲットプロバイダー
-    /// - Throws: `MediaError` 互換性がない場合
-    public func validate(for provider: ProviderType) throws {
-        // Anthropicは音声未対応
-        if provider == .anthropic {
-            throw MediaError.notSupportedByProvider(
-                feature: "Audio input",
-                provider: provider
-            )
-        }
-
-        // メディアタイプのサポート確認
-        try MediaError.validateSupport(mediaType, for: provider)
-
-        // OpenAIはbase64のみ
-        if provider == .openai && !source.isBase64 {
-            throw MediaError.notSupportedByProvider(
-                feature: "Audio from URL (use base64)",
-                provider: provider
-            )
-        }
     }
 
     // MARK: - Private
@@ -403,22 +322,6 @@ public struct VideoContent: Sendable, Equatable, Codable {
         return VideoContent(source: source, mediaType: mediaType)
     }
 
-    // MARK: - Validation
-
-    /// プロバイダー互換性をバリデーション
-    ///
-    /// - Parameter provider: ターゲットプロバイダー
-    /// - Throws: `MediaError` 互換性がない場合
-    public func validate(for provider: ProviderType) throws {
-        // Gemini以外は動画未対応
-        if provider != .gemini {
-            throw MediaError.notSupportedByProvider(
-                feature: "Video input",
-                provider: provider
-            )
-        }
-    }
-
     // MARK: - Private
 
     private static func inferMediaType(from url: URL) throws -> VideoMediaType {
@@ -441,9 +344,6 @@ public protocol MediaContentProtocol: Sendable, Equatable, Codable {
 
     /// MIMEタイプ文字列
     var mimeType: String { get }
-
-    /// プロバイダー互換性をバリデーション
-    func validate(for provider: ProviderType) throws
 }
 
 extension ImageContent: MediaContentProtocol {

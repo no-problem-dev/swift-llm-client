@@ -60,30 +60,6 @@ public enum ImageOutputFormat: String, OutputMediaFormat {
     /// MIME タイプ文字列
     public var mimeType: String { rawValue }
 
-    // MARK: - Provider Compatibility
-
-    /// OpenAI でサポートされるフォーマット
-    public static var openaiFormats: [ImageOutputFormat] {
-        [.png, .jpeg, .webp]
-    }
-
-    /// Gemini でサポートされるフォーマット
-    public static var geminiFormats: [ImageOutputFormat] {
-        [.png]
-    }
-
-    /// 指定されたプロバイダーでサポートされるか
-    public func isSupported(by provider: ProviderType) -> Bool {
-        switch provider {
-        case .anthropic:
-            return false  // 画像生成未対応
-        case .openai:
-            return Self.openaiFormats.contains(self)
-        case .gemini:
-            return Self.geminiFormats.contains(self)
-        }
-    }
-
     // MARK: - Inference
 
     /// ファイル拡張子からフォーマットを推論
@@ -142,30 +118,6 @@ public enum AudioOutputFormat: String, OutputMediaFormat {
     /// MIME タイプ文字列
     public var mimeType: String { rawValue }
 
-    // MARK: - Provider Compatibility
-
-    /// OpenAI TTS でサポートされるフォーマット
-    public static var openaiFormats: [AudioOutputFormat] {
-        [.mp3, .opus, .aac, .flac, .wav, .pcm]
-    }
-
-    /// Gemini TTS でサポートされるフォーマット
-    public static var geminiFormats: [AudioOutputFormat] {
-        [.pcm]  // Linear16, 24kHz
-    }
-
-    /// 指定されたプロバイダーでサポートされるか
-    public func isSupported(by provider: ProviderType) -> Bool {
-        switch provider {
-        case .anthropic:
-            return false  // 音声生成未対応
-        case .openai:
-            return Self.openaiFormats.contains(self)
-        case .gemini:
-            return Self.geminiFormats.contains(self)
-        }
-    }
-
     // MARK: - Inference
 
     /// ファイル拡張子からフォーマットを推論
@@ -213,18 +165,6 @@ public enum VideoOutputFormat: String, OutputMediaFormat {
 
     /// MIME タイプ文字列
     public var mimeType: String { rawValue }
-
-    // MARK: - Provider Compatibility
-
-    /// 指定されたプロバイダーでサポートされるか
-    public func isSupported(by provider: ProviderType) -> Bool {
-        switch provider {
-        case .anthropic:
-            return false  // 動画生成未対応
-        case .openai, .gemini:
-            return true
-        }
-    }
 
     // MARK: - Inference
 

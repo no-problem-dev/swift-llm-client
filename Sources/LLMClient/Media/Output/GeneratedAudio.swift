@@ -5,10 +5,6 @@
 
 import Foundation
 
-#if canImport(AVFoundation)
-import AVFoundation
-#endif
-
 // MARK: - GeneratedAudio
 
 /// 生成された音声
@@ -119,18 +115,6 @@ public struct GeneratedAudio: GeneratedMediaProtocol {
         self.id = id
         self.expiresAt = expiresAt
     }
-
-    // MARK: - Audio Playback
-
-    #if canImport(AVFoundation)
-    /// AVAudioPlayer を作成
-    ///
-    /// - Returns: 音声を再生するための AVAudioPlayer、作成に失敗した場合は nil
-    /// - Note: PCM フォーマットの場合、追加の変換が必要になる場合があります
-    public var audioPlayer: AVAudioPlayer? {
-        try? AVAudioPlayer(data: data)
-    }
-    #endif
 
     // MARK: - Metadata
 

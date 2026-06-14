@@ -99,16 +99,16 @@ extension LLMInputProtocol {
     /// サポートされているかを検証します。
     ///
     /// - Parameter provider: ターゲットプロバイダー
-    /// - Throws: `MediaError` 互換性がない場合
+    /// - Throws: `ProviderCompatibilityError` 互換性がない場合
     public func validate(for provider: ProviderType) throws {
         for image in images {
-            try image.validate(for: provider)
+            try MediaCompatibility.validate(image, for: provider)
         }
         for audio in audios {
-            try audio.validate(for: provider)
+            try MediaCompatibility.validate(audio, for: provider)
         }
         for video in videos {
-            try video.validate(for: provider)
+            try MediaCompatibility.validate(video, for: provider)
         }
     }
 }

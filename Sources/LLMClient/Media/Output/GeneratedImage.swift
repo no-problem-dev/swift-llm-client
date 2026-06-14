@@ -5,18 +5,6 @@
 
 import Foundation
 
-#if canImport(CoreGraphics)
-import CoreGraphics
-#endif
-
-#if canImport(UIKit)
-import UIKit
-#endif
-
-#if canImport(AppKit) && !targetEnvironment(macCatalyst)
-import AppKit
-#endif
-
 // MARK: - GeneratedMediaProtocol
 
 /// 生成メディアコンテンツ共通プロトコル
@@ -146,54 +134,7 @@ public struct GeneratedImage: GeneratedMediaProtocol {
         self.revisedPrompt = revisedPrompt
     }
 
-    // MARK: - Image Conversion
-
-    #if canImport(UIKit)
-    /// UIImage に変換（iOS/tvOS/watchOS/visionOS）
-    ///
-    /// - Returns: 変換された UIImage、変換に失敗した場合は nil
-    public var uiImage: UIImage? {
-        UIImage(data: data)
-    }
-    #endif
-
-    #if canImport(AppKit) && !targetEnvironment(macCatalyst)
-    /// NSImage に変換（macOS）
-    ///
-    /// - Returns: 変換された NSImage、変換に失敗した場合は nil
-    public var nsImage: NSImage? {
-        NSImage(data: data)
-    }
-    #endif
-
-    #if canImport(CoreGraphics)
-    /// CGImage に変換
-    ///
-    /// - Returns: 変換された CGImage、変換に失敗した場合は nil
-    public var cgImage: CGImage? {
-        #if canImport(UIKit)
-        return uiImage?.cgImage
-        #elseif canImport(AppKit) && !targetEnvironment(macCatalyst)
-        return nsImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        #else
-        return nil
-        #endif
-    }
-    #endif
-
     // MARK: - Metadata
-
-    /// 画像のサイズ（ピクセル）
-    ///
-    /// - Returns: 画像サイズ、取得に失敗した場合は nil
-    public var imageSize: (width: Int, height: Int)? {
-        #if canImport(CoreGraphics)
-        guard let cgImage = cgImage else { return nil }
-        return (width: cgImage.width, height: cgImage.height)
-        #else
-        return nil
-        #endif
-    }
 
     /// データサイズ（バイト）
     public var dataSize: Int {

@@ -9,17 +9,11 @@ import Foundation
 
 /// 画像メディアタイプ
 ///
-/// 各プロバイダーでサポートされる画像形式を定義します。
-/// プロバイダー間の互換性情報も含みます。
-///
-/// ## サポート状況
-/// - **全プロバイダー共通**: JPEG, PNG, GIF, WebP
-/// - **Gemini専用**: HEIC, HEIF
+/// 画像形式とその MIME タイプ・ファイル拡張子を定義します。
 ///
 /// ## 使用例
 /// ```swift
 /// let imageType: ImageMediaType = .jpeg
-/// print(imageType.isSupported(by: .anthropic))  // true
 /// print(imageType.fileExtension)  // "jpg"
 /// ```
 public enum ImageMediaType: String, Sendable, Codable, CaseIterable, Equatable, Hashable {
@@ -27,8 +21,8 @@ public enum ImageMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
     case png = "image/png"
     case gif = "image/gif"
     case webp = "image/webp"
-    case heic = "image/heic"   // Gemini only
-    case heif = "image/heif"   // Gemini only
+    case heic = "image/heic"
+    case heif = "image/heif"
 
     // MARK: - Properties
 
@@ -46,28 +40,6 @@ public enum ImageMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
 
     /// MIME タイプ文字列
     public var mimeType: String { rawValue }
-
-    // MARK: - Provider Compatibility
-
-    /// 全プロバイダーで共通サポートされるタイプ
-    public static var universalTypes: [ImageMediaType] {
-        [.jpeg, .png, .gif, .webp]
-    }
-
-    /// Gemini専用タイプ
-    public static var geminiOnlyTypes: [ImageMediaType] {
-        [.heic, .heif]
-    }
-
-    /// 指定されたプロバイダーでサポートされるか
-    public func isSupported(by provider: ProviderType) -> Bool {
-        switch provider {
-        case .anthropic, .openai:
-            return Self.universalTypes.contains(self)
-        case .gemini:
-            return true  // All types supported
-        }
-    }
 
     // MARK: - Inference
 
@@ -93,17 +65,12 @@ public enum ImageMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
 
 /// 音声メディアタイプ
 ///
-/// 各プロバイダーでサポートされる音声形式を定義します。
-///
-/// ## サポート状況
-/// - **OpenAI Chat API**: WAV, MP3 のみ
-/// - **Gemini**: 全形式対応
-/// - **Anthropic**: 音声入力未対応
+/// 音声形式とその MIME タイプ・ファイル拡張子を定義します。
 ///
 /// ## 使用例
 /// ```swift
 /// let audioType: AudioMediaType = .wav
-/// print(AudioMediaType.openaiChatTypes.contains(audioType))  // true
+/// print(audioType.fileExtension)  // "wav"
 /// ```
 public enum AudioMediaType: String, Sendable, Codable, CaseIterable, Equatable, Hashable {
     case wav = "audio/wav"
@@ -111,7 +78,7 @@ public enum AudioMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
     case aac = "audio/aac"
     case flac = "audio/flac"
     case ogg = "audio/ogg"
-    case aiff = "audio/aiff"  // Gemini only
+    case aiff = "audio/aiff"
 
     // MARK: - Properties
 
@@ -129,30 +96,6 @@ public enum AudioMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
 
     /// MIME タイプ文字列
     public var mimeType: String { rawValue }
-
-    // MARK: - Provider Compatibility
-
-    /// OpenAI Chat Completions でサポートされるタイプ
-    public static var openaiChatTypes: [AudioMediaType] {
-        [.wav, .mp3]
-    }
-
-    /// Gemini でサポートされるタイプ
-    public static var geminiTypes: [AudioMediaType] {
-        AudioMediaType.allCases
-    }
-
-    /// 指定されたプロバイダーでサポートされるか
-    public func isSupported(by provider: ProviderType) -> Bool {
-        switch provider {
-        case .anthropic:
-            return false  // Audio input not supported
-        case .openai:
-            return Self.openaiChatTypes.contains(self)
-        case .gemini:
-            return true
-        }
-    }
 
     // MARK: - Inference
 
@@ -175,17 +118,12 @@ public enum AudioMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
 
 /// 動画メディアタイプ
 ///
-/// 各プロバイダーでサポートされる動画形式を定義します。
-///
-/// ## サポート状況
-/// - **Gemini**: 全形式対応
-/// - **Anthropic / OpenAI**: 動画入力未対応（フレーム分解が必要）
+/// 動画形式とその MIME タイプ・ファイル拡張子を定義します。
 ///
 /// ## 使用例
 /// ```swift
 /// let videoType: VideoMediaType = .mp4
-/// print(videoType.isSupported(by: .gemini))  // true
-/// print(videoType.isSupported(by: .openai))  // false
+/// print(videoType.fileExtension)  // "mp4"
 /// ```
 public enum VideoMediaType: String, Sendable, Codable, CaseIterable, Equatable, Hashable {
     case mp4 = "video/mp4"
@@ -218,18 +156,6 @@ public enum VideoMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
     /// MIME タイプ文字列
     public var mimeType: String { rawValue }
 
-    // MARK: - Provider Compatibility
-
-    /// 指定されたプロバイダーでサポートされるか
-    public func isSupported(by provider: ProviderType) -> Bool {
-        switch provider {
-        case .anthropic, .openai:
-            return false  // Direct video input not supported
-        case .gemini:
-            return true
-        }
-    }
-
     // MARK: - Inference
 
     /// ファイル拡張子からメディアタイプを推論
@@ -250,42 +176,6 @@ public enum VideoMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
     }
 }
 
-// MARK: - Provider Capabilities Protocol
-
-/// プロバイダーの機能・能力を定義するプロトコル
-public protocol ProviderCapabilities: Sendable {
-    /// プロバイダーの表示名
-    var displayName: String { get }
-    /// 指定されたメディアタイプをサポートしているか
-    func supports<T: MediaType>(_ mediaType: T) -> Bool
-}
-
-// MARK: - Provider Type
-
-/// プロバイダー識別子
-///
-/// LLMプロバイダーを識別するための列挙型です。
-/// メディア機能のサポート確認やエラーメッセージに使用されます。
-public enum ProviderType: String, Sendable, Codable, ProviderCapabilities {
-    case anthropic
-    case openai
-    case gemini
-
-    /// プロバイダーの表示名
-    public var displayName: String {
-        switch self {
-        case .anthropic: return "Anthropic"
-        case .openai: return "OpenAI"
-        case .gemini: return "Google Gemini"
-        }
-    }
-
-    /// 指定されたメディアタイプをサポートしているか
-    public func supports<T: MediaType>(_ mediaType: T) -> Bool {
-        mediaType.isSupported(by: self)
-    }
-}
-
 // MARK: - Media Type Protocol
 
 /// メディアタイプ共通プロトコル
@@ -296,8 +186,6 @@ public protocol MediaType: RawRepresentable, Sendable, Codable, CaseIterable, Eq
     var fileExtension: String { get }
     /// MIME タイプ文字列
     var mimeType: String { get }
-    /// 指定されたプロバイダーでサポートされるか
-    func isSupported(by provider: ProviderType) -> Bool
 }
 
 extension ImageMediaType: MediaType {}

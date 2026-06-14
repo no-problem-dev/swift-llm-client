@@ -91,7 +91,7 @@ public enum OpenAITTSModel: String, Sendable, Codable, CaseIterable, Equatable {
 
     /// サポートされる出力フォーマット
     public var supportedFormats: [AudioOutputFormat] {
-        AudioOutputFormat.openaiFormats
+        MediaCompatibility.audioOutputFormats(for: .openai)
     }
 }
 
@@ -138,7 +138,7 @@ public enum GeminiTTSModel: String, Sendable, Codable, CaseIterable, Equatable {
 
     /// サポートされる出力フォーマット
     public var supportedFormats: [AudioOutputFormat] {
-        AudioOutputFormat.geminiFormats
+        MediaCompatibility.audioOutputFormats(for: .gemini)
     }
 }
 

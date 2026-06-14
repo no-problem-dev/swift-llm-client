@@ -35,9 +35,6 @@ public enum MediaError: Error, Sendable, Equatable {
     /// サイズ制限超過
     case sizeLimitExceeded(size: Int, maxSize: Int)
 
-    /// プロバイダーが機能をサポートしていない
-    case notSupportedByProvider(feature: String, provider: ProviderType)
-
     /// ファイル読み込みエラー
     case fileReadError(any Error & Sendable)
 
@@ -61,8 +58,6 @@ public enum MediaError: Error, Sendable, Equatable {
             return l == r
         case (.sizeLimitExceeded(let ls, let lm), .sizeLimitExceeded(let rs, let rm)):
             return ls == rs && lm == rm
-        case (.notSupportedByProvider(let lf, let lp), .notSupportedByProvider(let rf, let rp)):
-            return lf == rf && lp == rp
         case (.fileReadError(let l), .fileReadError(let r)):
             return l.localizedDescription == r.localizedDescription
         case (.invalidMediaData(let l), .invalidMediaData(let r)):
@@ -92,9 +87,6 @@ extension MediaError: LocalizedError {
             let maxStr = ByteCountFormatter.string(fromByteCount: Int64(maxSize), countStyle: .binary)
             return "Media size (\(sizeStr)) exceeds limit (\(maxStr))"
 
-        case .notSupportedByProvider(let feature, let provider):
-            return "\(feature) is not supported by \(provider.displayName)"
-
         case .fileReadError(let error):
             return "Failed to read file: \(error.localizedDescription)"
 
@@ -118,8 +110,6 @@ extension MediaError: LocalizedError {
             return "The media format is not supported by any provider"
         case .sizeLimitExceeded:
             return "The media file is too large for the provider's limits"
-        case .notSupportedByProvider:
-            return "This feature is not available for the selected provider"
         case .fileReadError:
             return "The file could not be read from disk"
         case .invalidMediaData:
@@ -140,8 +130,6 @@ extension MediaError: LocalizedError {
         case .sizeLimitExceeded(_, let maxSize):
             let maxStr = ByteCountFormatter.string(fromByteCount: Int64(maxSize), countStyle: .binary)
             return "Reduce the file size to under \(maxStr) or use the File API for larger files."
-        case .notSupportedByProvider(let feature, let provider):
-            return "Use a different provider that supports \(feature), or remove the \(feature) from your request. \(provider.displayName) does not support this feature."
         case .fileReadError:
             return "Check that the file exists and you have permission to read it."
         case .invalidMediaData:
@@ -160,14 +148,13 @@ extension MediaError: LocalizedError {
 
 extension MediaError: CustomNSError {
     public static var errorDomain: String {
-        "LLMStructuredOutputs.MediaError"
+        "LLMClient.MediaError"
     }
 
     public var errorCode: Int {
         switch self {
         case .unsupportedFormat: return 1001
         case .sizeLimitExceeded: return 1002
-        case .notSupportedByProvider: return 1003
         case .fileReadError: return 1004
         case .invalidMediaData: return 1005
         case .mediaTypeMismatch: return 1006
@@ -202,24 +189,6 @@ extension MediaError {
     public static func validateSize(_ size: Int, maxSize: Int) throws {
         if size > maxSize {
             throw MediaError.sizeLimitExceeded(size: size, maxSize: maxSize)
-        }
-    }
-
-    /// プロバイダーのメディアタイプサポートをバリデーション
-    ///
-    /// - Parameters:
-    ///   - mediaType: バリデーションするメディアタイプ
-    ///   - provider: ターゲットプロバイダー
-    /// - Throws: `MediaError.notSupportedByProvider` 未サポート時
-    public static func validateSupport<T: MediaType>(
-        _ mediaType: T,
-        for provider: ProviderType
-    ) throws {
-        if !mediaType.isSupported(by: provider) {
-            throw MediaError.notSupportedByProvider(
-                feature: "Media type '\(mediaType.mimeType)'",
-                provider: provider
-            )
         }
     }
 }
