@@ -11,8 +11,8 @@
 ## 特徴
 
 - **プロバイダー非依存** - 統一プロトコルにより任意の LLM プロバイダーを差し替え可能
-- **Swift Macro ベースツール定義** - `@LLMTool` マクロで型安全な Function Calling を実現
-- **構造化出力** - JSON Schema ベースの動的構造化レスポンス
+- **Swift Macro ベースツール定義** - `@Tool` マクロで型安全な Function Calling を実現
+- **構造化出力** - `@Structured` マクロと JSON Schema による型安全な構造化レスポンス
 - **ストリーミング** - AsyncThrowingStream によるリアルタイムトークン出力
 - **チャット管理** - メッセージ履歴・コンテキスト管理の統一 API
 
@@ -31,25 +31,38 @@ dependencies: [
 
 | モジュール | 用途 |
 |-----------|------|
-| `LLMClient` | コアプロトコル・型定義（LLMProvider, LLMMessage, LLMResponse 等） |
-| `LLMTool` | Swift Macro ベースのツール定義（`@LLMTool`, ToolSet） |
-| `LLMChat` | チャットメッセージ管理（履歴・コンテキスト） |
-| `LLMDynamicStructured` | 動的 JSON Schema ベースの構造化出力 |
+| `LLMCore` | 純粋ドメイン層（`LLMMessage`, `LLMResponse`, `TokenUsage`, `ModelProfile` 等） |
+| `LLMClient` | クライアントプロトコル・構造化出力・プロンプト DSL（`@Structured`, `SystemPrompt` 等） |
+| `LLMTool` | Swift Macro ベースのツール定義（`@Tool`, `@ToolArgument`, `ToolSet`）|
+| `LLMAgentStep` | エージェントループ契約（`AgentCapableClient`, `StreamingAgentEvent`） |
+| `LLMChat` | 会話継続管理（`ChatCapableClient`, `ConversationHistory`） |
+| `LLMContext` | コンテキストウィンドウ内訳・占有トラッキング |
+| `LLMMediaKit` | プラットフォーム I/O（`UIImage` / `AVFoundation` 変換等） |
 
 ## クイックスタート
 
-### LLM プロバイダーの利用
+### 構造化出力
 
 ```swift
 import LLMClient
 
-// プロバイダーを使ってストリーミング生成
-let provider: any LLMProvider = // 任意のプロバイダー実装
-for try await chunk in provider.stream(messages: [
-    .user("Swift の async/await について説明して")
-]) {
-    print(chunk.text, terminator: "")
+// @Structured マクロで型を定義
+@Structured("都市情報")
+struct CityInfo {
+    @StructuredField("都市名")
+    var name: String
+    @StructuredField("人口（万人単位）")
+    var population: Int
 }
+
+// クライアント（プロバイダー実装）で生成
+let client: any StructuredLLMClient<LLMModel> = // 任意のプロバイダー実装
+let city: CityInfo = try await client.generate(
+    input: "東京の人口は約1400万人です",
+    model: .claude(.sonnet_4_5)
+)
+print(city.name)       // "東京"
+print(city.population) // 1400
 ```
 
 ### ツール定義
@@ -57,15 +70,19 @@ for try await chunk in provider.stream(messages: [
 ```swift
 import LLMTool
 
-@LLMTool("現在の天気を取得する")
+@Tool("現在の天気を取得する")
 struct GetWeather {
-    @LLMToolParameter("都市名")
+    @ToolArgument("都市名")
     var city: String
 
-    func execute() async throws -> String {
+    func call() async throws -> String {
         // 天気 API を呼び出す
         return "東京: 晴れ 25°C"
     }
+}
+
+let tools = ToolSet {
+    GetWeather()
 }
 ```
 

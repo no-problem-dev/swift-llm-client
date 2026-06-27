@@ -2,10 +2,15 @@ import Foundation
 
 // MARK: - LLMProvider Protocol
 
-/// LLM プロバイダーの共通インターフェース
+/// LLM プロバイダーが実装する統一トランスポートインターフェース
 ///
-/// このプロトコルは内部実装で使用されます。
-/// 外部からは `StructuredLLMClient` プロトコルを使用してください。
+/// Anthropic, OpenAI, Gemini などの具体的なプロバイダー実装（例: `AnthropicClient`）が
+/// このプロトコルに準拠することで、上位レイヤー（`StructuredLLMClient`, `ToolCallableClient`）から
+/// プロバイダー非依存で呼び出せるようになります。
+///
+/// - Note: ライブラリの利用者（呼び出し側）は、このプロトコルではなく
+///   `StructuredLLMClient` または `ToolCallableClient` を使用してください。
+///   このプロトコルはプロバイダー実装を追加・差し替えるための拡張ポイントです。
 public protocol LLMProvider: Sendable {
     /// リクエストを送信してレスポンスを取得
     ///

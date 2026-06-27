@@ -66,7 +66,7 @@ public protocol ProviderSchemaAdapter: Sendable {
 
 extension ProviderSchemaAdapter {
     /// 制約追跡付き適合のデフォルト実装（ルートから開始）
-    func adaptWithConstraints(_ schema: JSONSchema) -> SchemaAdaptationResult {
+    public func adaptWithConstraints(_ schema: JSONSchema) -> SchemaAdaptationResult {
         adaptWithConstraints(schema, fieldPath: "")
     }
 
@@ -74,7 +74,7 @@ extension ProviderSchemaAdapter {
     ///
     /// - Parameter properties: プロパティのディクショナリ
     /// - Returns: 適合されたプロパティのディクショナリ
-    func adaptProperties(_ properties: [String: JSONSchema]?) -> [String: JSONSchema]? {
+    public func adaptProperties(_ properties: [String: JSONSchema]?) -> [String: JSONSchema]? {
         properties?.mapValues { adapt($0) }
     }
 
@@ -84,7 +84,7 @@ extension ProviderSchemaAdapter {
     ///   - properties: プロパティのディクショナリ
     ///   - parentPath: 親フィールドのパス
     /// - Returns: 適合されたプロパティと除去された制約
-    func adaptPropertiesWithConstraints(
+    public func adaptPropertiesWithConstraints(
         _ properties: [String: JSONSchema]?,
         parentPath: String
     ) -> ([String: JSONSchema]?, [RemovedConstraint]) {
@@ -107,7 +107,7 @@ extension ProviderSchemaAdapter {
     ///
     /// - Parameter items: 配列要素のスキーマ（Box でラップされている）
     /// - Returns: 適合された配列要素のスキーマ
-    func adaptItems(_ items: Box<JSONSchema>?) -> JSONSchema? {
+    public func adaptItems(_ items: Box<JSONSchema>?) -> JSONSchema? {
         items.map { adapt($0.value) }
     }
 
@@ -117,7 +117,7 @@ extension ProviderSchemaAdapter {
     ///   - items: 配列要素のスキーマ（Box でラップされている）
     ///   - parentPath: 親フィールドのパス
     /// - Returns: 適合されたスキーマと除去された制約
-    func adaptItemsWithConstraints(
+    public func adaptItemsWithConstraints(
         _ items: Box<JSONSchema>?,
         parentPath: String
     ) -> (JSONSchema?, [RemovedConstraint]) {
