@@ -33,7 +33,8 @@ jobs:
         run: |
           swift package --allow-writing-to-directory ./docs \
             generate-documentation \
-            --target LLMClient \
+            --enable-experimental-combined-documentation \
+            --target LLMCore --target LLMProviderCompat --target LLMMediaKit --target LLMClient --target LLMTool --target LLMAgentStep --target LLMChat --target LLMDynamicStructured --target LLMContext \
             --disable-indexing \
             --transform-for-static-hosting \
             --hosting-base-path swift-llm-client \
