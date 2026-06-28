@@ -1,13 +1,43 @@
 # ``LLMClient``
 
-プロバイダー非依存の LLM クライアント抽象化レイヤー。構造化出力・プロンプト DSL・スキーマ定義を提供します。
+Anthropic Claude・OpenAI GPT・Google Gemini などを統一 API で扱う、swift-llm-client パッケージのアンブレラモジュール。
 
 ## Overview
 
-`LLMClient` は、Anthropic Claude、OpenAI GPT、Google Gemini など複数の LLM プロバイダーを
-統一プロトコルで扱えるようにするコアライブラリです。
+`swift-llm-client` は 9 つのモジュールで構成されるプロバイダー非依存 LLM クライアントです。
+アプリ・エージェント・マルチモーダルワークフローを問わず、プロバイダーを切り替えても呼び出しコードが変わらない設計になっています。
 
-主な機能は次の 3 つです。
+**基盤プリミティブ** は `LLMCore` に集約されています。メッセージ型 `LLMMessage`、
+マルチモーダルコンテンツ (`ImageContent`, `AudioContent`, `VideoContent`, `DocumentContent`)、
+モデルプロファイル `ModelProfile`、トークン使用量 `TokenUsage`、コスト計算 `CostCalculator` など
+すべてのモジュールが依存するプリミティブはここに定義されています。
+`LLMClient`（このモジュール）は `LLMCore` の上位に位置し、構造化出力マクロ・プロンプト DSL・
+`StructuredLLMClient` プロトコルを提供します。
+
+**ツール呼び出しとエージェント** は 2 層に分かれています。`LLMTool` が `@Tool` マクロと
+Result Builder 構文の `ToolSet`・`ToolCallableClient` でシングルショットの Function Calling を担い、
+`LLMAgentStep` がエージェントループプロトコル `AgentCapableClient` と
+ストリーミングイベント `StreamingAgentEvent` で自動ループを担います。
+
+**マルチターン会話** は `LLMChat` が提供します。`ChatCapableClient` の `chat(messages:model:)` は
+構造化出力に加えて履歴継続用の `assistantMessage` を `ChatResponse` にまとめて返します。
+状態管理には Actor ベースの `ConversationHistory` を使います。
+
+**メディアとプロバイダー互換性** は `LLMMediaKit` と `LLMProviderCompat` が担います。
+`LLMMediaKit` は AI 生成メディア (`GeneratedImage`, `GeneratedAudio`) をプラットフォームネイティブ型
+(`UIImage`, `NSImage`, `AVAudioPlayer`) に変換する拡張を追加します。
+`LLMProviderCompat` は `MediaCompatibility` と `ProviderType` でプロバイダーごとのメディア対応状況を検査します。
+
+**コンテキスト監視** は `LLMContext` が担います。`AgentContextTracker` は host・サブエージェントごとの
+コンテキストウィンドウ占有をリアルタイムで集計し、`SegmentBreakdownEngine` で
+システムプロンプト・ツール定義・メッセージ履歴のカテゴリ別内訳をオンデマンドに取得できます。
+
+**後方互換** として `LLMDynamicStructured` が存在します。このモジュールは `LLMClient` を再エクスポートしており、
+以前の参照を壊さずに移行できます。
+
+---
+
+このモジュール (`LLMClient`) が直接提供する主な機能は次の 3 つです。
 
 **構造化出力**: `@Structured` マクロを型に付与するだけで、JSON Schema の推論・プロンプト注入・
 レスポンスのパースを自動的に処理します。
