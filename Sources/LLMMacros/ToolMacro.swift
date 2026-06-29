@@ -3,7 +3,7 @@ import SwiftSyntaxMacros
 
 /// `@Tool` マクロの実装
 ///
-/// 構造体に対して以下を生成します：
+/// 構造体に対して以下を生成する：
 /// - `toolName` インスタンスプロパティ
 /// - `toolDescription` インスタンスプロパティ
 /// - `inputSchema` インスタンスプロパティ
@@ -373,10 +373,10 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
 
     /// 初期化子を生成
     ///
-    /// 注入プロパティがある場合は `init(<injected>:)` と `init(<injected>:arguments:)` を生成します。
-    /// 注入プロパティがない場合は `init()` と `init(arguments:)` を生成します。
+    /// 注入プロパティがある場合は `init(<injected>:)` と `init(<injected>:arguments:)` を生成する。
+    /// 注入プロパティがない場合は `init()` と `init(arguments:)` を生成する。
     /// これにより、ToolSet への登録は `MyTool(injectedProp: value)` で可能になり、
-    /// 実行時は引数付きで再構築できます。
+    /// 実行時は引数付きで再構築できる。
     private static func generateInitializer(
         arguments: [ToolArgumentInfo],
         injected: [InjectedPropertyInfo]

@@ -9,8 +9,8 @@ import Foundation
 
 /// 生成された音声
 ///
-/// LLM によって生成された音声データを表現します。
-/// OpenAI TTS や Gemini TTS による音声生成の結果として返されます。
+/// LLM が生成した音声データを保持する。
+/// OpenAI TTS や Gemini TTS による音声生成の結果として返される。
 ///
 /// ## プロバイダー別の特性
 /// - **OpenAI TTS**: 複数のフォーマット（MP3, Opus, AAC, FLAC, WAV, PCM）をサポート
@@ -45,17 +45,17 @@ public struct GeneratedAudio: GeneratedMediaProtocol {
     /// 音声のテキスト表現（トランスクリプト）
     ///
     /// 生成時に使用された元のテキスト、または
-    /// 音声認識によって生成されたテキストが格納されます。
+    /// 音声認識によって生成されたテキストが格納される。
     public let transcript: String?
 
     /// 音声ファイルの識別子（OpenAI）
     ///
-    /// OpenAI の音声生成 API では、生成された音声に一意の識別子が付与されます。
+    /// OpenAI の音声生成 API では、生成された音声に一意の識別子が付与される。
     public let id: String?
 
     /// 有効期限（OpenAI）
     ///
-    /// OpenAI の一部の API では、生成された音声に有効期限が設定されます。
+    /// OpenAI の一部の API では、生成された音声に有効期限が設定される。
     public let expiresAt: Date?
 
     // MARK: - GeneratedMediaProtocol
@@ -130,7 +130,7 @@ public struct GeneratedAudio: GeneratedMediaProtocol {
 
     /// Data URL 形式の文字列
     ///
-    /// HTML の audio 要素などで使用可能な形式です。
+    /// HTML の audio 要素などで使用可能な形式。
     /// 例: `data:audio/mp3;base64,SUQzBAA...`
     public var dataURL: String {
         "data:\(mimeType);base64,\(base64String)"
@@ -146,8 +146,8 @@ public struct GeneratedAudio: GeneratedMediaProtocol {
 
     /// 推定再生時間（秒）
     ///
-    /// フォーマットごとの一般的なビットレートを使用して概算します。
-    /// 正確な値が必要な場合は AVAudioPlayer を使用してください。
+    /// フォーマットごとの一般的なビットレートから概算する。
+    /// 正確な値が必要な場合は AVAudioPlayer を使用すること。
     public var estimatedDuration: TimeInterval? {
         // 各フォーマットの一般的なビットレート（bps）を使用
         let bytesPerSecond: Double

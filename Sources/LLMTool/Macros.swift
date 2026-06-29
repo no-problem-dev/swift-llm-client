@@ -71,7 +71,7 @@ import LLMClient
 ///
 /// ## 戻り値の型
 ///
-/// `call()` メソッドの戻り値は `ToolResultConvertible` に準拠した型を使用できます：
+/// `call()` メソッドの戻り値は `ToolResultConvertible` に準拠した型を使用できる：
 /// - `String`: テキストとして返される
 /// - `Int`, `Double`, `Bool`: 文字列に変換される
 /// - `Array`, `Dictionary`: JSON として返される
@@ -79,10 +79,10 @@ import LLMClient
 /// - カスタム型: `ToolResultConvertible` に準拠させる
 ///
 /// - Parameters:
-///   - description: ツールの説明。LLM がツールを選択する際に参照します。
-///     詳細に記述することで、適切なタイミングでツールが呼び出されやすくなります。
-///   - name: ツール名（オプション）。省略時は型名から自動生成されます。
-///     `^[a-zA-Z0-9_-]{1,64}$` のパターンに従う必要があります。
+///   - description: ツールの説明。LLM がツールを選択する際に参照する。
+///     詳細に記述することで、適切なタイミングでツールが呼び出されやすくなる。
+///   - name: ツール名（オプション）。省略時は型名から自動生成される。
+///     `^[a-zA-Z0-9_-]{1,64}$` のパターンに従う必要がある。
 @attached(member, names: named(toolName), named(toolDescription), named(inputSchema), named(Arguments), named(arguments), named(init), named(execute))
 @attached(extension, conformances: Tool, Sendable)
 public macro Tool(
@@ -93,8 +93,8 @@ public macro Tool(
 /// ツールのプロパティをマクロ処理から除外するマーカー
 ///
 /// `@Tool` マクロが適用された構造体のストアドプロパティに付けることで、
-/// そのプロパティを注入プロパティとしても扱わなくなります。
-/// コールバッククロージャなど、ツールの引数でも DI 対象でもないプロパティに使用します。
+/// そのプロパティを注入プロパティとしても扱わなくなる。
+/// コールバッククロージャなど、ツールの引数でも DI 対象でもないプロパティに使用する。
 ///
 /// ## 使用例
 ///
@@ -118,8 +118,8 @@ public macro ToolExclude() = #externalMacro(module: "LLMMacros", type: "ToolExcl
 
 /// ツールの引数を定義するマクロ
 ///
-/// `@Tool` マクロが適用された型のプロパティに使用します。
-/// プロパティは自動的にツールの引数として公開されます。
+/// `@Tool` マクロが適用された型のプロパティに使用する。
+/// プロパティは自動的にツールの引数として公開される。
 ///
 /// ## 使用例
 ///
@@ -146,7 +146,7 @@ public macro ToolExclude() = #externalMacro(module: "LLMMacros", type: "ToolExcl
 ///
 /// ## 利用可能な制約
 ///
-/// `@StructuredField` と同じ制約が使用できます：
+/// `@StructuredField` と同じ制約が使用できる：
 ///
 /// ### 配列制約
 /// - `.minItems(n)`: 最小要素数
@@ -168,7 +168,7 @@ public macro ToolExclude() = #externalMacro(module: "LLMMacros", type: "ToolExcl
 /// - `.format(.email)`: フォーマット指定
 ///
 /// - Parameters:
-///   - description: 引数の説明。LLM が適切な値を生成するために使用します。
+///   - description: 引数の説明。LLM が適切な値を生成するために使用する。
 ///   - constraints: 引数に適用する制約（可変長引数）
 @attached(peer)
 public macro ToolArgument(

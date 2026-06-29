@@ -6,7 +6,7 @@ import LLMClient
 /// 会話レスポンス（構造化出力 + 会話継続に必要な情報）
 ///
 /// このレスポンス型は、構造化出力のデコード結果に加えて、
-/// 会話を継続するために必要なメタ情報を提供します。
+/// 会話を継続するために必要なメタ情報を提供する。
 ///
 /// ## 使用例
 ///
@@ -42,13 +42,13 @@ public struct ChatResponse<T: StructuredProtocol>: Sendable {
     /// アシスタントの応答メッセージ
     ///
     /// 会話履歴に追加するためのメッセージ。
-    /// `messages` 配列に直接追加して次のリクエストで使用できます。
+    /// `messages` 配列に直接追加して次のリクエストで使用できる。
     public let assistantMessage: LLMMessage
 
     /// トークン使用量
     ///
     /// このリクエストで消費された入力/出力トークン数。
-    /// 複数ターンの会話全体でのコスト管理に使用できます。
+    /// 複数ターンの会話全体でのコスト管理に使用できる。
     public let usage: TokenUsage
 
     /// 停止理由
@@ -65,7 +65,7 @@ public struct ChatResponse<T: StructuredProtocol>: Sendable {
     /// 生のJSONテキスト
     ///
     /// モデルから返された構造化出力の生のJSON文字列。
-    /// デバッグやログ記録に使用できます。
+    /// デバッグやログ記録に使用できる。
     public let rawText: String
 
     // MARK: - Initializer

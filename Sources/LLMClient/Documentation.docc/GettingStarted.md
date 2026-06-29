@@ -1,22 +1,22 @@
 # Getting Started with LLMClient
 
-`LLMClient` を使って、型安全な構造化出力と柔軟なプロンプト DSL を活用する方法を説明します。
+`LLMClient` を使って、型安全な構造化出力と柔軟なプロンプト DSL を活用する方法を説明する。
 
 ## Installation
 
-Swift Package Manager で追加します。
+Swift Package Manager で追加する。
 
 ```swift
 // Package.swift
 dependencies: [
     .package(
         url: "https://github.com/no-problem-dev/swift-llm-client.git",
-        from: "1.0.0"
+        from: "3.9.0"
     )
 ]
 ```
 
-ターゲットの依存に必要なモジュールを追加します。
+ターゲットの依存に必要なモジュールを追加する。
 
 ```swift
 .target(
@@ -33,7 +33,7 @@ dependencies: [
 ### 1. 構造化出力型を定義する
 
 `@Structured` マクロを使うと、型に `StructuredProtocol` 準拠・`jsonSchema` 静的プロパティが
-自動的に合成されます。各フィールドには `@StructuredField` で説明と制約を付与します。
+自動的に合成される。各フィールドには `@StructuredField` で説明と制約を付与する。
 
 ```swift
 import LLMClient
@@ -57,7 +57,7 @@ struct Recipe {
 ### 2. クライアントで生成する
 
 任意のプロバイダー実装（`AnthropicClient`, `OpenAIClient` など）を `StructuredLLMClient` として
-受け取り、`generate(input:model:)` を呼び出します。
+受け取り、`generate(input:model:)` を呼び出す。
 
 ```swift
 // プロバイダー実装は別パッケージ（例: swift-llm-cloud）が提供
@@ -72,7 +72,7 @@ print(recipe.name)            // "ペペロンチーノ"
 print(recipe.cookingMinutes)  // 15
 ```
 
-トークン使用量も取得したい場合は `generateWithUsage(input:model:)` を使います。
+トークン使用量も取得したい場合は `generateWithUsage(input:model:)` を使う。
 
 ```swift
 let result: GenerationResult<Recipe> = try await client.generateWithUsage(
@@ -87,8 +87,8 @@ print(result.usage.outputTokens) // 出力トークン数
 
 ### 3. プロンプト DSL を使う
 
-`SystemPrompt` と `PromptComponent` で構造的なシステムプロンプトを組み立てます。
-`render()` メソッドで XML タグ形式に変換されます。
+`SystemPrompt` と `PromptComponent` で構造的なシステムプロンプトを組み立てる。
+`render()` メソッドで XML タグ形式に変換される。
 
 ```swift
 let systemPrompt = SystemPrompt {
@@ -110,10 +110,10 @@ let recipe: Recipe = try await client.generate(
 
 ### 4. マルチモーダル入力
 
-`LLMInput` を使うと、テキストに画像・音声・動画を組み合わせられます。
+`LLMInput` を使うと、テキストに画像・音声・動画を組み合わせられる。
 
 ```swift
-let imageContent = ImageContent(source: .base64(mimeType: "image/jpeg", data: imageData))
+let imageContent = ImageContent.base64(imageData, mediaType: .jpeg)
 
 let input = LLMInput(
     "この画像のレシピを解析してください",
@@ -128,7 +128,7 @@ let recipe: Recipe = try await client.generate(
 
 ### 5. 会話履歴を使った生成
 
-複数ターンの会話では `messages` オーバーロードを使います。
+複数ターンの会話では `messages` オーバーロードを使う。
 
 ```swift
 var messages: [LLMMessage] = []
@@ -151,5 +151,5 @@ let followUp: CityTips = try await client.generate(
 
 ## Next Steps
 
-ツールコール（Function Calling）や エージェントループを使う場合は、
-`LLMTool` モジュールの `Tool` プロトコルと `ToolSet` を参照してください。
+ツールコール（Function Calling）やエージェントループを使う場合は、
+`LLMTool` モジュールの `Tool` プロトコルと `ToolSet` を参照のこと。

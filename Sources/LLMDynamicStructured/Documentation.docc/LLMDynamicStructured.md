@@ -4,12 +4,12 @@
 
 ## Overview
 
-`LLMDynamicStructured` はパッケージ再編成以前の参照を維持するための互換シムです。
+`LLMDynamicStructured` はパッケージ再編成以前の参照を維持するための互換シム。
 構造化出力の実装は `LLMClient` へ統合済みであり、`LLMDynamicStructured` は
-`@_exported import LLMClient` によってすべての型・マクロ・プロトコルをそのまま再エクスポートします。
+`@_exported import LLMClient` によってすべての型・マクロ・プロトコルをそのまま再エクスポートする。
 
-既存のターゲットが `LLMDynamicStructured` に依存している場合、コードを変更せずに継続利用できます。
-新規コードでは直接 `LLMClient` を依存に追加することを推奨します。
+既存のターゲットが `LLMDynamicStructured` に依存している場合、コードを変更せずに継続利用できる。
+新規コードでは直接 `LLMClient` を依存に追加することを推奨する。
 
 ```swift
 // 既存コード — 変更不要

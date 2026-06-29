@@ -3,9 +3,9 @@ import SwiftSyntaxMacros
 
 /// `@StructuredCase` マクロの実装
 ///
-/// enum のケースに説明を付与するための peer macro です。
+/// enum ケースに説明を付与する peer マクロ。
 /// このマクロ自体は何も生成せず、`@StructuredEnum` マクロが
-/// ケースの説明を収集する際のマーカーとして機能します。
+/// ケースの説明を収集する際のマーカーとして機能する。
 ///
 /// ## 使用例
 ///

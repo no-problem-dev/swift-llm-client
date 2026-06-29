@@ -7,7 +7,7 @@ import Foundation
 
 /// LLM メッセージ
 ///
-/// テキストメッセージに加えて、ツール呼び出しとツール結果もサポートします。
+/// テキストメッセージに加えて、ツール呼び出しとツール結果もサポートする。
 ///
 /// ## 使用例
 ///
@@ -219,8 +219,8 @@ public struct LLMMessage: Sendable, Codable {
 
     /// テキストコンテンツを取得（後方互換性）
     ///
-    /// 複数のテキストブロックがある場合は結合して返します。
-    /// テキストがない場合は空文字列を返します。
+    /// 複数のテキストブロックがある場合は結合して返す。
+    /// テキストがない場合は空文字列を返す。
     public var content: String {
         contents.compactMap { content in
             if case .text(let text) = content {
@@ -281,7 +281,7 @@ public struct LLMMessage: Sendable, Codable {
     /// ツール呼び出しメッセージを作成（アシスタント）
     ///
     /// LLM がツールを呼び出すことを決定した際のメッセージ。
-    /// 通常は `LLMResponse` から自動的に生成されます。
+    /// 通常は `LLMResponse` から自動的に生成される。
     ///
     /// - Parameters:
     ///   - id: ツール呼び出しID

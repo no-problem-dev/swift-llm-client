@@ -9,7 +9,7 @@ import Foundation
 
 /// 動画生成ジョブのステータス
 ///
-/// 動画生成は非同期で行われるため、ジョブのステータスを追跡します。
+/// 動画生成は非同期であり、ジョブのステータスを追跡する。
 public enum VideoGenerationStatus: String, Sendable, Codable, Equatable {
     /// 生成がキューに入っている
     case queued
@@ -46,8 +46,8 @@ public enum VideoGenerationStatus: String, Sendable, Codable, Equatable {
 
 /// 動画生成ジョブ
 ///
-/// 動画生成は時間がかかるため、非同期ジョブとして処理されます。
-/// このジョブオブジェクトを使用してステータスを確認し、完了後に動画を取得します。
+/// 動画生成は時間がかかるため、非同期ジョブとして処理される。
+/// このジョブオブジェクトでステータスを確認し、完了後に動画を取得する。
 ///
 /// ## プロバイダー別の特性
 /// - **OpenAI Sora**: ジョブベースの非同期生成
@@ -180,7 +180,7 @@ public struct VideoGenerationJob: Sendable, Codable, Equatable, Identifiable {
 
 /// 動画生成設定
 ///
-/// 動画生成時の各種パラメータを指定します。
+/// 動画生成時の各種パラメータを指定する。
 public struct VideoGenerationConfiguration: Sendable, Codable, Equatable {
     /// 動画の長さ（秒）
     public let duration: Int?
@@ -313,8 +313,8 @@ public enum VideoAspectRatio: String, Sendable, Codable, CaseIterable, Equatable
 
 /// 生成された動画
 ///
-/// LLM によって生成された動画データを表現します。
-/// 動画生成ジョブが完了した後に取得できます。
+/// LLM が生成した動画データを保持する。
+/// 動画生成ジョブが完了した後に取得できる。
 ///
 /// ## 使用例
 /// ```swift
@@ -335,8 +335,8 @@ public struct GeneratedVideo: GeneratedMediaProtocol {
 
     /// 動画データ
     ///
-    /// ローカルにダウンロード済みの場合は動画データが格納されます。
-    /// リモート URL のみの場合は空のデータになります。
+    /// ローカルにダウンロード済みの場合は動画データが格納される。
+    /// リモート URL のみの場合は空のデータになる。
     public let data: Data
 
     /// 動画フォーマット
@@ -344,8 +344,8 @@ public struct GeneratedVideo: GeneratedMediaProtocol {
 
     /// リモート URL
     ///
-    /// 動画がサーバー上に保存されている場合の URL です。
-    /// ストリーミング再生に使用できます。
+    /// 動画がサーバー上に保存されている場合の URL。
+    /// ストリーミング再生に使用できる。
     public let remoteURL: URL?
 
     /// 動画の長さ（秒）

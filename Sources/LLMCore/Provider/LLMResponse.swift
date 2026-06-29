@@ -46,32 +46,32 @@ public struct LLMResponse: Sendable {
 
     /// 生成された画像をすべて取得
     ///
-    /// レスポンスに含まれるすべての画像を配列で返します。
-    /// 画像が含まれていない場合は空の配列を返します。
+    /// レスポンスに含まれる全ての画像を配列で返す。
+    /// 画像が含まれていない場合は空の配列を返す。
     public var generatedImages: [GeneratedImage] {
         content.compactMap { $0.generatedImage }
     }
 
     /// 最初の生成された画像を取得
     ///
-    /// レスポンスに含まれる最初の画像を返します。
-    /// 画像が含まれていない場合は nil を返します。
+    /// レスポンスに含まれる最初の画像を返す。
+    /// 画像が含まれていない場合は `nil` を返す。
     public var firstGeneratedImage: GeneratedImage? {
         generatedImages.first
     }
 
     /// 生成された音声をすべて取得
     ///
-    /// レスポンスに含まれるすべての音声を配列で返します。
-    /// 音声が含まれていない場合は空の配列を返します。
+    /// レスポンスに含まれる全ての音声を配列で返す。
+    /// 音声が含まれていない場合は空の配列を返す。
     public var generatedAudioFiles: [GeneratedAudio] {
         content.compactMap { $0.generatedAudio }
     }
 
     /// 最初の生成された音声を取得
     ///
-    /// レスポンスに含まれる最初の音声を返します。
-    /// 音声が含まれていない場合は nil を返します。
+    /// レスポンスに含まれる最初の音声を返す。
+    /// 音声が含まれていない場合は `nil` を返す。
     public var firstGeneratedAudio: GeneratedAudio? {
         generatedAudioFiles.first
     }
@@ -93,7 +93,7 @@ public struct LLMResponse: Sendable {
 
     /// コンテンツブロック
     ///
-    /// LLM レスポンスに含まれるコンテンツの種類を表現します。
+    /// LLM レスポンスに含まれるコンテンツの種類。
     ///
     /// ## コンテンツの種類
     /// - `text`: テキストコンテンツ
@@ -110,19 +110,19 @@ public struct LLMResponse: Sendable {
         /// 生成された画像
         ///
         /// Gemini のマルチモーダル出力など、レスポンス内にインラインで
-        /// 画像が含まれる場合に使用されます。
+        /// 画像が含まれる場合に使用する。
         case image(GeneratedImage)
 
         /// 生成された音声
         ///
         /// TTS（Text-to-Speech）など、レスポンス内にインラインで
-        /// 音声が含まれる場合に使用されます。
+        /// 音声が含まれる場合に使用する。
         case audio(GeneratedAudio)
 
         /// 思考コンテンツ（Extended Thinking）
         ///
-        /// Claude の Extended Thinking で生成された思考プロセスを表します。
-        /// signature は後続リクエストで思考ブロックを参照するために使用されます。
+        /// Claude の Extended Thinking で生成された思考プロセスを表す。
+        /// signature は後続リクエストで思考ブロックを参照するために使用する。
         case thinking(text: String, signature: String?)
 
         // MARK: - Convenience Accessors

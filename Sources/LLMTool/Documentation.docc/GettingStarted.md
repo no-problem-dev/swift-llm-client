@@ -1,17 +1,17 @@
 # Getting Started with LLMTool
 
-`@Tool` マクロを使って型安全なツール（Function Calling）を定義し、エージェントループと連携する方法を説明します。
+`@Tool` マクロを使って型安全なツール（Function Calling）を定義し、エージェントループと連携する方法を説明する。
 
 ## Installation
 
-Swift Package Manager で追加します。
+Swift Package Manager で追加する。
 
 ```swift
 // Package.swift
 dependencies: [
     .package(
         url: "https://github.com/no-problem-dev/swift-llm-client.git",
-        from: "1.0.0"
+        from: "3.9.0"
     )
 ]
 
@@ -28,8 +28,8 @@ dependencies: [
 
 ### 1. ツールを定義する
 
-`@Tool` マクロをクラスまたは構造体に付与します。
-`@ToolArgument` で LLM に渡す引数を宣言し、`call()` メソッドに実装を書きます。
+`@Tool` マクロをクラスまたは構造体に付与する。
+`@ToolArgument` で LLM に渡す引数を宣言し、`call()` メソッドに実装を書く。
 
 ```swift
 import LLMTool
@@ -52,7 +52,7 @@ struct GetWeather {
 }
 ```
 
-引数のない場合は何も宣言しなくて構いません。`EmptyArguments` が自動的に使用されます。
+引数のない場合は何も宣言しなくていい。`EmptyArguments` が自動的に使用される。
 
 ```swift
 @Tool("現在の日時を ISO 8601 形式で返します")
@@ -65,7 +65,7 @@ struct GetCurrentTime {
 
 ### 2. ToolSet を組み立てる
 
-Result Builder 構文でツールをまとめます。条件分岐やループも使えます。
+Result Builder 構文でツールをまとめる。条件分岐やループも使える。
 
 ```swift
 let tools = ToolSet {
@@ -85,7 +85,7 @@ let tools = ToolSet {
 ### 3. ツール呼び出しを計画・実行する
 
 `ToolCallableClient` の `planToolCalls(prompt:model:tools:)` を使い、LLM にツール選択を
-させます。このメソッドは実際のツール実行は行わず、計画（`ToolCallResponse`）のみを返します。
+させる。このメソッドは実際のツール実行は行わず、計画（`ToolCallResponse`）のみを返す。
 
 ```swift
 let plan = try await client.planToolCalls(
@@ -105,7 +105,7 @@ for call in plan.toolCalls {
 
 ### 4. 引数を型安全にデコードする
 
-`ToolCall.decodeArguments(as:)` で引数を任意の `Decodable` 型にデコードできます。
+`ToolCall.decodeArguments(as:)` で引数を任意の `Decodable` 型にデコードできる。
 
 ```swift
 for call in plan.toolCalls where call.name == "get_weather" {
@@ -119,7 +119,7 @@ for call in plan.toolCalls where call.name == "get_weather" {
 }
 ```
 
-`StructuredValue` を使ったキーアクセスも可能です。
+`StructuredValue` を使ったキーアクセスも可能。
 
 ```swift
 let args = try call.argumentsJSON()
@@ -130,7 +130,7 @@ if let city = args.string("city") {
 
 ### 5. 会話履歴付きのツール呼び出し
 
-会話が続くケースでは `planToolCalls(messages:model:tools:)` を使います。
+会話が続くケースでは `planToolCalls(messages:model:tools:)` を使う。
 
 ```swift
 var messages: [LLMMessage] = [
@@ -159,4 +159,4 @@ messages.append(.toolResults(toolResults))
 ## Next Steps
 
 エージェントループ（自動的にツール実行→LLM 応答をループする）には
-`LLMAgentStep` モジュールの `AgentCapableClient` を参照してください。
+`LLMAgentStep` モジュールの `AgentCapableClient` を参照のこと。

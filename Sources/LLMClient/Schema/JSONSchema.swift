@@ -4,13 +4,13 @@ import Foundation
 
 /// JSON Schema の Swift 表現
 ///
-/// LLM の Structured Output 機能で使用される JSON Schema を表現します。
-/// 各プロバイダー（Anthropic, OpenAI, Gemini）の API で使用可能な形式でエンコードされます。
+/// LLM の Structured Output 機能で使用される JSON Schema を表現する。
+/// 各プロバイダー（Anthropic, OpenAI, Gemini）の API で使用可能な形式でエンコードされる。
 ///
 /// ## 概要
 ///
-/// JSON Schema は構造化データの形式を定義するための標準規格です。
-/// このライブラリでは、LLM からの出力を型安全に取得するために使用されます。
+/// JSON Schema は構造化データの形式を定義するための標準規格。
+/// このライブラリでは、LLM からの出力を型安全に取得するために使用する。
 ///
 /// ## 使用例
 ///
@@ -34,9 +34,9 @@ import Foundation
 ///
 /// ## プロバイダー対応
 ///
-/// 各 LLM プロバイダーは JSON Schema のサポート範囲が異なります。
+/// 各 LLM プロバイダーは JSON Schema のサポート範囲が異なる。
 /// このライブラリでは、プロバイダーごとにスキーマを自動的に適合させるため、
-/// ユーザーが直接プロバイダー固有の変換を意識する必要はありません。
+/// ユーザーが直接プロバイダー固有の変換を意識する必要はない。
 public struct JSONSchema: Sendable, Codable, Equatable {
     /// スキーマの型
     public let type: JSONSchemaType
@@ -178,7 +178,7 @@ extension JSONSchema {
 
     /// プリミティブ型かどうか
     ///
-    /// string, integer, number, boolean, null のいずれかの場合に `true` を返します。
+    /// string, integer, number, boolean, null のいずれかの場合に `true` を返す。
     public var isPrimitive: Bool {
         switch type {
         case .string, .integer, .number, .boolean, .null:

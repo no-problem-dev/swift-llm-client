@@ -2,7 +2,7 @@ import Foundation
 
 /// 年月を表現する値型
 ///
-/// "YYYY-MM" 形式でコーディング/デコードされます。
+/// "YYYY-MM" 形式でコーディング/デコードされる。
 public struct YearMonth: Sendable, Equatable, Hashable, Comparable, Codable, ExpressibleByStringLiteral {
     public let year: Int
     public let month: Int

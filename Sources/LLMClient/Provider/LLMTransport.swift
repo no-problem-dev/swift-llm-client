@@ -6,11 +6,11 @@ import Foundation
 ///
 /// Anthropic, OpenAI, Gemini などの具体的なプロバイダー実装（例: `AnthropicClient`）が
 /// このプロトコルに準拠することで、上位レイヤー（`StructuredLLMClient`, `ToolCallableClient`）から
-/// プロバイダー非依存で呼び出せるようになります。
+/// プロバイダー非依存で呼び出せる。
 ///
 /// - Note: ライブラリの利用者（呼び出し側）は、このプロトコルではなく
-///   `StructuredLLMClient` または `ToolCallableClient` を使用してください。
-///   このプロトコルはプロバイダー実装を追加・差し替えるための拡張ポイントです。
+///   `StructuredLLMClient` または `ToolCallableClient` を使用すること。
+///   このプロトコルはプロバイダー実装を追加・差し替えるための拡張ポイント。
 public protocol LLMProvider: Sendable {
     /// リクエストを送信してレスポンスを取得
     ///
@@ -24,8 +24,8 @@ public protocol LLMProvider: Sendable {
 
 /// LLM への統一リクエスト形式
 ///
-/// 基本的な LLM リクエストのみを扱います。
-/// ツールコール機能は LLMTool モジュールで拡張されます。
+/// 基本的な LLM リクエストのみを扱う。
+/// ツールコール機能は LLMTool モジュールで拡張される。
 public struct LLMRequest: Sendable {
     /// 使用するモデル
     public let model: LLMModel

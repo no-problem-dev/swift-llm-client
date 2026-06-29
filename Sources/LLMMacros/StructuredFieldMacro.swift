@@ -3,8 +3,8 @@ import SwiftSyntaxMacros
 
 /// `@StructuredField` マクロの実装
 ///
-/// このマクロは peer マクロとして機能し、プロパティにメタデータを付与します。
-/// 実際の処理は `@Structured` マクロがプロパティを解析する際に行われます。
+/// プロパティに JSON Schema メタデータを付与する peer マクロ。
+/// 実際の処理は `@Structured` マクロがプロパティを解析する際に行われる。
 public struct StructuredFieldMacro: PeerMacro {
     public static func expansion(
         of node: AttributeSyntax,

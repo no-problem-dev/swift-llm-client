@@ -2,9 +2,9 @@ import StructuredDataCore
 
 /// ツール引数の型エイリアス。
 ///
-/// `DynamicTool` のハンドラーで引数にアクセスする際に使用します。中立中間表現
+/// `DynamicTool` のハンドラーで引数にアクセスする際に使用する。中立中間表現
 /// ``StructuredValue`` の型安全アクセサ(`string(_:)` / `int(_:)` / dynamicMemberLookup /
-/// 型付き subscript 等)で引数値を取得できます。
+/// 型付き subscript 等)で引数値を取得できる。
 ///
 /// ```swift
 /// let tool = DynamicTool("get_weather", description: "天気を取得") {

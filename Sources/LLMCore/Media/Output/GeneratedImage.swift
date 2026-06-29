@@ -9,8 +9,8 @@ import Foundation
 
 /// 生成メディアコンテンツ共通プロトコル
 ///
-/// LLM によって生成されたメディア（画像、音声など）が準拠するプロトコルです。
-/// 入力側の `MediaContentProtocol` に対応する出力側のプロトコルです。
+/// LLM が生成したメディア（画像・音声など）が準拠するプロトコル。
+/// 入力側の `MediaContentProtocol` に対応する出力側のプロトコル。
 ///
 /// ## 準拠する型
 /// - `GeneratedImage` - 生成された画像
@@ -50,12 +50,12 @@ extension GeneratedMediaProtocol {
 
 /// 生成された画像
 ///
-/// LLM によって生成された画像データを表現します。
-/// OpenAI DALL-E/GPT-Image や Gemini による画像生成の結果として返されます。
+/// LLM が生成した画像データを保持する。
+/// OpenAI DALL-E/GPT-Image や Gemini による画像生成の結果として返される。
 ///
 /// ## プロバイダー別の特性
-/// - **OpenAI**: `revisedPrompt` が含まれる場合があります（プロンプトの自動修正）
-/// - **Gemini**: テキストと画像が混在したレスポンスの一部として返されます
+/// - **OpenAI**: `revisedPrompt` が含まれる場合がある（プロンプトの自動修正）
+/// - **Gemini**: テキストと画像が混在したレスポンスの一部として返される
 ///
 /// ## 使用例
 /// ```swift
@@ -84,8 +84,8 @@ public struct GeneratedImage: GeneratedMediaProtocol {
 
     /// 修正されたプロンプト（OpenAI DALL-E/GPT-Image）
     ///
-    /// OpenAI の画像生成 API は、安全性やクオリティのためにプロンプトを
-    /// 自動的に修正することがあります。その場合、修正後のプロンプトがここに格納されます。
+    /// OpenAI の画像生成 API は安全性やクオリティのためにプロンプトを
+    /// 自動的に修正することがある。その場合、修正後のプロンプトがここに格納される。
     public let revisedPrompt: String?
 
     // MARK: - GeneratedMediaProtocol
@@ -148,7 +148,7 @@ public struct GeneratedImage: GeneratedMediaProtocol {
 
     /// Data URL 形式の文字列
     ///
-    /// HTML や CSS で使用可能な形式です。
+    /// HTML や CSS で使用可能な形式。
     /// 例: `data:image/png;base64,iVBORw0KGgo...`
     public var dataURL: String {
         "data:\(mimeType);base64,\(base64String)"

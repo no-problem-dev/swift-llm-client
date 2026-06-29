@@ -7,12 +7,12 @@ import LLMTool
 /// エージェントループをサポートするクライアントのプロトコル
 ///
 /// `ToolCallableClient` を拡張し、エージェントループの実装に必要な
-/// メソッドを提供します。各プロバイダーはこのプロトコルに適合することで
-/// エージェント機能を利用可能にします。
+/// メソッドを提供する。各プロバイダーはこのプロトコルに適合することで
+/// エージェント機能を利用できる。
 public protocol AgentCapableClient: ToolCallableClient {
     /// エージェントステップを実行
     ///
-    /// メッセージ履歴、ツール、オプションの構造化出力スキーマを含むリクエストを送信します。
+    /// メッセージ履歴、ツール、オプションの構造化出力スキーマを含むリクエストを送信する。
     ///
     /// - Parameters:
     ///   - messages: メッセージ履歴
@@ -42,7 +42,7 @@ public protocol AgentCapableClient: ToolCallableClient {
     /// エージェントステップをストリーミング実行
     ///
     /// thinking delta やテキスト delta をリアルタイムに返し、
-    /// 最終的に完全な `LLMResponse` を返します。
+    /// 最終的に完全な `LLMResponse` を返す。
     ///
     /// - Parameters:
     ///   - messages: メッセージ履歴
@@ -75,7 +75,7 @@ public protocol AgentCapableClient: ToolCallableClient {
 extension AgentCapableClient {
     /// デフォルト実装: 非ストリーミングの `executeAgentStep` をラップ
     ///
-    /// Anthropic 以外のプロバイダー（OpenAI, Gemini, Local）はこのデフォルト実装を使用します。
+    /// Anthropic 以外のプロバイダー（OpenAI, Gemini, Local）はこのデフォルト実装を使用する。
     public func streamAgentStep(
         messages: [LLMMessage],
         model: Model,

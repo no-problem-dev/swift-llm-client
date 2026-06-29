@@ -16,8 +16,8 @@ import LLMTool
 /// `systemPrompt` / 各 tool セグメントは wrapper を含まない clean marginal になる。
 ///
 /// ```
-/// bare    = count(system: nil, tools: nil,        messages: msgs)  // = wrapper + messages
-/// sysOnly = count(system: sys, tools: nil,        messages: msgs)  // = wrapper + sys + messages
+/// bare    = count(system: nil, tools: nil,        messages: msgs)  // wrapper と messages の合計（基底）
+/// sysOnly = count(system: sys, tools: nil,        messages: msgs)  // wrapper と sys と messages の合計
 /// rung_k  = count(system: sys, tools: tools[0..k], messages: msgs)
 ///
 /// systemPrompt        = sysOnly - bare            // wrapper, messages 相殺 → 純 system

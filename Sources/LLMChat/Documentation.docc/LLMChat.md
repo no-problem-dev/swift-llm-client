@@ -5,17 +5,17 @@
 ## Overview
 
 `LLMChat` は `LLMClient` の `StructuredLLMClient` を拡張し、マルチターン会話の継続に必要な
-要素をひとまとめにした高レベル API を提供します。
+要素をひとまとめにした高レベル API を提供する。
 
 **ChatCapableClient**: `StructuredLLMClient` を継承するプロトコルで、`chat(messages:model:)` メソッドを
-追加します。`generate` が構造化データのみを返すのに対し、`chat` は `ChatResponse` を返します。
+追加する。`generate` が構造化データのみを返すのに対し、`chat` は `ChatResponse` を返す。
 `ChatResponse` には `result`（構造化データ）と `assistantMessage`（次ターンの履歴に追加すべき
-`LLMMessage`）の両方が含まれるため、呼び出し側が手動でメッセージを組み立てる必要がありません。
+`LLMMessage`）の両方が含まれるため、呼び出し側が手動でメッセージを組み立てる必要がない。
 
-**ConversationHistory**: スレッドセーフな Actor で会話履歴とトークン使用量を管理します。
+**ConversationHistory**: スレッドセーフな Actor で会話履歴とトークン使用量を管理する。
 `append(_:)`・`getMessages()`・`getTotalUsage()` の基本操作に加え、`eventStream` プロパティで
-`ConversationEvent` の `AsyncStream` を購読できます。ユーザーメッセージ・アシスタント応答・
-ツール呼び出し・エラーそれぞれのイベントタイプが定義されています。
+`ConversationEvent` の `AsyncStream` を購読できる。ユーザーメッセージ・アシスタント応答・
+ツール呼び出し・エラーそれぞれのイベントタイプが定義されている。
 
 ```swift
 import LLMChat

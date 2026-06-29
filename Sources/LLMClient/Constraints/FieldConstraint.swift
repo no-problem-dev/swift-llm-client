@@ -1,7 +1,7 @@
 /// フィールドに適用可能な制約
 ///
-/// JSON Schema の keywords に準拠した制約を定義します。
-/// `@StructuredField` マクロと組み合わせて使用します。
+/// JSON Schema の keywords に準拠した制約を定義する。
+/// `@StructuredField` マクロと組み合わせて使用する。
 ///
 /// ```swift
 /// @Structured("商品情報")

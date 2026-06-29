@@ -9,8 +9,8 @@ import Foundation
 
 /// 出力メディアフォーマット共通プロトコル
 ///
-/// 生成されたメディア（画像、音声、動画）のフォーマットを表現します。
-/// 入力側の `MediaType` プロトコルに対応する出力側のプロトコルです。
+/// 生成メディア（画像・音声・動画）のフォーマットを表現する。
+/// 入力側の `MediaType` プロトコルに対応する出力側のプロトコル。
 ///
 /// ## 準拠する型
 /// - `ImageOutputFormat` - 画像出力フォーマット
@@ -29,7 +29,7 @@ public protocol OutputMediaFormat: RawRepresentable, Sendable, Codable, CaseIter
 
 /// 画像出力フォーマット
 ///
-/// LLM が生成する画像のフォーマットを定義します。
+/// LLM が生成する画像のフォーマットを定義する。
 ///
 /// ## プロバイダー別対応状況
 /// - **OpenAI (DALL-E/GPT-Image)**: PNG (デフォルト), JPEG, WebP
@@ -81,7 +81,7 @@ public enum ImageOutputFormat: String, OutputMediaFormat {
 
 /// 音声出力フォーマット
 ///
-/// LLM が生成する音声のフォーマットを定義します。
+/// LLM が生成する音声のフォーマットを定義する。
 ///
 /// ## プロバイダー別対応状況
 /// - **OpenAI TTS**: MP3, Opus, AAC, FLAC, WAV, PCM
@@ -139,7 +139,7 @@ public enum AudioOutputFormat: String, OutputMediaFormat {
 
 /// 動画出力フォーマット
 ///
-/// LLM が生成する動画のフォーマットを定義します。
+/// LLM が生成する動画のフォーマットを定義する。
 ///
 /// ## プロバイダー別対応状況
 /// - **OpenAI Sora**: MP4

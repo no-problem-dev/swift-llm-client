@@ -1,4 +1,4 @@
-// Placeholder module for backward compatibility with swift-llm-cloud references.
-// The original implementation was merged into LLMClient during the comprehensive type-safety refactoring.
+// swift-llm-cloud 参照の後方互換性維持のためのプレースホルダーモジュール。
+// 構造化出力の実装は型安全性リファクタリングにより LLMClient に統合済み。
 
 @_exported import LLMClient

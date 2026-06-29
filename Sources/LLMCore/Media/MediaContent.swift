@@ -9,7 +9,7 @@ import Foundation
 
 /// 画像コンテンツ
 ///
-/// LLMに送信する画像データを表現します。
+/// LLM に送信する画像データを表現する。
 ///
 /// ## 使用例
 /// ```swift
@@ -126,7 +126,7 @@ public struct ImageContent: Sendable, Equatable, Codable {
 
 /// 音声コンテンツ
 ///
-/// LLMに送信する音声データを表現します。
+/// LLM に送信する音声データを表現する。
 ///
 /// ## サポートされるプロバイダー
 /// - **OpenAI**: WAV, MP3（gpt-4o-audio-preview モデルのみ）
@@ -229,7 +229,7 @@ public struct AudioContent: Sendable, Equatable, Codable {
 
 /// 動画コンテンツ
 ///
-/// LLMに送信する動画データを表現します。
+/// LLM に送信する動画データを表現する。
 ///
 /// ## サポートされるプロバイダー
 /// - **Gemini**: MP4, AVI, MOV, MKV, WebM, FLV, MPEG, 3GP, WMV
@@ -273,7 +273,7 @@ public struct VideoContent: Sendable, Equatable, Codable {
     /// - Returns: 動画コンテンツ
     ///
     /// - Note: 動画ファイルは通常サイズが大きいため、
-    ///         大きなファイルにはFile APIの使用を推奨します。
+    ///         大きなファイルには File API の使用を推奨する。
     public static func base64(_ data: Data, mediaType: VideoMediaType) -> VideoContent {
         VideoContent(source: .base64(data), mediaType: mediaType)
     }
@@ -304,8 +304,8 @@ public struct VideoContent: Sendable, Equatable, Codable {
     /// - Returns: 動画コンテンツ
     /// - Throws: `MediaError.unsupportedFormat` または `MediaError.fileReadError`
     ///
-    /// - Warning: 大きな動画ファイルを読み込むとメモリを大量に消費します。
-    ///           大きなファイルにはFile APIの使用を推奨します。
+    /// - Warning: 大きな動画ファイルを読み込むとメモリを大量に消費する。
+    ///           大きなファイルには File API の使用を推奨する。
     public static func file(at path: String) throws -> VideoContent {
         let url = URL(fileURLWithPath: path)
         return try file(at: url)
@@ -337,7 +337,7 @@ public struct VideoContent: Sendable, Equatable, Codable {
 
 /// メディアコンテンツ共通プロトコル
 ///
-/// 全てのメディアコンテンツ型が準拠するプロトコルです。
+/// 全メディアコンテンツ型が準拠するプロトコル。
 public protocol MediaContentProtocol: Sendable, Equatable, Codable {
     /// データソース
     var source: MediaSource { get }

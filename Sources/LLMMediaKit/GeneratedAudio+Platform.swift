@@ -13,7 +13,7 @@ extension GeneratedAudio {
     #if canImport(AVFoundation)
     /// AVAudioPlayer を作成
     ///
-    /// - Note: PCM フォーマットの場合、追加の変換が必要になる場合があります
+    /// - Note: PCM フォーマットの場合、追加の変換が必要になる場合がある
     public var audioPlayer: AVAudioPlayer? {
         try? AVAudioPlayer(data: data)
     }

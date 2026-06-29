@@ -2,7 +2,7 @@ import Foundation
 
 /// ツール実行結果のコンテンツを表現する enum
 ///
-/// ツール呼び出しの成功または失敗を型安全に表現します。
+/// ツール呼び出しの成功または失敗を型安全に表現する。
 public enum ToolResultContent: Sendable, Equatable, Codable {
     /// 成功した実行結果
     case success(String)

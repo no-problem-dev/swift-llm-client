@@ -4,43 +4,43 @@ Anthropic Claude・OpenAI GPT・Google Gemini などを統一 API で扱う、sw
 
 ## Overview
 
-`swift-llm-client` は 9 つのモジュールで構成されるプロバイダー非依存 LLM クライアントです。
-アプリ・エージェント・マルチモーダルワークフローを問わず、プロバイダーを切り替えても呼び出しコードが変わらない設計になっています。
+`swift-llm-client` は 9 つのモジュールで構成されるプロバイダー非依存 LLM クライアント。
+アプリ・エージェント・マルチモーダルワークフローを問わず、プロバイダーを切り替えても呼び出しコードは変わらない設計。
 
-**基盤プリミティブ** は `LLMCore` に集約されています。メッセージ型 `LLMMessage`、
+**基盤プリミティブ** は `LLMCore` に集約される。メッセージ型 `LLMMessage`、
 マルチモーダルコンテンツ (`ImageContent`, `AudioContent`, `VideoContent`, `DocumentContent`)、
 モデルプロファイル `ModelProfile`、トークン使用量 `TokenUsage`、コスト計算 `CostCalculator` など
-すべてのモジュールが依存するプリミティブはここに定義されています。
+すべてのモジュールが依存するプリミティブはここに定義される。
 `LLMClient`（このモジュール）は `LLMCore` の上位に位置し、構造化出力マクロ・プロンプト DSL・
-`StructuredLLMClient` プロトコルを提供します。
+`StructuredLLMClient` プロトコルを提供する。
 
-**ツール呼び出しとエージェント** は 2 層に分かれています。`LLMTool` が `@Tool` マクロと
+**ツール呼び出しとエージェント** は 2 層に分かれる。`LLMTool` が `@Tool` マクロと
 Result Builder 構文の `ToolSet`・`ToolCallableClient` でシングルショットの Function Calling を担い、
 `LLMAgentStep` がエージェントループプロトコル `AgentCapableClient` と
-ストリーミングイベント `StreamingAgentEvent` で自動ループを担います。
+ストリーミングイベント `StreamingAgentEvent` で自動ループを担う。
 
-**マルチターン会話** は `LLMChat` が提供します。`ChatCapableClient` の `chat(messages:model:)` は
-構造化出力に加えて履歴継続用の `assistantMessage` を `ChatResponse` にまとめて返します。
-状態管理には Actor ベースの `ConversationHistory` を使います。
+**マルチターン会話** は `LLMChat` が提供する。`ChatCapableClient` の `chat(messages:model:)` は
+構造化出力に加えて履歴継続用の `assistantMessage` を `ChatResponse` にまとめて返す。
+状態管理には Actor ベースの `ConversationHistory` を使う。
 
-**メディアとプロバイダー互換性** は `LLMMediaKit` と `LLMProviderCompat` が担います。
+**メディアとプロバイダー互換性** は `LLMMediaKit` と `LLMProviderCompat` が担う。
 `LLMMediaKit` は AI 生成メディア (`GeneratedImage`, `GeneratedAudio`) をプラットフォームネイティブ型
-(`UIImage`, `NSImage`, `AVAudioPlayer`) に変換する拡張を追加します。
-`LLMProviderCompat` は `MediaCompatibility` と `ProviderType` でプロバイダーごとのメディア対応状況を検査します。
+(`UIImage`, `NSImage`, `AVAudioPlayer`) に変換する拡張を追加する。
+`LLMProviderCompat` は `MediaCompatibility` と `ProviderType` でプロバイダーごとのメディア対応状況を検査する。
 
-**コンテキスト監視** は `LLMContext` が担います。`AgentContextTracker` は host・サブエージェントごとの
+**コンテキスト監視** は `LLMContext` が担う。`AgentContextTracker` は host・サブエージェントごとの
 コンテキストウィンドウ占有をリアルタイムで集計し、`SegmentBreakdownEngine` で
-システムプロンプト・ツール定義・メッセージ履歴のカテゴリ別内訳をオンデマンドに取得できます。
+システムプロンプト・ツール定義・メッセージ履歴のカテゴリ別内訳をオンデマンドに取得できる。
 
-**後方互換** として `LLMDynamicStructured` が存在します。このモジュールは `LLMClient` を再エクスポートしており、
-以前の参照を壊さずに移行できます。
+**後方互換** として `LLMDynamicStructured` が存在する。このモジュールは `LLMClient` を再エクスポートしており、
+以前の参照を壊さずに移行できる。
 
 ---
 
-このモジュール (`LLMClient`) が直接提供する主な機能は次の 3 つです。
+このモジュール (`LLMClient`) が直接提供する主な機能は次の 3 つ。
 
 **構造化出力**: `@Structured` マクロを型に付与するだけで、JSON Schema の推論・プロンプト注入・
-レスポンスのパースを自動的に処理します。
+レスポンスのパースを自動的に処理する。
 
 ```swift
 @Structured("タスク情報")
@@ -63,7 +63,7 @@ let task: TaskInfo = try await client.generate(
 ```
 
 **プロンプト DSL**: `SystemPrompt` と `PromptComponent` を使い、役割・目的・制約・例示を
-構造的に組み立てられます。
+構造的に組み立てられる。
 
 ```swift
 let prompt = SystemPrompt {
@@ -78,12 +78,12 @@ let prompt = SystemPrompt {
 ```
 
 **プロバイダー拡張**: `LLMProvider` プロトコルを実装することで、任意のプロバイダーをプラグインとして
-組み込めます。上位レイヤーは `StructuredLLMClient` / `ToolCallableClient` を使い、
-プロバイダーを切り替えても呼び出しコードは変わりません。
+組み込める。上位レイヤーは `StructuredLLMClient` / `ToolCallableClient` を使い、
+プロバイダーを切り替えても呼び出しコードは変わらない。
 
 ## Topics
 
-### Essentials
+### 基本
 
 - <doc:GettingStarted>
 

@@ -1,11 +1,11 @@
 import LLMClient
 
-/// An event from a streamed agent step.
+/// エージェントステップのストリーミングイベント。
 ///
-/// Part of the agent-step contract (`AgentCapableClient.streamAgentStep`), kept
-/// out of the pure model-access layer:
-/// - `.delta`: an in-flight thinking/text delta.
-/// - `.completed`: the full response once the step finishes.
+/// `AgentCapableClient.streamAgentStep` のステップ契約の一部。
+/// 純粋なモデルアクセス層の外に置かれる：
+/// - `.delta`: 進行中の thinking / テキスト差分。
+/// - `.completed`: ステップ完了時の完全なレスポンス。
 public enum StreamingAgentEvent: Sendable {
     case delta(StreamDelta)
     case completed(LLMResponse)

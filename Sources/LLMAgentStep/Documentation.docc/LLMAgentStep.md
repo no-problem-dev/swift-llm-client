@@ -5,16 +5,16 @@
 ## Overview
 
 `LLMAgentStep` は `LLMTool` の `ToolCallableClient` を拡張し、エージェントループの
-1 ステップを実行・ストリーミングするためのプロトコル `AgentCapableClient` を定義します。
+1 ステップを実行・ストリーミングするためのプロトコル `AgentCapableClient` を定義する。
 
 **AgentCapableClient**: このプロトコルを採用したプロバイダー実装は `executeAgentStep` と
-`streamAgentStep` を通じてエージェントループの単一ステップを実行します。
+`streamAgentStep` を通じてエージェントループの単一ステップを実行する。
 ループ制御・ツール実行・履歴管理はエージェントランタイム（`swift-llm-agent` 等）が担い、
-このモジュールは純粋なステップ実行レイヤーに留まります。
+このモジュールは純粋なステップ実行レイヤーに留まる。
 
 **StreamingAgentEvent**: ストリーミング実行では `AsyncThrowingStream<StreamingAgentEvent, Error>` が
-返されます。`.delta(StreamDelta)` で thinking やテキストの差分をリアルタイムに受け取り、
-`.completed(LLMResponse)` でステップ完了時の完全なレスポンスを受け取ります。
+返される。`.delta(StreamDelta)` で thinking やテキストの差分をリアルタイムに受け取り、
+`.completed(LLMResponse)` でステップ完了時の完全なレスポンスを受け取る。
 
 ```swift
 import LLMAgentStep
@@ -31,14 +31,14 @@ let stream = client.streamAgentStep(
     thinkingMode: .disabled,
     reasoningEffort: nil,
     maxTokens: nil,
-    cachePolicy: .auto
+    cachePolicy: .implicit
 )
 
 for try await event in stream {
     switch event {
     case .delta(let delta):
         // thinking / テキスト差分をリアルタイムに表示
-        print(delta.text ?? "")
+        if case .textDelta(let text) = delta { print(text) }
     case .completed(let response):
         // ステップ完了 — ツール呼び出しの有無を確認してループを継続するか判断
         handleResponse(response)
@@ -47,8 +47,8 @@ for try await event in stream {
 ```
 
 デフォルト実装として、`streamAgentStep` は `executeAgentStep` を内部で呼び出す
-シム実装が提供されます。ストリーミングをネイティブに対応していないプロバイダーは
-このデフォルトをそのまま使用できます。
+シム実装が提供される。ストリーミングをネイティブに対応していないプロバイダーは
+このデフォルトをそのまま使用できる。
 
 ## Topics
 

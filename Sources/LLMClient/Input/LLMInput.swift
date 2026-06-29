@@ -10,12 +10,12 @@ import Foundation
 /// LLMへの入力を表す具象型
 ///
 /// テキストプロンプトとマルチモーダルコンテンツを統合した
-/// LLM入力の標準実装です。
+/// LLM入力の標準実装。
 ///
 /// ## 概要
 ///
 /// `LLMInput` は `LLMInputProtocol` の具象実装であり、
-/// すべての LLM API 呼び出しで使用される統一入力型です。
+/// すべての LLM API 呼び出しで使用される統一入力型。
 ///
 /// ## 使用例
 ///
@@ -78,7 +78,7 @@ public struct LLMInput: LLMInputProtocol, ExpressibleByStringLiteral {
 
     /// フル初期化
     ///
-    /// すべてのプロパティを明示的に指定して初期化します。
+    /// すべてのプロパティを明示的に指定して初期化する。
     ///
     /// - Parameters:
     ///   - prompt: テキストプロンプト
@@ -99,7 +99,7 @@ public struct LLMInput: LLMInputProtocol, ExpressibleByStringLiteral {
 
     /// 文字列から初期化
     ///
-    /// 単純なテキストプロンプトを作成します。
+    /// 単純なテキストプロンプトを作成する。
     ///
     /// - Parameters:
     ///   - text: プロンプトテキスト

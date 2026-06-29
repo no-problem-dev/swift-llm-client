@@ -5,8 +5,8 @@ import LLMClient
 
 /// ツール実行の結果
 ///
-/// ツールの `call()` メソッドから返される結果を表します。
-/// テキスト、構造化データ（JSON）、またはエラーを表現できます。
+/// ツールの `call()` メソッドから返される結果を表す。
+/// テキスト、構造化データ（JSON）、またはエラーを表現できる。
 ///
 /// ## 使用例
 ///
@@ -33,14 +33,14 @@ public enum ToolResult: Sendable, Equatable {
 
     /// エラーメッセージ
     ///
-    /// ツールの実行自体は成功したが、処理内でエラーが発生した場合に使用します。
+    /// ツール実行は成功したが処理内でエラーが発生した場合に使用する。
     /// 例: API 呼び出しの失敗、データが見つからない、など
     case error(String)
 
     /// テキスト + メディアコンテンツ付き結果
     ///
-    /// 画像などのメディアを LLM に直接渡す場合に使用します。
-    /// テキスト部分は LLM へのツール結果として、メディアは追加コンテンツとして注入されます。
+    /// 画像などのメディアを LLM に直接渡す場合に使用する。
+    /// テキスト部分は LLM へのツール結果として、メディアは追加コンテンツとして注入される。
     case textWithMedia(String, media: [ImageContent])
 
     // MARK: - Factory Methods
@@ -103,8 +103,8 @@ public enum ToolResult: Sendable, Equatable {
 
 /// ToolResult に変換可能な型が準拠するプロトコル
 ///
-/// このプロトコルに準拠することで、ツールの戻り値として使用できます。
-/// 標準的な型（String, Int, Bool など）は自動的に準拠しています。
+/// このプロトコルに準拠することでツールの戻り値として使用できる。
+/// 標準的な型（`String`、`Int`、`Bool` など）は自動的に準拠している。
 ///
 /// ## 使用例
 ///
@@ -176,7 +176,7 @@ extension ToolResult: ToolResultConvertible {
 
 /// Encodable な型に ToolResultConvertible 準拠を提供するラッパー
 ///
-/// 任意の Encodable な型を ToolResult に変換する際に使用します。
+/// 任意の `Encodable` な型を `ToolResult` に変換する際に使用する。
 ///
 /// ```swift
 /// let weather = WeatherData(temp: 25)

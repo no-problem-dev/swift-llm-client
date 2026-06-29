@@ -9,7 +9,7 @@ import Foundation
 
 /// 画像生成機能を持つクライアントのプロトコル
 ///
-/// このプロトコルを実装するクライアントは、テキストから画像を生成できます。
+/// このプロトコルを実装するクライアントは、テキストから画像を生成できる。
 ///
 /// ## 使用例
 /// ```swift
@@ -112,8 +112,8 @@ extension ImageGenerationCapable {
 
 /// 画像サイズ
 ///
-/// 生成する画像のサイズを指定します。
-/// 利用可能なサイズはモデルによって異なります。
+/// 生成する画像のサイズを指定する。
+/// 利用可能なサイズはモデルによって異なる。
 public enum ImageSize: String, Sendable, Codable, CaseIterable, Equatable {
     // MARK: - Square Sizes
 
@@ -264,8 +264,8 @@ public enum OpenAIImageModel: String, Sendable, Codable, CaseIterable, Equatable
 /// Gemini 画像生成モデル
 ///
 /// 注意: Imagen 3 は Gemini API (generativelanguage.googleapis.com) では
-/// まだ公開されていません（Vertex AI のみ）。
-/// 利用可能なモデルは Imagen 4 および Gemini Image モデルです。
+/// まだ公開されていない（Vertex AI のみ）。
+/// 利用可能なモデルは Imagen 4 および Gemini Image モデルに限る。
 public enum GeminiImageModel: String, Sendable, Codable, CaseIterable, Equatable {
     // MARK: - Imagen 4 Models
     /// Imagen 4（最新・高品質画像生成）

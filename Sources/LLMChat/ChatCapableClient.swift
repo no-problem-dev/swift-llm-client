@@ -6,9 +6,9 @@ import LLMClient
 /// 会話継続機能を持つ LLM クライアントのプロトコル
 ///
 /// `StructuredLLMClient` を拡張し、会話継続に必要なメタ情報を
-/// 含むレスポンスを返す機能を追加します。
+/// 含むレスポンスを返す機能を追加する。
 /// 各プロバイダー（Anthropic, OpenAI, Gemini）はこのプロトコルに適合することで
-/// 会話継続機能を利用可能にします。
+/// 会話継続機能を利用できる。
 ///
 /// ## 基本的な LLM 動作との違い
 ///
@@ -42,8 +42,8 @@ import LLMClient
 public protocol ChatCapableClient: StructuredLLMClient {
     /// 会話を継続し、構造化出力と会話履歴情報を取得
     ///
-    /// このメソッドは `generate` と異なり、構造化出力に加えて
-    /// 会話を継続するために必要なメタ情報を `ChatResponse` として返します。
+    /// `generate` と異なり、構造化出力に加えて
+    /// 会話継続に必要なメタ情報を `ChatResponse` として返す。
     ///
     /// - Parameters:
     ///   - messages: メッセージ履歴
@@ -83,9 +83,9 @@ extension ChatCapableClient {
 
     /// LLMInput から会話を開始
     ///
-    /// 会話履歴なしで新しい会話を開始するための便利メソッド。
+    /// 会話履歴なしで新しい会話を開始する便利メソッド。
     /// テキストとマルチモーダルコンテンツ（画像、音声、動画）を
-    /// 含む入力をサポートします。
+    /// 含む入力をサポートする。
     ///
     /// - Parameters:
     ///   - input: LLM 入力

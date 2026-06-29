@@ -207,7 +207,7 @@ extension JSONSchema {
 
     /// `NamedSchema` 配列からオブジェクト型のスキーマを作成
     ///
-    /// `SchemaFieldBuilder` と組み合わせて、宣言的にオブジェクトスキーマを構築できます。
+    /// `SchemaFieldBuilder` と組み合わせて、宣言的にオブジェクトスキーマを構築できる。
     ///
     /// - Parameters:
     ///   - description: スキーマの説明
@@ -247,7 +247,7 @@ extension JSONSchema {
     /// 名前を付けて NamedSchema に変換
     ///
     /// `DynamicStructured` や `DynamicTool` のフィールドとして使用するために、
-    /// JSON Schema に名前を付与します。
+    /// JSON Schema に名前を付与する。
     ///
     /// - Parameter name: フィールド名
     /// - Returns: 名前付きスキーマ（デフォルトで必須）

@@ -13,7 +13,7 @@ extension LLMMessage {
 
     /// テキストと画像を含むユーザーメッセージを作成
     ///
-    /// 画像は、Base64データまたはURLから作成できます。
+    /// 画像は Base64 データまたは URL から作成できる。
     ///
     /// ## 使用例
     /// ```swift
@@ -34,7 +34,7 @@ extension LLMMessage {
 
     /// 複数の画像を含むユーザーメッセージを作成
     ///
-    /// 複数の画像を同時に送信する場合に使用します。
+    /// 複数の画像を同時に送信する場合に使用する。
     ///
     /// ## 使用例
     /// ```swift
@@ -59,7 +59,7 @@ extension LLMMessage {
 
     /// テキストと音声を含むユーザーメッセージを作成
     ///
-    /// 音声ファイルを送信してトランスクリプションや分析を行う場合に使用します。
+    /// 音声ファイルを送信してトランスクリプションや分析を行う場合に使用する。
     ///
     /// ## 使用例
     /// ```swift
@@ -82,8 +82,8 @@ extension LLMMessage {
 
     /// テキストと動画を含むユーザーメッセージを作成
     ///
-    /// 動画ファイルを送信して分析を行う場合に使用します。
-    /// 現在、動画入力はGeminiのみでサポートされています。
+    /// 動画ファイルを送信して分析を行う場合に使用する。
+    /// 現在、動画入力は Gemini のみサポートされている。
     ///
     /// ## 使用例
     /// ```swift
@@ -105,7 +105,7 @@ extension LLMMessage {
 
     /// テキストとドキュメントを含むユーザーメッセージを作成
     ///
-    /// PDF やテキストファイルを送信して分析・要約・抽出を行う場合に使用します。
+    /// PDF やテキストファイルを送信して分析・要約・抽出を行う場合に使用する。
     ///
     /// ## 使用例
     /// ```swift
@@ -126,7 +126,7 @@ extension LLMMessage {
 
     /// 複数のドキュメントを含むユーザーメッセージを作成
     ///
-    /// 複数のドキュメントを同時に送信する場合に使用します。
+    /// 複数のドキュメントを同時に送信する場合に使用する。
     ///
     /// - Parameters:
     ///   - text: テキストメッセージ
@@ -142,7 +142,7 @@ extension LLMMessage {
 
     /// 任意のコンテンツを含むユーザーメッセージを作成
     ///
-    /// 複数種類のメディアを組み合わせる場合に使用します。
+    /// 複数種類のメディアを組み合わせる場合に使用する。
     ///
     /// ## 使用例
     /// ```swift
@@ -163,7 +163,7 @@ extension LLMMessage {
 
     /// 画像コンテンツを取得
     ///
-    /// メッセージに含まれる全ての画像を配列で返します。
+    /// メッセージに含まれる全ての画像を配列で返す。
     public var images: [ImageContent] {
         contents.compactMap { content in
             if case .image(let image) = content { return image }
@@ -173,7 +173,7 @@ extension LLMMessage {
 
     /// 音声コンテンツを取得
     ///
-    /// メッセージに含まれる全ての音声を配列で返します。
+    /// メッセージに含まれる全ての音声を配列で返す。
     public var audios: [AudioContent] {
         contents.compactMap { content in
             if case .audio(let audio) = content { return audio }
@@ -183,7 +183,7 @@ extension LLMMessage {
 
     /// 動画コンテンツを取得
     ///
-    /// メッセージに含まれる全ての動画を配列で返します。
+    /// メッセージに含まれる全ての動画を配列で返す。
     public var videos: [VideoContent] {
         contents.compactMap { content in
             if case .video(let video) = content { return video }
@@ -193,7 +193,7 @@ extension LLMMessage {
 
     /// ドキュメントコンテンツを取得
     ///
-    /// メッセージに含まれる全てのドキュメントを配列で返します。
+    /// メッセージに含まれる全てのドキュメントを配列で返す。
     public var documents: [DocumentContent] {
         contents.compactMap { content in
             if case .document(let document) = content { return document }
@@ -203,7 +203,7 @@ extension LLMMessage {
 
     /// メディアコンテンツを含むかどうか
     ///
-    /// 画像、音声、動画、またはドキュメントのいずれかを含む場合に `true` を返します。
+    /// 画像、音声、動画、またはドキュメントのいずれかを含む場合に `true` を返す。
     public var hasMediaContent: Bool {
         contents.contains { content in
             switch content {

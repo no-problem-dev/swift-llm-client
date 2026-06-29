@@ -20,8 +20,8 @@ public protocol ProviderCapabilities: Sendable {
 
 /// プロバイダー識別子
 ///
-/// LLMプロバイダーを識別するための列挙型です。
-/// メディア機能のサポート確認やエラーメッセージに使用されます。
+/// LLMプロバイダーを識別する列挙型。
+/// メディア機能のサポート確認やエラーメッセージに使用する。
 public enum ProviderType: String, Sendable, Codable, ProviderCapabilities {
     case anthropic
     case openai
@@ -46,7 +46,7 @@ public enum ProviderType: String, Sendable, Codable, ProviderCapabilities {
 
 /// プロバイダー互換性エラー
 ///
-/// メディアコンテンツが対象プロバイダーでサポートされない場合に投げられます。
+/// メディアコンテンツが対象プロバイダーでサポートされない場合にスロー。
 public enum ProviderCompatibilityError: Error, Sendable, Equatable, LocalizedError {
     /// プロバイダーが機能をサポートしていない
     case notSupportedByProvider(feature: String, provider: ProviderType)
@@ -68,8 +68,8 @@ public enum ProviderCompatibilityError: Error, Sendable, Equatable, LocalizedErr
 
 /// メディアタイプとプロバイダーの互換性マトリクス
 ///
-/// 「どのプロバイダーが何を許すか」というプロバイダー固有の知識を集約します。
-/// ドメイン値型（`ImageContent` 等）はこの知識を持たず、検証はここに委譲されます。
+/// 「どのプロバイダーが何を許すか」というプロバイダー固有の知識を集約する。
+/// ドメイン値型（`ImageContent` 等）はこの知識を持たず、検証はここに委譲する。
 public enum MediaCompatibility {
 
     // MARK: - Image Type Compatibility

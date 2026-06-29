@@ -4,8 +4,8 @@ import Foundation
 
 /// 名前付きスキーマ
 ///
-/// `JSONSchema` に名前と必須情報を付加した型です。
-/// `DynamicStructured` のフィールド定義や `DynamicTool` のパラメータ定義として使用されます。
+/// `JSONSchema` に名前と必須情報を付加した型。
+/// `DynamicStructured` のフィールド定義や `DynamicTool` のパラメータ定義として使用する。
 ///
 /// ## 使用例
 ///

@@ -6,7 +6,7 @@ import LLMClient
 /// 会話履歴で発生するイベント
 ///
 /// `ConversationHistoryProtocol` の `eventStream` プロパティから取得できる
-/// AsyncStream で配信されるイベントを表現します。
+/// AsyncStream で配信されるイベントを表現する。
 ///
 /// ## 使用例
 ///

@@ -4,12 +4,12 @@ import Foundation
 
 /// JSON Schema に関連するエラー
 ///
-/// JSON Schema の処理中に発生する可能性のあるエラーを表します。
+/// JSON Schema の処理中に発生する可能性のあるエラーを表す。
 public enum JSONSchemaError: Error, Sendable {
     /// JSON エンコーディングに失敗
     ///
     /// スキーマを JSON 文字列に変換する際に、
-    /// UTF-8 エンコーディングに失敗した場合に発生します。
+    /// UTF-8 エンコーディングに失敗した場合に発生する。
     case encodingFailed
 }
 

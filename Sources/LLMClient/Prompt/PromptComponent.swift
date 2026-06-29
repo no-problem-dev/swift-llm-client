@@ -5,7 +5,7 @@ import Foundation
 /// プロンプトを構成する要素
 ///
 /// DSL を使用して、様々なプロンプトエンジニアリング技法を
-/// 自由に組み合わせてプロンプトを構築できます。
+/// 自由に組み合わせてプロンプトを構築できる。
 ///
 /// ## 使用例
 ///
@@ -31,7 +31,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// 役割を定義
     ///
-    /// LLM に特定の役割を与えることで、その視点からの回答を促します。
+    /// LLM に特定の役割を与えることで、その視点からの回答を促す。
     ///
     /// - Parameter value: 役割の説明
     ///
@@ -43,7 +43,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// 専門性を定義
     ///
-    /// 役割に付随する専門知識やスキルを指定します。
+    /// 役割に付随する専門知識やスキルを指定する。
     ///
     /// - Parameter value: 専門性の説明
     ///
@@ -56,7 +56,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// 振る舞いを定義
     ///
-    /// 回答のスタイルや態度を指定します。
+    /// 回答のスタイルや態度を指定する。
     ///
     /// - Parameter value: 振る舞いの説明
     ///
@@ -70,7 +70,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// タスクの目的を定義
     ///
-    /// プロンプトの主要な目的やゴールを明示します。
+    /// プロンプトの主要な目的やゴールを明示する。
     ///
     /// - Parameter value: 目的の説明
     ///
@@ -82,7 +82,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// コンテキストを提供
     ///
-    /// タスクに関連する背景情報や状況を説明します。
+    /// タスクに関連する背景情報や状況を説明する。
     ///
     /// - Parameter value: コンテキストの説明
     ///
@@ -94,7 +94,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// 具体的な指示を追加
     ///
-    /// タスクを遂行するための具体的な手順や方法を指定します。
+    /// タスクを遂行するための具体的な手順や方法を指定する。
     ///
     /// - Parameter value: 指示の内容
     ///
@@ -107,7 +107,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// 制約条件を追加
     ///
-    /// 回答に対する制限や禁止事項を指定します。
+    /// 回答に対する制限や禁止事項を指定する。
     ///
     /// - Parameter value: 制約の内容
     ///
@@ -123,7 +123,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
     /// 思考ステップを定義
     ///
     /// Chain-of-Thought プロンプティングで、
-    /// LLM に特定の思考プロセスを促します。
+    /// LLM に特定の思考プロセスを促す。
     ///
     /// - Parameter value: 思考ステップの説明
     ///
@@ -136,8 +136,8 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// 推論の根拠を説明
     ///
-    /// なぜそのような処理をするのかの理由を説明します。
-    /// LLM の汎化能力を向上させます。
+    /// なぜそのような処理をするのかの理由を説明する。
+    /// LLM の汎化能力を向上させる。
     ///
     /// - Parameter value: 推論の説明
     ///
@@ -152,7 +152,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
     /// 入出力の例を提供
     ///
     /// Few-shot プロンプティングで、
-    /// 期待する入出力パターンを例示します。
+    /// 期待する入出力パターンを例示する。
     ///
     /// - Parameters:
     ///   - input: 入力例
@@ -171,7 +171,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// 重要事項を強調
     ///
-    /// 特に重要な指示や注意点を強調します。
+    /// 特に重要な指示や注意点を強調する。
     ///
     /// - Parameter value: 重要事項の内容
     ///
@@ -183,7 +183,7 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// 補足情報を追加
     ///
-    /// 補足的な情報やヒントを提供します。
+    /// 補足的な情報やヒントを提供する。
     ///
     /// - Parameter value: 補足の内容
     ///
@@ -197,8 +197,8 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
     /// 出力値の制約（スキーマ由来）
     ///
-    /// JSON Schema でサポートされていない制約を自然言語で指定します。
-    /// これは主に内部で自動生成されますが、手動で追加することもできます。
+    /// JSON Schema でサポートされていない制約を自然言語で指定する。
+    /// 主に内部で自動生成するが、手動で追加することもできる。
     ///
     /// - Parameter value: 制約の説明
     ///

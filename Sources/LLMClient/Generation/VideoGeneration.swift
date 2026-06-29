@@ -9,8 +9,8 @@ import Foundation
 
 /// 動画生成機能を持つクライアントのプロトコル
 ///
-/// 動画生成は非同期ジョブとして処理されます。
-/// ジョブを開始し、ステータスをポーリングして完了を待ちます。
+/// 動画生成は非同期ジョブとして処理される。
+/// ジョブを開始し、ステータスをポーリングして完了を待つ。
 ///
 /// ## 使用例
 /// ```swift
@@ -62,7 +62,7 @@ public protocol VideoGenerationCapable<VideoModel>: Sendable {
 
     /// 生成された動画を取得
     ///
-    /// ジョブが完了（`status == .completed`）している場合のみ動画を取得できます。
+    /// ジョブが完了（`status == .completed`）している場合のみ動画を取得できる。
     ///
     /// - Parameter job: 完了したジョブ
     /// - Returns: 生成された動画
@@ -145,8 +145,8 @@ extension VideoGenerationCapable {
 
 /// OpenAI 動画生成モデル（Sora 2）
 ///
-/// Sora 2 は OpenAI の第2世代動画生成モデルです。
-/// 2025年9月にリリースされ、API経由で利用可能です。
+/// Sora 2 は OpenAI の第2世代動画生成モデル。
+/// 2025年9月リリース。API 経由で利用可能。
 public enum OpenAIVideoModel: String, Sendable, Codable, CaseIterable, Equatable {
     /// Sora 2（標準版・高速）
     ///

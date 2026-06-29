@@ -6,7 +6,7 @@ extension RemovedConstraint {
     /// 除去された制約を PromptComponent に変換
     ///
     /// JSON Schema でサポートされていない制約を、LLM が理解できる
-    /// 自然言語の指示に変換します。
+    /// 自然言語の指示に変換する。
     ///
     /// - Returns: outputConstraint タイプの PromptComponent
     ///

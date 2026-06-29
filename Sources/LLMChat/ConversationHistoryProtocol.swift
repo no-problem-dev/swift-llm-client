@@ -5,13 +5,13 @@ import LLMClient
 
 /// 会話履歴を管理するプロトコル
 ///
-/// LLM との会話履歴を Actor で保護された状態として管理します。
-/// 履歴はモデルやクライアントから独立しており、
-/// 同じ履歴を異なるモデルで継続することができます。
+/// LLM との会話履歴を Actor で保護された状態として管理する。
+/// 履歴はモデルやクライアントから独立しているため、
+/// 同じ履歴を異なるモデルで継続できる。
 ///
 /// ## 概要
 ///
-/// このプロトコルは以下の責務を持ちます：
+/// このプロトコルの責務：
 ///
 /// - メッセージ履歴の保存と取得
 /// - トークン使用量の累積追跡
@@ -41,7 +41,7 @@ import LLMClient
 ///
 /// ## カスタム実装
 ///
-/// このプロトコルを実装することで、以下のようなカスタム履歴管理が可能です：
+/// このプロトコルを実装することで、以下のようなカスタム履歴管理が可能：
 ///
 /// - 永続化対応の履歴（CoreData、ファイル保存など）
 /// - 圧縮・要約機能付きの履歴
@@ -50,31 +50,31 @@ import LLMClient
 /// ## スレッドセーフティ
 ///
 /// このプロトコルは `Actor` を要求するため、
-/// すべての実装は自動的にスレッドセーフになります。
+/// すべての実装は自動的にスレッドセーフになる。
 public protocol ConversationHistoryProtocol: Actor, Sendable {
     // MARK: - State Access
 
     /// 現在のメッセージ履歴を取得
     ///
-    /// ユーザーとアシスタントのメッセージが時系列順に格納されています。
+    /// ユーザーとアシスタントのメッセージが時系列順に格納されている。
     func getMessages() -> [LLMMessage]
 
     /// 累計トークン使用量を取得
     ///
     /// この履歴を使用したすべての API 呼び出しの
-    /// トークン使用量の合計を返します。
+    /// トークン使用量の合計を返す。
     func getTotalUsage() -> TokenUsage
 
     /// 会話のターン数
     ///
-    /// ユーザーとアシスタントのメッセージペア数を返します。
+    /// ユーザーとアシスタントのメッセージペア数を返す。
     var turnCount: Int { get }
 
     // MARK: - State Mutation
 
     /// メッセージを追加
     ///
-    /// メッセージを履歴に追加し、イベントストリームに通知します。
+    /// メッセージを履歴に追加し、イベントストリームに通知する。
     ///
     /// - Parameter message: 追加するメッセージ
     func append(_ message: LLMMessage)
@@ -82,7 +82,7 @@ public protocol ConversationHistoryProtocol: Actor, Sendable {
     /// トークン使用量を累積
     ///
     /// API 呼び出しのトークン使用量を累計に加算し、
-    /// イベントストリームに通知します。
+    /// イベントストリームに通知する。
     ///
     /// - Parameter usage: 追加するトークン使用量
     func addUsage(_ usage: TokenUsage)
@@ -90,13 +90,13 @@ public protocol ConversationHistoryProtocol: Actor, Sendable {
     /// 履歴をクリア
     ///
     /// すべてのメッセージとトークン使用量をリセットし、
-    /// イベントストリームに `.cleared` を通知します。
+    /// イベントストリームに `.cleared` を通知する。
     func clear()
 
     /// エラーイベントを発火
     ///
     /// API 呼び出しでエラーが発生した場合に、
-    /// イベントストリームに `.error` を通知します。
+    /// イベントストリームに `.error` を通知する。
     ///
     /// - Parameter error: 発生したエラー
     func emitError(_ error: LLMError)
@@ -106,7 +106,7 @@ public protocol ConversationHistoryProtocol: Actor, Sendable {
     /// イベントストリーム
     ///
     /// 履歴の変更（メッセージ追加、クリアなど）を
-    /// AsyncStream として購読できます。
+    /// AsyncStream として購読できる。
     ///
     /// ## 使用例
     ///

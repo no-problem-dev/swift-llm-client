@@ -4,8 +4,8 @@ import Foundation
 
 /// 構造化出力の生成結果（メタデータ付き）
 ///
-/// LLM から返された構造化出力と、トークン使用量などのメタデータを含みます。
-/// コスト計算や使用量トラッキングに使用できます。
+/// LLM から返された構造化出力と、トークン使用量などのメタデータを含む。
+/// コスト計算や使用量トラッキングに使用できる。
 ///
 /// ## 使用例
 ///
@@ -37,7 +37,7 @@ public struct GenerationResult<T: StructuredProtocol>: Sendable {
     /// トークン使用量
     ///
     /// このリクエストで消費された入力/出力トークン数。
-    /// コスト計算に使用できます。
+    /// コスト計算に使用できる。
     public let usage: TokenUsage
 
     /// 使用されたモデルID
@@ -48,7 +48,7 @@ public struct GenerationResult<T: StructuredProtocol>: Sendable {
     /// 生のJSONテキスト
     ///
     /// モデルから返された構造化出力の生のJSON文字列。
-    /// デバッグやログ記録に使用できます。
+    /// デバッグやログ記録に使用できる。
     public let rawText: String
 
     /// 停止理由

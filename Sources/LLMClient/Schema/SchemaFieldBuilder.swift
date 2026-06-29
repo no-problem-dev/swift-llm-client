@@ -5,8 +5,8 @@ import Foundation
 /// `[NamedSchema]` を宣言的に構築するための Result Builder
 ///
 /// `JSONSchema` とその拡張メソッド `.named()` を組み合わせて、
-/// スキーマフィールドの定義をパズルのように組み立てることができます。
-/// `DynamicStructured` と `DynamicTool` の両方で使用されます。
+/// スキーマフィールドの定義をパズルのように組み立てられる。
+/// `DynamicStructured` と `DynamicTool` の両方で使用する。
 ///
 /// ## 使用例
 ///

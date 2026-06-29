@@ -4,11 +4,11 @@ import Foundation
 
 /// ツールの動作特性を示すアノテーション
 ///
-/// MCP仕様のTool Annotationsに準拠した構造体です。
-/// クライアントがツールの特性を理解するためのヒントを提供します。
+/// MCP 仕様の Tool Annotations に準拠した構造体。
+/// クライアントがツールの特性を理解するためのヒントを提供する。
 ///
 /// - Note: これらはすべて「ヒント」であり、
-///         信頼できないサーバーからの値は検証せずに信用すべきではありません。
+///         信頼できないサーバーからの値は検証せずに信用しない。
 ///
 /// ## 使用例
 ///
@@ -29,13 +29,13 @@ public struct ToolAnnotations: Sendable, Equatable {
 
     /// trueの場合、ツールは破壊的な更新を行う可能性がある
     ///
-    /// `readOnlyHint == false` の場合のみ意味を持ちます。
+    /// `readOnlyHint == false` の場合のみ意味を持つ。
     /// デフォルト: true（未指定時）
     public var destructiveHint: Bool?
 
     /// trueの場合、同じ引数での繰り返し呼び出しは追加の効果を持たない
     ///
-    /// `readOnlyHint == false` の場合のみ意味を持ちます。
+    /// `readOnlyHint == false` の場合のみ意味を持つ。
     /// デフォルト: false（未指定時）
     public var idempotentHint: Bool?
 

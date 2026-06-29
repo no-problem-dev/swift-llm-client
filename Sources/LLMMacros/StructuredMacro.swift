@@ -3,7 +3,7 @@ import SwiftSyntaxMacros
 
 /// `@Structured` マクロの実装
 ///
-/// 構造体に対して以下を生成します：
+/// 構造体に対して以下を生成する：
 /// - `jsonSchema` 静的プロパティ
 /// - `StructuredProtocol`, `Codable`, `Sendable` への準拠
 public struct StructuredMacro: MemberMacro, ExtensionMacro {

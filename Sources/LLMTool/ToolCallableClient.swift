@@ -5,9 +5,9 @@ import LLMClient
 
 /// ツールコール機能を持つ LLM クライアントのプロトコル
 ///
-/// `StructuredLLMClient` を拡張し、ツールコール機能を追加します。
-/// 各プロバイダー（Anthropic, OpenAI, Gemini）はこのプロトコルに適合することで
-/// ツールコール機能を利用可能にします。
+/// `StructuredLLMClient` にツールコール機能を追加する。
+/// 各プロバイダー（Anthropic, OpenAI, Gemini）はこのプロトコルに準拠することで
+/// ツールコール機能を提供できる。
 ///
 /// ## 使用例
 ///
@@ -15,7 +15,7 @@ import LLMClient
 /// let client = AnthropicClient(apiKey: "sk-ant-...")
 ///
 /// @Tool("天気を取得する")
-/// struct GetWeather: LLMTool {
+/// struct GetWeather: Tool {
 ///     @ToolArgument("場所")
 ///     var location: String
 ///
@@ -37,8 +37,8 @@ import LLMClient
 public protocol ToolCallableClient: StructuredLLMClient {
     /// ツール呼び出しを計画する（単一プロンプト）
     ///
-    /// LLM にツールを提供し、どのツールをどの引数で呼び出すべきかを判断させます。
-    /// このメソッドはツールの選択と引数の決定のみを行い、実際のツール実行は行いません。
+    /// LLM にツールを提供し、どのツールをどの引数で呼び出すべきかを判断させる。
+    /// このメソッドはツールの選択と引数の決定のみを行い、実際のツール実行は行わない。
     ///
     /// - Parameters:
     ///   - prompt: ユーザープロンプト

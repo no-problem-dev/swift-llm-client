@@ -3,7 +3,7 @@ import SwiftSyntaxMacros
 
 /// `@StructuredEnum` マクロの実装
 ///
-/// String 型の RawRepresentable enum に対して以下を生成します：
+/// String 型の RawRepresentable enum に対して以下を生成する：
 /// - `jsonSchema` 静的プロパティ（enum 制約付き string スキーマ）
 /// - `StructuredProtocol`, `Codable`, `Sendable` への準拠
 ///
@@ -201,7 +201,7 @@ public struct StructuredEnumMacro: MemberMacro, ExtensionMacro {
 
     /// enumDescription プロパティを生成
     ///
-    /// ケースの説明を含むプロンプト用の文字列を生成します。
+    /// ケースの説明を含むプロンプト用の文字列を生成する。
     /// 例:
     /// ```
     /// タスクの優先度:

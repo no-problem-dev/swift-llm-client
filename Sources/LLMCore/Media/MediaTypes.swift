@@ -9,7 +9,7 @@ import Foundation
 
 /// 画像メディアタイプ
 ///
-/// 画像形式とその MIME タイプ・ファイル拡張子を定義します。
+/// 画像形式とその MIME タイプ・ファイル拡張子を定義する。
 ///
 /// ## 使用例
 /// ```swift
@@ -65,7 +65,7 @@ public enum ImageMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
 
 /// 音声メディアタイプ
 ///
-/// 音声形式とその MIME タイプ・ファイル拡張子を定義します。
+/// 音声形式とその MIME タイプ・ファイル拡張子を定義する。
 ///
 /// ## 使用例
 /// ```swift
@@ -118,7 +118,7 @@ public enum AudioMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
 
 /// 動画メディアタイプ
 ///
-/// 動画形式とその MIME タイプ・ファイル拡張子を定義します。
+/// 動画形式とその MIME タイプ・ファイル拡張子を定義する。
 ///
 /// ## 使用例
 /// ```swift
@@ -180,7 +180,7 @@ public enum VideoMediaType: String, Sendable, Codable, CaseIterable, Equatable, 
 
 /// メディアタイプ共通プロトコル
 ///
-/// すべてのメディアタイプ列挙型が準拠するプロトコルです。
+/// 全メディアタイプ列挙型が準拠するプロトコル。
 public protocol MediaType: RawRepresentable, Sendable, Codable, CaseIterable, Equatable, Hashable where RawValue == String {
     /// ファイル拡張子
     var fileExtension: String { get }

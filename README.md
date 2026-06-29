@@ -1,83 +1,83 @@
-[English](README_EN.md) | 日本語
+English | [日本語](./README.ja.md)
 
 # LLMClient
 
-プロバイダー非依存の LLM クライアント抽象化 Swift パッケージ
+A provider-agnostic LLM client abstraction Swift package
 
 ![Swift](https://img.shields.io/badge/Swift-6.2-orange.svg)
 ![Platforms](https://img.shields.io/badge/Platforms-iOS%2017.0+%20%7C%20macOS%2014.0+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-## 特徴
+## Features
 
-- **プロバイダー非依存** - 統一プロトコルにより任意の LLM プロバイダーを差し替え可能
-- **Swift Macro ベースツール定義** - `@Tool` マクロで型安全な Function Calling を実現
-- **構造化出力** - `@Structured` マクロと JSON Schema による型安全な構造化レスポンス
-- **ストリーミング** - AsyncThrowingStream によるリアルタイムトークン出力
-- **チャット管理** - メッセージ履歴・コンテキスト管理の統一 API
+- **Provider Agnostic** - Unified protocol allows swapping any LLM provider without changing call-site code
+- **Swift Macro-based Tool Definition** - Type-safe Function Calling with `@Tool` macro
+- **Structured Output** - Type-safe structured responses via `@Structured` macro and JSON Schema
+- **Streaming** - Real-time token output via AsyncThrowingStream
+- **Chat Management** - Unified API for message history and context management
 
-## インストール
+## Installation
 
 ```swift
 // Package.swift
 dependencies: [
-    .package(url: "https://github.com/no-problem-dev/swift-llm-client.git", .upToNextMajor(from: "1.0.0"))
+    .package(url: "https://github.com/no-problem-dev/swift-llm-client.git", .upToNextMajor(from: "3.9.0"))
 ]
 ```
 
-### モジュール構成
+### Module Structure
 
-用途に応じて必要なモジュールのみをインポートできます：
+Import only the modules you need:
 
-| モジュール | 用途 |
-|-----------|------|
-| `LLMCore` | 純粋ドメイン層（`LLMMessage`, `LLMResponse`, `TokenUsage`, `ModelProfile` 等） |
-| `LLMClient` | クライアントプロトコル・構造化出力・プロンプト DSL（`@Structured`, `SystemPrompt` 等） |
-| `LLMTool` | Swift Macro ベースのツール定義（`@Tool`, `@ToolArgument`, `ToolSet`）|
-| `LLMAgentStep` | エージェントループ契約（`AgentCapableClient`, `StreamingAgentEvent`） |
-| `LLMChat` | 会話継続管理（`ChatCapableClient`, `ConversationHistory`） |
-| `LLMContext` | コンテキストウィンドウ内訳・占有トラッキング |
-| `LLMMediaKit` | プラットフォーム I/O（`UIImage` / `AVFoundation` 変換等） |
+| Module | Purpose |
+|--------|---------|
+| `LLMCore` | Pure domain layer (`LLMMessage`, `LLMResponse`, `TokenUsage`, `ModelProfile`, etc.) |
+| `LLMClient` | Client protocols, structured output, prompt DSL (`@Structured`, `SystemPrompt`, etc.) |
+| `LLMTool` | Swift Macro-based tool definitions (`@Tool`, `@ToolArgument`, `ToolSet`) |
+| `LLMAgentStep` | Agent loop contract (`AgentCapableClient`, `StreamingAgentEvent`) |
+| `LLMChat` | Conversation continuation (`ChatCapableClient`, `ConversationHistory`) |
+| `LLMContext` | Context window breakdown and occupancy tracking |
+| `LLMMediaKit` | Platform I/O (`UIImage` / `AVFoundation` conversions, etc.) |
 
-## クイックスタート
+## Quick Start
 
-### 構造化出力
+### Structured Output
 
 ```swift
 import LLMClient
 
-// @Structured マクロで型を定義
-@Structured("都市情報")
+// Define a type with the @Structured macro
+@Structured("City information")
 struct CityInfo {
-    @StructuredField("都市名")
+    @StructuredField("City name")
     var name: String
-    @StructuredField("人口（万人単位）")
+    @StructuredField("Population (in ten thousands)")
     var population: Int
 }
 
-// クライアント（プロバイダー実装）で生成
-let client: any StructuredLLMClient<LLMModel> = // 任意のプロバイダー実装
+// Generate via a client (any provider implementation)
+let client: any StructuredLLMClient<LLMModel> = // any provider implementation
 let city: CityInfo = try await client.generate(
-    input: "東京の人口は約1400万人です",
-    model: .claude(.sonnet_4_5)
+    input: "Tokyo has a population of approximately 14 million",
+    model: .claude(.sonnet)
 )
-print(city.name)       // "東京"
+print(city.name)       // "Tokyo"
 print(city.population) // 1400
 ```
 
-### ツール定義
+### Tool Definition
 
 ```swift
 import LLMTool
 
-@Tool("現在の天気を取得する")
+@Tool("Get current weather")
 struct GetWeather {
-    @ToolArgument("都市名")
+    @ToolArgument("City name")
     var city: String
 
     func call() async throws -> String {
-        // 天気 API を呼び出す
-        return "東京: 晴れ 25°C"
+        // Call weather API
+        return "Tokyo: Sunny 25°C"
     }
 }
 
@@ -86,27 +86,27 @@ let tools = ToolSet {
 }
 ```
 
-## ドキュメント
+## Documentation
 
-詳細なガイドと API リファレンスは DocC ドキュメントを参照してください。
+See the DocC documentation for detailed guides and API reference.
 
-| ガイド | 内容 |
-|-------|------|
-| [API Reference](https://no-problem-dev.github.io/swift-llm-client/documentation/llmclient/) | 全パブリック API |
+| Guide | Description |
+|-------|-------------|
+| [API Reference](https://no-problem-dev.github.io/swift-llm-client/documentation/llmclient/) | Full public API |
 
-## 要件
+## Requirements
 
 - iOS 17.0+ / macOS 14.0+
 - Swift 6.2+
 - Xcode 16.0+
 
-## ライセンス
+## License
 
-MIT License - 詳細は [LICENSE](LICENSE) を参照
+MIT License - See [LICENSE](LICENSE) for details
 
-## リンク
+## Links
 
-- [完全なドキュメント](https://no-problem-dev.github.io/swift-llm-client/documentation/llmclient/)
-- [Issue報告](https://github.com/no-problem-dev/swift-llm-client/issues)
-- [ディスカッション](https://github.com/no-problem-dev/swift-llm-client/discussions)
-- [リリースプロセス](RELEASE_PROCESS.md)
+- [Full Documentation](https://no-problem-dev.github.io/swift-llm-client/documentation/llmclient/)
+- [Report Issues](https://github.com/no-problem-dev/swift-llm-client/issues)
+- [Discussions](https://github.com/no-problem-dev/swift-llm-client/discussions)
+- [Release Process](RELEASE_PROCESS.md)

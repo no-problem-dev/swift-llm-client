@@ -5,7 +5,7 @@ import Foundation
 /// システムプロンプト構築用の Result Builder
 ///
 /// Swift の Result Builder 機能を使用して、
-/// 宣言的な DSL でシステムプロンプトを構築できます。
+/// 宣言的な DSL でシステムプロンプトを構築できる。
 ///
 /// ## 使用例
 ///
@@ -36,7 +36,7 @@ public struct SystemPromptBuilder {
 
     /// オプショナルなコンポーネントを構築
     ///
-    /// `if` 文の条件が `false` の場合に使用されます。
+    /// `if` 文の条件が `false` の場合に使用する。
     ///
     /// - Parameter component: オプショナルなコンポーネント配列
     /// - Returns: コンポーネント配列、または空配列
@@ -46,7 +46,7 @@ public struct SystemPromptBuilder {
 
     /// 条件分岐の最初の分岐を構築
     ///
-    /// `if-else` 文の `if` 部分に使用されます。
+    /// `if-else` 文の `if` 部分に使用する。
     ///
     /// - Parameter component: コンポーネント配列
     /// - Returns: そのままのコンポーネント配列
@@ -56,7 +56,7 @@ public struct SystemPromptBuilder {
 
     /// 条件分岐の2番目の分岐を構築
     ///
-    /// `if-else` 文の `else` 部分に使用されます。
+    /// `if-else` 文の `else` 部分に使用する。
     ///
     /// - Parameter component: コンポーネント配列
     /// - Returns: そのままのコンポーネント配列
@@ -66,7 +66,7 @@ public struct SystemPromptBuilder {
 
     /// 配列をフラット化して構築
     ///
-    /// `for-in` ループで生成されたコンポーネントを結合します。
+    /// `for-in` ループで生成されたコンポーネントを結合する。
     ///
     /// - Parameter components: コンポーネント配列の配列
     /// - Returns: フラット化されたコンポーネント配列
@@ -84,7 +84,7 @@ public struct SystemPromptBuilder {
 
     /// コンポーネント配列をそのまま返す
     ///
-    /// ネストされた配列を扱う際に使用されます。
+    /// ネストされた配列を扱う際に使用する。
     ///
     /// - Parameter expression: コンポーネント配列
     /// - Returns: そのままのコンポーネント配列
@@ -102,7 +102,7 @@ public struct SystemPromptBuilder {
 
     /// 制限付きの利用可能性を処理
     ///
-    /// `#available` チェックで使用されます。
+    /// `#available` チェックで使用する。
     ///
     /// - Parameter component: コンポーネント配列
     /// - Returns: そのままのコンポーネント配列

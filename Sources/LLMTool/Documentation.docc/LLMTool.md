@@ -4,8 +4,8 @@ Swift Macro ベースの型安全なツール（Function Calling）定義とオ�
 
 ## Overview
 
-`LLMTool` は、LLM の Function Calling 機能を Swift らしい方法で扱うためのライブラリです。
-`@Tool` マクロと `@ToolArgument` マクロを組み合わせることで、型安全なツールを簡潔に定義できます。
+`LLMTool` は、LLM の Function Calling 機能を Swift らしい方法で扱うためのライブラリ。
+`@Tool` マクロと `@ToolArgument` マクロを組み合わせることで、型安全なツールを簡潔に定義できる。
 
 ```swift
 import LLMTool
@@ -28,7 +28,7 @@ struct GetWeather {
 }
 ```
 
-`ToolSet` の Result Builder 構文でツールを束ね、`ToolCallableClient` に渡します。
+`ToolSet` の Result Builder 構文でツールを束ね、`ToolCallableClient` に渡す。
 
 ```swift
 let tools = ToolSet {
@@ -42,7 +42,7 @@ let tools = ToolSet {
 
 let plan = try await client.planToolCalls(
     prompt: "東京の天気を調べてください",
-    model: .claude(.sonnet_4_5),
+    model: .claude(.sonnet4_5),
     tools: tools
 )
 
@@ -53,12 +53,12 @@ for call in plan.toolCalls {
 }
 ```
 
-ターンを終了させたいツールには `TurnEndingTool` を採用します。エージェントループランタイムが
-このマーカープロトコルを検出し、成功結果を受け取った時点でループを打ち切ります。
+ターンを終了させたいツールには `TurnEndingTool` を採用する。エージェントループランタイムが
+このマーカープロトコルを検出し、成功結果を受け取った時点でループを打ち切る。
 
 ## Topics
 
-### Essentials
+### はじめに
 
 - <doc:GettingStarted>
 
