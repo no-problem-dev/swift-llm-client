@@ -490,7 +490,7 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
             return """
                 public func execute(with argumentsData: Data) async throws -> ToolResult {
                     let result = try await self.call()
-                    return try result.toToolResult()
+                    return try result.asToolResult()
                 }
                 """
         }
@@ -503,7 +503,7 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
                 var copy = self
                 copy.arguments = args
             \(raw: copyAssignments)    let result = try await copy.call()
-                return try result.toToolResult()
+                return try result.asToolResult()
             }
             """
     }

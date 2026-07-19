@@ -113,7 +113,7 @@ public enum ToolResult: Sendable, Equatable {
 ///     let temperature: Int
 ///     let condition: String
 ///
-///     func toToolResult() throws -> ToolResult {
+///     func asToolResult() throws -> ToolResult {
 ///         return try ToolResult.encoded(self)
 ///     }
 /// }
@@ -123,43 +123,43 @@ public protocol ToolResultConvertible {
     ///
     /// - Returns: 変換された ToolResult
     /// - Throws: 変換中のエラー
-    func toToolResult() throws -> ToolResult
+    func asToolResult() throws -> ToolResult
 }
 
 // MARK: - Standard Type Conformances
 
 extension String: ToolResultConvertible {
-    public func toToolResult() throws -> ToolResult {
+    public func asToolResult() throws -> ToolResult {
         .text(self)
     }
 }
 
 extension Int: ToolResultConvertible {
-    public func toToolResult() throws -> ToolResult {
+    public func asToolResult() throws -> ToolResult {
         .text(String(self))
     }
 }
 
 extension Double: ToolResultConvertible {
-    public func toToolResult() throws -> ToolResult {
+    public func asToolResult() throws -> ToolResult {
         .text(String(self))
     }
 }
 
 extension Bool: ToolResultConvertible {
-    public func toToolResult() throws -> ToolResult {
+    public func asToolResult() throws -> ToolResult {
         .text(String(self))
     }
 }
 
 extension Array: ToolResultConvertible where Element: Encodable {
-    public func toToolResult() throws -> ToolResult {
+    public func asToolResult() throws -> ToolResult {
         try ToolResult.encoded(self)
     }
 }
 
 extension Dictionary: ToolResultConvertible where Key == String, Value: Encodable {
-    public func toToolResult() throws -> ToolResult {
+    public func asToolResult() throws -> ToolResult {
         try ToolResult.encoded(self)
     }
 }
@@ -167,7 +167,7 @@ extension Dictionary: ToolResultConvertible where Key == String, Value: Encodabl
 // MARK: - ToolResult Conformance
 
 extension ToolResult: ToolResultConvertible {
-    public func toToolResult() throws -> ToolResult {
+    public func asToolResult() throws -> ToolResult {
         self
     }
 }
@@ -180,7 +180,7 @@ extension ToolResult: ToolResultConvertible {
 ///
 /// ```swift
 /// let weather = WeatherData(temp: 25)
-/// return try JSONToolResult(weather).toToolResult()
+/// return try JSONToolResult(weather).asToolResult()
 /// ```
 public struct JSONToolResult<T: Encodable & Sendable>: ToolResultConvertible, Sendable {
     public let value: T
@@ -189,7 +189,7 @@ public struct JSONToolResult<T: Encodable & Sendable>: ToolResultConvertible, Se
         self.value = value
     }
 
-    public func toToolResult() throws -> ToolResult {
+    public func asToolResult() throws -> ToolResult {
         try ToolResult.encoded(value)
     }
 }

@@ -64,7 +64,7 @@ public struct LLMResponse: Sendable {
     ///
     /// レスポンスに含まれる全ての音声を配列で返す。
     /// 音声が含まれていない場合は空の配列を返す。
-    public var generatedAudioFiles: [GeneratedAudio] {
+    public var generatedAudio: [GeneratedAudio] {
         content.compactMap { $0.generatedAudio }
     }
 
@@ -73,7 +73,7 @@ public struct LLMResponse: Sendable {
     /// レスポンスに含まれる最初の音声を返す。
     /// 音声が含まれていない場合は `nil` を返す。
     public var firstGeneratedAudio: GeneratedAudio? {
-        generatedAudioFiles.first
+        generatedAudio.first
     }
 
     /// レスポンスに画像が含まれているかどうか

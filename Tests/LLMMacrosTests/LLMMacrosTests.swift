@@ -461,7 +461,7 @@ final class ToolMacroTests: XCTestCase {
                     copy.arguments = args
                     copy.city = args.city
                     let result = try await copy.call()
-                    return try result.toToolResult()
+                    return try result.asToolResult()
                 }
             }
 
@@ -509,7 +509,7 @@ final class ToolMacroTests: XCTestCase {
 
                 public func execute(with argumentsData: Data) async throws -> ToolResult {
                     let result = try await self.call()
-                    return try result.toToolResult()
+                    return try result.asToolResult()
                 }
             }
 
@@ -591,7 +591,7 @@ final class ToolMacroTests: XCTestCase {
                     copy.arguments = args
                     copy.query = args.query
                     let result = try await copy.call()
-                    return try result.toToolResult()
+                    return try result.asToolResult()
                 }
             }
 
