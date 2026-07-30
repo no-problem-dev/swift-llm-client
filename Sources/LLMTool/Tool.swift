@@ -84,6 +84,31 @@ public protocol Tool: Sendable {
 /// 宣言（ツール層）と実施（ループランタイム層）を分離するためのマーカープロトコル。
 public protocol TurnEndingTool: Tool {}
 
+// MARK: - TranscriptAwareTool
+
+/// 実行時点の会話トランスクリプトを必要とするツール（LangGraph `ToolRuntime.state` /
+/// ADK `tool_context.session` / Strands `ctx.agent.messages` 相当の契約）
+///
+/// ループランタイムは、このプロトコルに準拠したツールの実行時に、ループが保持している
+/// **その時点の**メッセージ列を渡す。ターン開始時のスナップショットではなく、同一 run 内で
+/// 先に完了したツール呼び出し / 結果を含む生きた状態である。値渡し（コピー）なので、
+/// ツール側からループの履歴を変更することはできない。
+///
+/// トランスクリプト末尾には「今まさに実行中のツール呼び出しを含む assistant メッセージ」が
+/// 入っている（対応する結果はまだ無い）。これをそのまま下流の LLM 呼び出しに使うと不均衡な
+/// toolUse としてプロバイダに拒否されるため、**必要な除去はツール側の責務**
+/// （自ツール名を知っているのはツール自身のため）。
+///
+/// 宣言（ツール層）と実施（ループランタイム層）を分離するためのプロトコル。
+public protocol TranscriptAwareTool: Tool {
+    /// トランスクリプト付きでツールを実行する。
+    ///
+    /// - Parameters:
+    ///   - argumentsData: 引数の JSON データ（スキーマ coercion 適用済み）
+    ///   - transcript: 実行時点の会話メッセージ列（読み取り専用コピー）
+    func execute(with argumentsData: Data, transcript: [LLMMessage]) async throws -> ToolResult
+}
+
 // MARK: - Tool Convenience Properties
 
 extension Tool {

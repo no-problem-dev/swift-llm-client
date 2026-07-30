@@ -127,6 +127,31 @@ public struct ToolSet: Sendable {
         let coerced = tool.inputSchema.coerceArguments(argumentsData)
         return try await tool.execute(with: coerced)
     }
+
+    /// トランスクリプト付きでツールを実行する。
+    ///
+    /// `TranscriptAwareTool` に準拠したツールには実行時点の会話メッセージ列を渡し、
+    /// それ以外は通常の `execute` と同じ経路で実行する。ループランタイムはツール実行時に
+    /// 常にこちらを呼べばよい（準拠の判定はここが行う）。
+    ///
+    /// - Parameters:
+    ///   - name: ツール名
+    ///   - argumentsData: 引数の JSON データ
+    ///   - transcript: 実行時点の会話メッセージ列
+    public func execute(
+        toolNamed name: String,
+        with argumentsData: Data,
+        transcript: [LLMMessage]
+    ) async throws -> ToolResult {
+        guard let tool = tool(named: name) else {
+            throw ToolExecutionError.toolNotFound(name)
+        }
+        let coerced = tool.inputSchema.coerceArguments(argumentsData)
+        if let aware = tool as? any TranscriptAwareTool {
+            return try await aware.execute(with: coerced, transcript: transcript)
+        }
+        return try await tool.execute(with: coerced)
+    }
 }
 
 // MARK: - ToolExecutionError
