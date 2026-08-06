@@ -122,7 +122,7 @@ let input = LLMInput(
 
 let recipe: Recipe = try await client.generate(
     input: input,
-    model: .gemini(.flash25)  // 画像対応モデルを指定
+    model: .gemini(.flash36)  // 画像対応モデルを指定
 )
 ```
 

@@ -3,18 +3,28 @@ import Foundation
 // MARK: - Gemini Models
 
 /// Google Gemini モデル
+///
+/// ここは**アドレス**（どのモデルを指すか）の型。提供終了したモデルの case も
+/// 残す — 保存済みの ID を読み戻せる必要があるため。
+/// **利用者に選ばせる一覧は `Preset`**（提供中のものだけ）。
 public enum GeminiModel: Sendable, Equatable {
     // MARK: - Aliases (推奨)
+    case flash36
     case flash35
+    case flashLite35
     case pro31Preview
     case flashLite31
     case flash3Preview
+
+    // MARK: - Retired (2026-07 に新規利用停止。ID の読み戻し用に残す)
     case pro25
     case flash25
     case flashLite25
 
     // MARK: - Preview/Experimental Versions
+    case flash36_version(String)
     case flash35_version(String)
+    case flashLite35_version(String)
     case pro31_preview_version(String)
     case flashLite31_version(String)
     case flash3_preview_version(String)
@@ -30,9 +40,10 @@ public enum GeminiModel: Sendable, Equatable {
     /// 非対応モデルにこれを送るとエラーになる。
     public var supportsThinkingConfig: Bool {
         switch self {
-        case .flash35, .pro31Preview, .flashLite31, .flash3Preview,
+        case .flash36, .flash35, .flashLite35, .pro31Preview, .flashLite31, .flash3Preview,
              .pro25, .flash25, .flashLite25,
-             .flash35_version, .pro31_preview_version, .flashLite31_version, .flash3_preview_version,
+             .flash36_version, .flash35_version, .flashLite35_version,
+             .pro31_preview_version, .flashLite31_version, .flash3_preview_version,
              .pro25_version, .flash25_version, .flashLite25_version:
             return true
         case .custom:
@@ -43,8 +54,9 @@ public enum GeminiModel: Sendable, Equatable {
     /// thinking のスタイル。Gemini 3 系は `thinkingLevel`、2.5 系は `thinkingBudget` を使う。
     public var thinkingControlStyle: ThinkingControlStyle {
         switch self {
-        case .flash35, .pro31Preview, .flashLite31, .flash3Preview,
-             .flash35_version, .pro31_preview_version, .flashLite31_version, .flash3_preview_version:
+        case .flash36, .flash35, .flashLite35, .pro31Preview, .flashLite31, .flash3Preview,
+             .flash36_version, .flash35_version, .flashLite35_version,
+             .pro31_preview_version, .flashLite31_version, .flash3_preview_version:
             return .level
         case .pro25, .flash25, .flashLite25,
              .pro25_version, .flash25_version, .flashLite25_version:
@@ -58,8 +70,8 @@ public enum GeminiModel: Sendable, Equatable {
     /// Pro 3.1 と Flash-Lite 3.1 は low/medium/high のみ。Flash 系は minimal も受け付ける。
     public var supportsMinimalThinkingLevel: Bool {
         switch self {
-        case .flash35, .flash3Preview,
-             .flash35_version, .flash3_preview_version:
+        case .flash36, .flash35, .flash3Preview,
+             .flash36_version, .flash35_version, .flash3_preview_version:
             return true
         default:
             return false
@@ -74,24 +86,43 @@ public enum GeminiModel: Sendable, Equatable {
             return false
         case .flash25, .flashLite25, .flash25_version, .flashLite25_version:
             return true
-        case .flash35, .pro31Preview, .flashLite31, .flash3Preview,
-             .flash35_version, .pro31_preview_version, .flashLite31_version, .flash3_preview_version:
+        case .flash36, .flash35, .flashLite35, .pro31Preview, .flashLite31, .flash3Preview,
+             .flash36_version, .flash35_version, .flashLite35_version,
+             .pro31_preview_version, .flashLite31_version, .flash3_preview_version:
             return false  // 3 系は minimal が最小
         case .custom:
             return false
         }
     }
 
+    /// 新規利用が停止されたモデルか。
+    ///
+    /// 呼ぶと 404（"no longer available to new users"）になる。ID を読み戻すために
+    /// case は残してあるので、**選択肢として出す前にここで弾く**。
+    public var isRetired: Bool {
+        switch self {
+        case .pro25, .flash25, .flashLite25,
+             .pro25_version, .flash25_version, .flashLite25_version:
+            return true
+        default:
+            return false
+        }
+    }
+
     public var id: String {
         switch self {
+        case .flash36: return "gemini-3.6-flash"
         case .flash35: return "gemini-3.5-flash"
+        case .flashLite35: return "gemini-3.5-flash-lite"
         case .pro31Preview: return "gemini-3.1-pro-preview"
         case .flashLite31: return "gemini-3.1-flash-lite"
         case .flash3Preview: return "gemini-3-flash-preview"
         case .pro25: return "gemini-2.5-pro"
         case .flash25: return "gemini-2.5-flash"
         case .flashLite25: return "gemini-2.5-flash-lite"
+        case .flash36_version(let v): return "gemini-3.6-flash-\(v)"
         case .flash35_version(let v): return "gemini-3.5-flash-\(v)"
+        case .flashLite35_version(let v): return "gemini-3.5-flash-lite-\(v)"
         case .pro31_preview_version(let v): return "gemini-3.1-pro-preview-\(v)"
         case .flashLite31_version(let v): return "gemini-3.1-flash-lite-\(v)"
         case .flash3_preview_version(let v): return "gemini-3-flash-preview-\(v)"
@@ -122,7 +153,9 @@ extension GeminiModel: RawRepresentable {
 
     public init?(rawValue: String) {
         switch rawValue {
+        case "gemini-3.6-flash": self = .flash36
         case "gemini-3.5-flash": self = .flash35
+        case "gemini-3.5-flash-lite": self = .flashLite35
         case "gemini-3.1-pro-preview": self = .pro31Preview
         case "gemini-3.1-flash-lite": self = .flashLite31
         case "gemini-3-flash-preview": self = .flash3Preview
@@ -136,56 +169,95 @@ extension GeminiModel: RawRepresentable {
 
 // MARK: - Preset
 
+/// 利用者に選ばせるモデルの一覧。
+///
+/// **提供中のものだけを載せる。** 提供が終わったモデルはここから外す
+/// （`GeminiModel` 側の case は ID の読み戻しのために残す）。
+/// 一覧に残すと選べてしまい、呼んだときに 404 になる。
 extension GeminiModel {
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
+        case flash36 = "flash36"
         case flash35 = "flash35"
+        case flashLite35 = "flashLite35"
         case pro31Preview = "pro31Preview"
         case flashLite31 = "flashLite31"
         case flash3Preview = "flash3Preview"
-        case pro25 = "pro25"
-        case flash25 = "flash25"
-        case flashLite25 = "flashLite25"
 
         public var id: String { rawValue }
 
         public var model: GeminiModel {
             switch self {
+            case .flash36: return .flash36
             case .flash35: return .flash35
+            case .flashLite35: return .flashLite35
             case .pro31Preview: return .pro31Preview
             case .flashLite31: return .flashLite31
             case .flash3Preview: return .flash3Preview
-            case .pro25: return .pro25
-            case .flash25: return .flash25
-            case .flashLite25: return .flashLite25
             }
         }
 
         public var displayName: String {
             switch self {
+            case .flash36: return "Gemini 3.6 Flash"
             case .flash35: return "Gemini 3.5 Flash"
+            case .flashLite35: return "Gemini 3.5 Flash-Lite"
             case .pro31Preview: return "Gemini 3.1 Pro (Preview)"
             case .flashLite31: return "Gemini 3.1 Flash-Lite"
             case .flash3Preview: return "Gemini 3 Flash (Preview)"
-            case .pro25: return "Gemini 2.5 Pro"
-            case .flash25: return "Gemini 2.5 Flash"
-            case .flashLite25: return "Gemini 2.5 Flash-Lite"
             }
         }
 
         public var shortName: String {
             switch self {
+            case .flash36: return "3.6 Flash"
             case .flash35: return "3.5 Flash"
+            case .flashLite35: return "3.5 Flash-Lite"
             case .pro31Preview: return "3.1 Pro"
             case .flashLite31: return "3.1 Flash-Lite"
             case .flash3Preview: return "3 Flash"
-            case .pro25: return "2.5 Pro"
-            case .flash25: return "2.5 Flash"
-            case .flashLite25: return "2.5 Flash-Lite"
             }
         }
 
         public var profile: ModelProfile {
             switch self {
+            case .flash36:
+                return ModelProfile(
+                    summary: "最新 Flash。3.5 Flash より安い出力単価",
+                    modelFamily: "Gemini",
+                    description: "Gemini 3.6 Flash は Google の最新 Flash GA モデル。3.5 Flash と同じ入力単価のまま出力が $9 → $7.50 に下がった。エージェント・コーディング用途の主力。",
+                    contextWindow: 1_048_576,
+                    maxOutputTokens: 65_536,
+                    knowledgeCutoff: "2025-01",
+                    strengths: ["フロンティアレベルの知性", "エージェント最適化", "高速レスポンス", "コーディング性能"],
+                    bestFor: ["エージェント開発", "マルチステップワークフロー", "コーディング支援", "大量処理"],
+                    toolCallSupport: .excellent,
+                    japaneseSupport: .excellent,
+                    modalities: [.text, .vision, .code],
+                    pricing: .flat(
+                        inputPerMTok: 1.50,
+                        outputPerMTok: 7.50,
+                        cacheReadPerMTok: 0.15
+                    )
+                )
+            case .flashLite35:
+                return ModelProfile(
+                    summary: "3.5 系の軽量版。大量処理向け",
+                    modelFamily: "Gemini",
+                    description: "Gemini 3.5 Flash-Lite は 3.5 系の軽量・低コストモデル。3.1 Flash-Lite より単価は上がるが、より新しい世代の知性を持つ。",
+                    contextWindow: 1_048_576,
+                    maxOutputTokens: 65_536,
+                    knowledgeCutoff: "2025-01",
+                    strengths: ["低コスト", "高スループット", "エージェント最適化"],
+                    bestFor: ["大量エージェントタスク", "データ抽出", "分類"],
+                    toolCallSupport: .good,
+                    japaneseSupport: .good,
+                    modalities: [.text, .vision, .code],
+                    pricing: .flat(
+                        inputPerMTok: 0.30,
+                        outputPerMTok: 2.50,
+                        cacheReadPerMTok: 0.03
+                    )
+                )
             case .flash35:
                 return ModelProfile(
                     summary: "最新 Flash GA。エージェント・コーディングに最強",
@@ -262,65 +334,6 @@ extension GeminiModel {
                         inputPerMTok: 0.50,
                         outputPerMTok: 3,
                         cacheReadPerMTok: 0.05
-                    )
-                )
-            case .pro25:
-                return ModelProfile(
-                    summary: "高品質 Pro。複雑なタスクに強い",
-                    modelFamily: "Gemini",
-                    description: "Gemini 2.5 Pro は深い推論とコーディングに優れたモデル。思考モードに対応し、100 万トークンの context で長大ドキュメント分析が可能。≤200K と >200K で単価が変わる。キャッシュ読み出しは ≤200K で $0.125/MTok。",
-                    contextWindow: 1_048_576,
-                    maxOutputTokens: 65_535,
-                    knowledgeCutoff: "2025-01",
-                    strengths: ["深い推論", "コーディング", "思考モード対応", "検索グラウンディング"],
-                    bestFor: ["複雑なコーディング", "長文ドキュメント分析", "検索連携タスク"],
-                    toolCallSupport: .excellent,
-                    japaneseSupport: .excellent,
-                    modalities: [.text, .vision, .code, .audio],
-                    pricing: Pricing(
-                        tiers: [
-                            PricingTier(upToInputTokens: 200_000, inputPerMTok: 1.25, outputPerMTok: 10),
-                            PricingTier(upToInputTokens: nil, inputPerMTok: 2.50, outputPerMTok: 15),
-                        ],
-                        cacheReadPerMTok: 0.125
-                    )
-                )
-            case .flash25:
-                return ModelProfile(
-                    summary: "バランス型 Flash。速度と品質の両立",
-                    modelFamily: "Gemini",
-                    description: "Gemini 2.5 Flash は Gemini ファミリーで高い価格性能比を実現するモデル。Flash で初めて思考機能を搭載。",
-                    contextWindow: 1_048_576,
-                    maxOutputTokens: 65_535,
-                    knowledgeCutoff: "2025-01",
-                    strengths: ["高い価格性能比", "思考機能搭載", "低レイテンシ", "マルチモーダル"],
-                    bestFor: ["大量バッチ処理", "コスト重視の推論タスク", "マルチモーダルコンテンツ処理"],
-                    toolCallSupport: .excellent,
-                    japaneseSupport: .good,
-                    modalities: [.text, .vision, .code],
-                    pricing: .flat(
-                        inputPerMTok: 0.30,
-                        outputPerMTok: 2.50,
-                        cacheReadPerMTok: 0.03
-                    )
-                )
-            case .flashLite25:
-                return ModelProfile(
-                    summary: "最軽量 Flash-Lite。大量処理に最適",
-                    modelFamily: "Gemini",
-                    description: "Gemini 2.5 Flash-Lite は最軽量・最低コストの 2.5 系モデル。データ抽出や分類など大量処理に最適。",
-                    contextWindow: 1_048_576,
-                    maxOutputTokens: 65_535,
-                    knowledgeCutoff: "2025-01",
-                    strengths: ["最低コスト", "高スループット", "簡易タスク特化"],
-                    bestFor: ["分類", "データ抽出", "大量バッチ"],
-                    toolCallSupport: .good,
-                    japaneseSupport: .good,
-                    modalities: [.text, .vision, .code],
-                    pricing: .flat(
-                        inputPerMTok: 0.10,
-                        outputPerMTok: 0.40,
-                        cacheReadPerMTok: 0.01
                     )
                 )
             }

@@ -3,9 +3,16 @@ import Foundation
 // MARK: - GPT Models
 
 /// OpenAI GPT モデル
+///
+/// ここは**アドレス**（どのモデルを指すか）の型。提供が終わった case も残す —
+/// 保存済みの ID を読み戻せる必要があるため。
+/// **利用者に選ばせる一覧は `Preset`**（提供中のものだけ）。
 public enum GPTModel: Sendable, Equatable {
     // MARK: - Aliases (推奨)
 
+    case gpt5_6Sol
+    case gpt5_6Terra
+    case gpt5_6Luna
     case gpt5_5
     case gpt5_5Pro
     case gpt5_4
@@ -33,6 +40,9 @@ public enum GPTModel: Sendable, Equatable {
 
     // MARK: - Fixed Versions
 
+    case gpt5_6Sol_version(String)
+    case gpt5_6Terra_version(String)
+    case gpt5_6Luna_version(String)
     case gpt5_5_version(String)
     case gpt5_4_version(String)
     case gpt5_4Mini_version(String)
@@ -65,8 +75,10 @@ public enum GPTModel: Sendable, Equatable {
         case .o1, .o1Pro, .o3, .o3Pro, .o3Mini, .o4Mini,
              .o1_version, .o3_version, .o3Mini_version, .o4Mini_version:
             return true
-        case .gpt5_5, .gpt5_5Pro, .gpt5_4, .gpt5_4Mini, .gpt5_4Nano, .gpt5_4Pro,
+        case .gpt5_6Sol, .gpt5_6Terra, .gpt5_6Luna,
+             .gpt5_5, .gpt5_5Pro, .gpt5_4, .gpt5_4Mini, .gpt5_4Nano, .gpt5_4Pro,
              .gpt5_3Codex, .gpt5_2Codex, .gpt5_2, .gpt5_1, .gpt5, .gpt5Mini, .gpt5Nano,
+             .gpt5_6Sol_version, .gpt5_6Terra_version, .gpt5_6Luna_version,
              .gpt5_5_version, .gpt5_4_version, .gpt5_4Mini_version, .gpt5_4Nano_version,
              .gpt5_2_version, .gpt5_2Codex_version, .gpt5_1_version, .gpt5_version,
              .gpt5Mini_version, .gpt5Nano_version:
@@ -84,8 +96,10 @@ public enum GPTModel: Sendable, Equatable {
     /// GPT-5 系のみ minimal を受け付ける。o-series は minimal 非対応。
     public var supportsMinimalReasoningEffort: Bool {
         switch self {
-        case .gpt5_5, .gpt5_5Pro, .gpt5_4, .gpt5_4Mini, .gpt5_4Nano, .gpt5_4Pro,
+        case .gpt5_6Sol, .gpt5_6Terra, .gpt5_6Luna,
+             .gpt5_5, .gpt5_5Pro, .gpt5_4, .gpt5_4Mini, .gpt5_4Nano, .gpt5_4Pro,
              .gpt5_3Codex, .gpt5_2Codex, .gpt5_2, .gpt5_1, .gpt5, .gpt5Mini, .gpt5Nano,
+             .gpt5_6Sol_version, .gpt5_6Terra_version, .gpt5_6Luna_version,
              .gpt5_5_version, .gpt5_4_version, .gpt5_4Mini_version, .gpt5_4Nano_version,
              .gpt5_2_version, .gpt5_2Codex_version, .gpt5_1_version, .gpt5_version,
              .gpt5Mini_version, .gpt5Nano_version:
@@ -97,6 +111,9 @@ public enum GPTModel: Sendable, Equatable {
 
     public var id: String {
         switch self {
+        case .gpt5_6Sol: return "gpt-5.6-sol"
+        case .gpt5_6Terra: return "gpt-5.6-terra"
+        case .gpt5_6Luna: return "gpt-5.6-luna"
         case .gpt5_5: return "gpt-5.5"
         case .gpt5_5Pro: return "gpt-5.5-pro"
         case .gpt5_4: return "gpt-5.4"
@@ -121,6 +138,9 @@ public enum GPTModel: Sendable, Equatable {
         case .o3Pro: return "o3-pro"
         case .o3Mini: return "o3-mini"
         case .o4Mini: return "o4-mini"
+        case .gpt5_6Sol_version(let v): return "gpt-5.6-sol-\(v)"
+        case .gpt5_6Terra_version(let v): return "gpt-5.6-terra-\(v)"
+        case .gpt5_6Luna_version(let v): return "gpt-5.6-luna-\(v)"
         case .gpt5_5_version(let v): return "gpt-5.5-\(v)"
         case .gpt5_4_version(let v): return "gpt-5.4-\(v)"
         case .gpt5_4Mini_version(let v): return "gpt-5.4-mini-\(v)"
@@ -147,10 +167,16 @@ public enum GPTModel: Sendable, Equatable {
 
 // MARK: - Preset
 
+/// 利用者に選ばせるモデルの一覧。
+///
+/// **提供中のものだけを載せる。** 提供が終わったモデルはここから外す
+/// （`GPTModel` 側の case は ID の読み戻しのために残す）。
+/// 一覧に残すと選べてしまい、呼んだときに 404 になる。
 extension GPTModel {
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
-        case gpt5_5 = "gpt5_5"
-        case gpt5_4 = "gpt5_4"
+        case gpt5_6Sol = "gpt5_6Sol"
+        case gpt5_6Terra = "gpt5_6Terra"
+        case gpt5_6Luna = "gpt5_6Luna"
         case gpt5_3Codex = "gpt5_3Codex"
         case gpt5_4Mini = "gpt5_4Mini"
         case gpt5_4Nano = "gpt5_4Nano"
@@ -159,8 +185,9 @@ extension GPTModel {
 
         public var model: GPTModel {
             switch self {
-            case .gpt5_5: return .gpt5_5
-            case .gpt5_4: return .gpt5_4
+            case .gpt5_6Sol: return .gpt5_6Sol
+            case .gpt5_6Terra: return .gpt5_6Terra
+            case .gpt5_6Luna: return .gpt5_6Luna
             case .gpt5_3Codex: return .gpt5_3Codex
             case .gpt5_4Mini: return .gpt5_4Mini
             case .gpt5_4Nano: return .gpt5_4Nano
@@ -169,8 +196,9 @@ extension GPTModel {
 
         public var displayName: String {
             switch self {
-            case .gpt5_5: return "GPT-5.5"
-            case .gpt5_4: return "GPT-5.4"
+            case .gpt5_6Sol: return "GPT-5.6 Sol"
+            case .gpt5_6Terra: return "GPT-5.6 Terra"
+            case .gpt5_6Luna: return "GPT-5.6 Luna"
             case .gpt5_3Codex: return "GPT-5.3 Codex"
             case .gpt5_4Mini: return "GPT-5.4 mini"
             case .gpt5_4Nano: return "GPT-5.4 nano"
@@ -179,8 +207,9 @@ extension GPTModel {
 
         public var shortName: String {
             switch self {
-            case .gpt5_5: return "5.5"
-            case .gpt5_4: return "5.4"
+            case .gpt5_6Sol: return "5.6 Sol"
+            case .gpt5_6Terra: return "5.6 Terra"
+            case .gpt5_6Luna: return "5.6 Luna"
             case .gpt5_3Codex: return "5.3 Codex"
             case .gpt5_4Mini: return "5.4 mini"
             case .gpt5_4Nano: return "5.4 nano"
@@ -189,35 +218,68 @@ extension GPTModel {
 
         public var profile: ModelProfile {
             switch self {
-            case .gpt5_5:
+            case .gpt5_6Sol:
                 return ModelProfile(
-                    summary: "現フラッグシップ。最高品質のマルチモーダル推論",
+                    summary: "現フラッグシップ。最も複雑な推論とエージェント",
                     modelFamily: "GPT",
-                    description: "GPT-5.5 は OpenAI の最新フラッグシップ。入力 $5 / 出力 $30 と単価は高めだが、より少ないトークンで応答する設計で、最大 105 万トークンの巨大コンテキストと最高品質の推論を提供する。",
+                    description: "GPT-5.6 Sol は GPT-5.6 ファミリーのフロンティアモデル。最大 105 万トークンのコンテキストで、高度なコーディング・多段の計画・ツール利用に向く。272K を超える入力は入力 2 倍・出力 1.5 倍。",
                     contextWindow: 1_050_000,
                     maxOutputTokens: 128_000,
-                    knowledgeCutoff: "2025-12",
+                    knowledgeCutoff: "2026-02",
                     strengths: ["最高品質の推論", "マルチモーダル", "ツール呼び出し", "エージェント性能"],
-                    bestFor: ["最高品質を要する分析", "重要なエージェントタスク", "プロダクション応答"],
+                    bestFor: ["最高品質を要する分析", "重要なエージェントタスク", "高度なコーディング"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code],
-                    pricing: .flat(inputPerMTok: 5, outputPerMTok: 30, cacheReadPerMTok: 0.50)
+                    pricing: Pricing(
+                        tiers: [
+                            PricingTier(upToInputTokens: 272_000, inputPerMTok: 5, outputPerMTok: 30),
+                            PricingTier(upToInputTokens: nil, inputPerMTok: 10, outputPerMTok: 45),
+                        ],
+                        cacheReadPerMTok: 0.50
+                    )
                 )
-            case .gpt5_4:
+            case .gpt5_6Terra:
                 return ModelProfile(
-                    summary: "コストフロンティア。バランス重視の汎用モデル",
+                    summary: "バランス型。知性とコストの中間",
                     modelFamily: "GPT",
-                    description: "GPT-5.4 は現行ファミリーのコスト効率版。$2.50 / $15 の単価と最大 105 万トークンのコンテキストで、汎用タスクに広く適合する。",
+                    description: "GPT-5.6 Terra は Sol と Luna の中間に位置する汎用モデル。$2 / $12 の単価で、日常のコーディング・推論・エージェント処理に広く適合する。272K を超える入力は入力 2 倍・出力 1.5 倍。",
                     contextWindow: 1_050_000,
                     maxOutputTokens: 128_000,
-                    knowledgeCutoff: "2025-08",
+                    knowledgeCutoff: "2026-02",
                     strengths: ["汎用性", "コスト効率", "ツール呼び出し", "適応的推論"],
                     bestFor: ["汎用エージェント", "中規模分析", "コスト重視のプロダクション"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code],
-                    pricing: .flat(inputPerMTok: 2.50, outputPerMTok: 15, cacheReadPerMTok: 0.25)
+                    pricing: Pricing(
+                        tiers: [
+                            PricingTier(upToInputTokens: 272_000, inputPerMTok: 2, outputPerMTok: 12),
+                            PricingTier(upToInputTokens: nil, inputPerMTok: 4, outputPerMTok: 18),
+                        ],
+                        cacheReadPerMTok: 0.20
+                    )
+                )
+            case .gpt5_6Luna:
+                return ModelProfile(
+                    summary: "最安・高スループット。大量処理向け",
+                    modelFamily: "GPT",
+                    description: "GPT-5.6 Luna はコスト重視・大量処理向けのモデル。$0.20 / $1.20 の単価ながら 105 万トークンのコンテキストを持ち、チャット・分類・軽量なエージェント処理に向く。272K を超える入力は入力 2 倍・出力 1.5 倍。",
+                    contextWindow: 1_050_000,
+                    maxOutputTokens: 128_000,
+                    knowledgeCutoff: "2026-02",
+                    strengths: ["最安コスト", "高スループット", "低レイテンシ", "ツール呼び出し"],
+                    bestFor: ["大量バッチ", "分類", "チャット", "軽量なエージェント処理"],
+                    toolCallSupport: .excellent,
+                    japaneseSupport: .good,
+                    modalities: [.text, .vision, .code],
+                    pricing: Pricing(
+                        tiers: [
+                            PricingTier(upToInputTokens: 272_000, inputPerMTok: 0.20, outputPerMTok: 1.20),
+                            PricingTier(upToInputTokens: nil, inputPerMTok: 0.40, outputPerMTok: 1.80),
+                        ],
+                        cacheReadPerMTok: 0.02
+                    )
                 )
             case .gpt5_3Codex:
                 return ModelProfile(

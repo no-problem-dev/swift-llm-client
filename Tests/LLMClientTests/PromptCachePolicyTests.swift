@@ -26,7 +26,7 @@ struct PromptCachePolicyTests {
 
     @Test("LLMRequest の既定は implicit")
     func requestDefaultsToImplicit() {
-        let request = LLMRequest(model: .gemini(.flash25), messages: [])
+        let request = LLMRequest(model: .gemini(.flash36), messages: [])
         #expect(request.cachePolicy == .implicit)
     }
 }
