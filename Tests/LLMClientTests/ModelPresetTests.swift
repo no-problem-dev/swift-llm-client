@@ -41,6 +41,68 @@ struct ModelPresetTests {
         #expect(GPTModel.Preset.gpt5_6Luna.model.id == "gpt-5.6-luna")
     }
 
+    // MARK: - ReasoningEffort
+    //
+    // 対応値は実 API を叩いて確かめたもの。非対応の値を送るとリクエストごと
+    // 弾かれる（'minimal' is not supported with the 'gpt-5.6-luna' model）。
+
+    @Test("GPT-5.6 系は max まで使えるが minimal は使えない")
+    func gpt56SupportsMaxNotMinimal() {
+        for model in [GPTModel.gpt5_6Sol, .gpt5_6Terra, .gpt5_6Luna] {
+            #expect(model.supports(.max))
+            #expect(model.supports(.xhigh))
+            #expect(model.supports(.none))
+            #expect(!model.supports(.minimal))
+        }
+    }
+
+    @Test("GPT-5.4 / 5.3 は xhigh まで。max は使えない")
+    func gpt54SupportsXhighNotMax() {
+        for model in [GPTModel.gpt5_4Mini, .gpt5_4Nano, .gpt5_3Codex] {
+            #expect(model.supports(.xhigh))
+            #expect(!model.supports(.max))
+            #expect(!model.supports(.minimal))
+        }
+    }
+
+    @Test("o-series は low / medium / high だけ")
+    func oSeriesSupportsOnlyThreeLevels() {
+        #expect(GPTModel.o4Mini.supports(.low))
+        #expect(GPTModel.o4Mini.supports(.high))
+        #expect(!GPTModel.o4Mini.supports(.minimal))
+        #expect(!GPTModel.o4Mini.supports(.none))
+        #expect(!GPTModel.o4Mini.supports(.xhigh))
+    }
+
+    @Test("GPT-5.0 系は minimal を使う（none はまだ無い）")
+    func gpt50UsesMinimal() {
+        #expect(GPTModel.gpt5.supports(.minimal))
+        #expect(!GPTModel.gpt5.supports(.none))
+    }
+
+    @Test("reasoning 非対応モデルは effort を落とす")
+    func nonReasoningModelDropsEffort() {
+        #expect(GPTModel.gpt4o.clamped(.medium) == nil)
+        #expect(!GPTModel.gpt4o.supports(.low))
+    }
+
+    @Test("非対応の effort は近い段に寄せる")
+    func unsupportedEffortIsClamped() {
+        // max 非対応 → xhigh へ下げる
+        #expect(GPTModel.gpt5_4Mini.clamped(.max) == .xhigh)
+        // xhigh も max も非対応 → high へ
+        #expect(GPTModel.o4Mini.clamped(.max) == .high)
+        // minimal 非対応で none がある → none へ
+        // （`.none` は Optional.none と紛れるので型を明示する）
+        #expect(GPTModel.gpt5_6Luna.clamped(.minimal) == ReasoningEffort.none)
+        // minimal も none も非対応（o-series）→ low へ
+        #expect(GPTModel.o4Mini.clamped(.minimal) == .low)
+        #expect(GPTModel.o4Mini.clamped(.none) == .low)
+        // 対応している値はそのまま
+        #expect(GPTModel.gpt5_6Sol.clamped(.max) == .max)
+        #expect(GPTModel.gpt5_4Mini.clamped(.medium) == .medium)
+    }
+
     @Test("すべての Preset が profile と表示名を持つ")
     func everyPresetHasProfile() {
         for preset in GeminiModel.Preset.allCases {

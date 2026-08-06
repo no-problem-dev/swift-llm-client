@@ -93,19 +93,105 @@ public enum GPTModel: Sendable, Equatable {
     }
 
     /// `reasoning_effort` で `.minimal` を許容するか。
-    /// GPT-5 系のみ minimal を受け付ける。o-series は minimal 非対応。
-    public var supportsMinimalReasoningEffort: Bool {
-        switch self {
-        case .gpt5_6Sol, .gpt5_6Terra, .gpt5_6Luna,
-             .gpt5_5, .gpt5_5Pro, .gpt5_4, .gpt5_4Mini, .gpt5_4Nano, .gpt5_4Pro,
-             .gpt5_3Codex, .gpt5_2Codex, .gpt5_2, .gpt5_1, .gpt5, .gpt5Mini, .gpt5Nano,
-             .gpt5_6Sol_version, .gpt5_6Terra_version, .gpt5_6Luna_version,
-             .gpt5_5_version, .gpt5_4_version, .gpt5_4Mini_version, .gpt5_4Nano_version,
-             .gpt5_2_version, .gpt5_2Codex_version, .gpt5_1_version, .gpt5_version,
-             .gpt5Mini_version, .gpt5Nano_version:
-            return true
-        default:
+    ///
+    /// - Warning: 名前のとおり minimal だけを見るもの。**新しく書くコードは
+    ///   `supports(_:)` を使う** — minimal 以外にもモデルごとの差がある。
+    @available(*, deprecated, message: "supports(_:) を使う")
+    public var supportsMinimalReasoningEffort: Bool { supports(.minimal) }
+
+    /// このモデルが受け付ける最も近い effort に丸める。
+    ///
+    /// 非対応の値を送るとリクエストごと弾かれるので、**落とすのではなく寄せる**。
+    /// `reasoning_effort` 自体に非対応なら nil。
+    ///
+    /// - `max` → `xhigh` → `high`（上から順に下げる）
+    /// - `none` → `minimal` → `low`（下から順に上げる）
+    public func clamped(_ effort: ReasoningEffort) -> ReasoningEffort? {
+        guard supportsReasoningEffort else {
+            return nil
+        }
+        // 弱い順。指定値から「近い方へ」順に探す
+        let ladder: [ReasoningEffort] = [.none, .minimal, .low, .medium, .high, .xhigh, .max]
+        guard let index = ladder.firstIndex(of: effort) else {
+            return nil
+        }
+        if supports(effort) {
+            return effort
+        }
+        // 指定より強い側と弱い側を交互に見て、最初に対応しているものへ寄せる
+        for distance in 1 ..< ladder.count {
+            for candidate in [index - distance, index + distance] where ladder.indices.contains(candidate) {
+                if supports(ladder[candidate]) {
+                    return ladder[candidate]
+                }
+            }
+        }
+        return nil
+    }
+
+    /// この effort を受け付けるか。
+    ///
+    /// 受け付けない値を送るとリクエストが弾かれる（`invalid_request_error`）。
+    /// 世代で使える段が違う:
+    ///
+    /// | 世代 | 使える effort |
+    /// |---|---|
+    /// | GPT-5.6 系 | none / low / medium / high / xhigh / **max** |
+    /// | GPT-5.2〜5.5 | none / low / medium / high / xhigh |
+    /// | GPT-5.1 | none / low / medium / high |
+    /// | GPT-5 / 5.0 系 | **minimal** / low / medium / high |
+    /// | o-series | low / medium / high |
+    ///
+    /// `minimal` は GPT-5.1 以降で `none` に置き換わった。
+    public func supports(_ effort: ReasoningEffort) -> Bool {
+        guard supportsReasoningEffort else {
             return false
+        }
+        switch effort {
+        case .low, .medium, .high:
+            return true
+        case .minimal:
+            // GPT-5.0 系のみ。o-series と 5.1 以降は none に置き換わった
+            switch self {
+            case .gpt5, .gpt5Mini, .gpt5Nano,
+                 .gpt5_version, .gpt5Mini_version, .gpt5Nano_version:
+                return true
+            default:
+                return false
+            }
+        case .none:
+            // GPT-5.1 以降。o-series と GPT-5.0 系は非対応
+            switch self {
+            case .o1, .o1Pro, .o3, .o3Pro, .o3Mini, .o4Mini,
+                 .o1_version, .o3_version, .o3Mini_version, .o4Mini_version,
+                 .gpt5, .gpt5Mini, .gpt5Nano,
+                 .gpt5_version, .gpt5Mini_version, .gpt5Nano_version:
+                return false
+            default:
+                return true
+            }
+        case .xhigh:
+            // GPT-5.2 以降
+            switch self {
+            case .gpt5_6Sol, .gpt5_6Terra, .gpt5_6Luna,
+                 .gpt5_5, .gpt5_5Pro, .gpt5_4, .gpt5_4Mini, .gpt5_4Nano, .gpt5_4Pro,
+                 .gpt5_3Codex, .gpt5_2Codex, .gpt5_2,
+                 .gpt5_6Sol_version, .gpt5_6Terra_version, .gpt5_6Luna_version,
+                 .gpt5_5_version, .gpt5_4_version, .gpt5_4Mini_version, .gpt5_4Nano_version,
+                 .gpt5_2_version, .gpt5_2Codex_version:
+                return true
+            default:
+                return false
+            }
+        case .max:
+            // GPT-5.6 系のみ
+            switch self {
+            case .gpt5_6Sol, .gpt5_6Terra, .gpt5_6Luna,
+                 .gpt5_6Sol_version, .gpt5_6Terra_version, .gpt5_6Luna_version:
+                return true
+            default:
+                return false
+            }
         }
     }
 
