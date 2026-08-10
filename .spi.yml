@@ -1,0 +1,13 @@
+version: 1
+builder:
+  configs:
+    - documentation_targets:
+        - LLMAgentStep
+        - LLMChat
+        - LLMClient
+        - LLMContext
+        - LLMCore
+        - LLMDynamicStructured
+        - LLMMediaKit
+        - LLMProviderCompat
+        - LLMTool
