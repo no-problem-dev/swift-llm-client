@@ -7,14 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING** — the default-argument convenience methods on the client protocols no longer share
+  a signature with the protocol requirement they sit beside. A conformance that omitted the
+  requirement used to compile and then recurse forever at run time; reproduced in a throwaway
+  package, 987 MB in ten seconds. The requirement now takes an options value so the two
+  signatures differ and omitting it is a compile error. There is no fix that keeps the old
+  signatures — a constrained extension still witnesses the requirement.
+
+  Affected: `chat<T>`, `generateWithUsage` (both overloads), `generateImage`, `generateImages`,
+  `startVideoGeneration`, `generateSpeech`, and the `@StructuredEnum` macro.
+- `ParallelToolUse`, `MediaSource.validateSize(maxBytes:)`, `MediaSource.isWithinSizeLimit(_:)`,
+  and `GeneratedVideo.downloadData()` are gone.
+
+### Fixed
+
+- `@ToolArgument` constraints never reached the generated JSON Schema, so a model was told
+  nothing about them.
+- `MediaSource`'s size guard returned true for every `.url` and `.fileReference`, so it checked
+  nothing on the two cases that carry unknown-sized data.
+- `ConversationHistory.addUsage` dropped reasoning and cache tokens, undercounting spend.
+- `GeneratedVideo.downloadData()` wrote a 404 body to disk as if it were a video.
+- `BreakdownCache` keyed entries without the model id or the argument schema, so two different
+  calls could read each other's cached result.
+- `@StructuredCase` descriptions are folded into the JSON Schema's `description` instead of being
+  discarded — JSON Schema has no per-value description field, so they had nowhere else to go.
+
 ### Changed
 
+- Display strings on `ModelProfile` (`summary`, `description`, `strengths`, `bestFor`) and on
+  `Modality`/`InferenceSpeed` are English. They are rendered in a model picker, so they reached
+  the screen of any app that adopted this package.
+- `LocalizedError.errorDescription` is English.
 - Raised the swift-structured-data pin to 3.0.0. That release makes the YAML parser reject
-  constructs it does not model instead of silently dropping them; nothing in this package's own
-  API changes.
-
-
-Nothing.
+  constructs it does not model instead of silently dropping them.
 
 ## [3.13.0] - 2026-08-06
 
