@@ -2,7 +2,7 @@ English | [日本語](./README.ja.md)
 
 # LLMClient
 
-One Swift API for Claude, GPT, Gemini, Grok, Groq, Mistral and DeepSeek — with type-safe structured output and tool calling.
+One Swift API for Claude, GPT, Gemini, Grok, Groq, Mistral and DeepSeek, so changing model or provider never means rewriting the code that calls it.
 
 ![Swift](https://img.shields.io/badge/Swift-6.2-orange.svg)
 ![Platforms](https://img.shields.io/badge/Platforms-iOS%2017.0+%20%7C%20macOS%2014.0+-blue.svg)

@@ -21,7 +21,7 @@ extension JSONSchemaError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .encodingFailed:
-            return "JSON Schema のエンコードに失敗しました"
+            return "The encoded JSON Schema could not be read back as UTF-8 text"
         }
     }
 }

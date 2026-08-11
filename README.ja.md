@@ -2,7 +2,7 @@
 
 # LLMClient
 
-Claude・GPT・Gemini・Grok・Groq・Mistral・DeepSeek を 1 つの Swift API で扱う。型安全な構造化出力とツール呼び出し付き。
+Claude・GPT・Gemini・Grok・Groq・Mistral・DeepSeek を 1 つの Swift API で扱う。モデルやプロバイダを変えても、呼び出し側のコードを書き直さなくていい。
 
 ![Swift](https://img.shields.io/badge/Swift-6.2-orange.svg)
 ![Platforms](https://img.shields.io/badge/Platforms-iOS%2017.0+%20%7C%20macOS%2014.0+-blue.svg)
