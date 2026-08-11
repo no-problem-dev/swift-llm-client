@@ -20,7 +20,8 @@ either. All of them decode the stored bytes on each access and return `nil` if t
 readable image, so hold on to the result rather than calling them in a view body.
 
 **Audio.** ``LLMCore/GeneratedAudio/audioPlayer`` builds an `AVAudioPlayer` from the stored
-bytes, ready to `play()`.
+bytes, ready to `play()`. It throws rather than answering nil, so raw PCM with no container —
+what Gemini TTS returns — is distinguishable from bytes that are merely truncated.
 
 **Video.** ``LLMCore/GeneratedVideo/downloadData()`` fetches the bytes for a video the provider
 returned as a URL rather than inline. Provider-hosted media URLs are usually short-lived, so
@@ -37,7 +38,7 @@ if let image = generatedImage.uiImage {
 #endif
 
 #if canImport(AVFoundation)
-generatedAudio.audioPlayer?.play()
+try generatedAudio.audioPlayer.play()
 #endif
 ```
 

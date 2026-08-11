@@ -41,9 +41,13 @@ extension GeneratedMediaProtocol {
     /// data first.
     ///
     /// - Parameter url: Destination file URL.
-    /// - Throws: An error if the bytes cannot be written to that location.
+    /// - Throws: ``GeneratedMediaError/saveError(_:)``, carrying the file-system error that explains why.
     public func save(to url: URL) throws {
-        try data.write(to: url)
+        do {
+            try data.write(to: url)
+        } catch {
+            throw GeneratedMediaError.saveError(error)
+        }
     }
 
     /// Joins a base name to the media's own extension.
@@ -181,7 +185,8 @@ public enum GeneratedMediaError: Error, Sendable, LocalizedError {
 
     /// Writing the media to disk failed, wrapping the underlying file-system error.
     ///
-    /// Nothing in this package raises it; saving propagates the write error unwrapped.
+    /// Raised by ``GeneratedMediaProtocol/save(to:)``. The `CocoaError` it carries names the
+    /// reason — a missing directory, a full volume, a path that may not be written to.
     case saveError(Error)
 
     /// Fetching a provider-hosted asset failed, wrapping the underlying transport error.

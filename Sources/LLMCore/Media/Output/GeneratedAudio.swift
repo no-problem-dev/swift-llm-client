@@ -29,9 +29,7 @@ import Foundation
 /// try audio.save(to: URL(fileURLWithPath: "greeting.mp3"))
 ///
 /// // Where AVFoundation is available.
-/// if let player = audio.audioPlayer {
-///     player.play()
-/// }
+/// try audio.audioPlayer.play()
 /// ```
 public struct GeneratedAudio: GeneratedMediaProtocol {
     // MARK: - Properties

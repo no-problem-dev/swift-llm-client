@@ -26,6 +26,8 @@ private struct MockChatClient: ChatCapableClient {
     enum Behavior: Sendable {
         case success(json: String)
         case failure(LLMError)
+        /// 実装が LLMError 以外を投げる場合。アダプタの取りこぼしはこの形で届く。
+        case rawFailure(any Error)
     }
 
     let behavior: Behavior
@@ -47,6 +49,8 @@ private struct MockChatClient: ChatCapableClient {
                 rawText: json
             )
         case .failure(let error):
+            throw error
+        case .rawFailure(let error):
             throw error
         }
     }
@@ -426,3 +430,113 @@ struct ChatConversationFlowTests {
         #expect(usage.outputTokens == 10)
     }
 }
+
+// MARK: - 失敗の呼び名
+
+/// `chat` が投げるのは LLMError だけとは限らない。素の `DecodingError` や `URLError` が
+/// ここまで上がってきたとき、どう名付け直されるかを固定する。
+@Suite("ChatCapableClient 非 LLMError の分類")
+struct ChatErrorClassificationTests {
+    /// スキーマに合わないモデル応答は decode の失敗であって、通信の失敗ではない。
+    /// networkError と報告されると「ネットワークなら再試行」の方針がトークンを払って
+    /// 決定的に失敗する decode を繰り返す。
+    @Test("スキーマ不一致の応答は decodingFailed になる（networkError ではない）")
+    func schemaMismatchIsReportedAsDecodingFailure() async {
+        let client = MockChatClient(behavior: .success(json: #"{"unexpected": 1}"#))
+        let history = ConversationHistory()
+
+        do {
+            let _: EchoOutput = try await client.chat(input: "挨拶して", history: history, model: "m")
+            Issue.record("throw されるべき")
+        } catch let error as LLMError {
+            guard case .decodingFailed = error else {
+                Issue.record("decodingFailed であるべき: \(error)")
+                return
+            }
+        } catch {
+            Issue.record("LLMError であるべき: \(error)")
+        }
+    }
+
+    /// UI が読むイベントストリームにも同じ名前で流れる。
+    @Test("履歴に流れるエラーイベントも decodingFailed")
+    func historyEventCarriesTheSameClassification() async {
+        let client = MockChatClient(behavior: .success(json: #"{"unexpected": 1}"#))
+        let history = ConversationHistory()
+
+        let _: EchoOutput? = try? await client.chat(input: "挨拶して", history: history, model: "m")
+
+        var received: ConversationEvent?
+        for await event in history.eventStream {
+            if case .error = event {
+                received = event
+                break
+            }
+        }
+        guard case .error(.decodingFailed) = received else {
+            Issue.record("受信イベントは .error(.decodingFailed) であるべき: \(String(describing: received))")
+            return
+        }
+    }
+
+    /// chatWithDetails 側も同じ分類でなければ、片方だけ catch が外れる。
+    @Test("chatWithDetails でも decodingFailed")
+    func detailsFormClassifiesTheSameWay() async {
+        let client = MockChatClient(behavior: .success(json: #"{"unexpected": 1}"#))
+        let history = ConversationHistory()
+
+        do {
+            let _: ChatResponse<EchoOutput> = try await client.chatWithDetails(
+                input: "挨拶して", history: history, model: "m"
+            )
+            Issue.record("throw されるべき")
+        } catch let error as LLMError {
+            guard case .decodingFailed = error else {
+                Issue.record("decodingFailed であるべき: \(error)")
+                return
+            }
+        } catch {
+            Issue.record("LLMError であるべき: \(error)")
+        }
+    }
+
+    /// 本物の通信失敗は networkError のまま。「プロバイダに届かなかった」の意味を保つ。
+    @Test("URLError は networkError のまま")
+    func urlErrorRemainsNetworkError() async {
+        let client = MockChatClient(behavior: .rawFailure(URLError(.notConnectedToInternet)))
+        let history = ConversationHistory()
+
+        do {
+            let _: EchoOutput = try await client.chat(input: "挨拶して", history: history, model: "m")
+            Issue.record("throw されるべき")
+        } catch let error as LLMError {
+            guard case .networkError = error else {
+                Issue.record("networkError であるべき: \(error)")
+                return
+            }
+        } catch {
+            Issue.record("LLMError であるべき: \(error)")
+        }
+    }
+
+    /// どれにも当てはまらないものは unknown。networkError を万能の受け皿にしない。
+    @Test("分類できない失敗は unknown")
+    func unclassifiedFailureBecomesUnknown() async {
+        let client = MockChatClient(behavior: .rawFailure(UnrecognisedFailure()))
+        let history = ConversationHistory()
+
+        do {
+            let _: EchoOutput = try await client.chat(input: "挨拶して", history: history, model: "m")
+            Issue.record("throw されるべき")
+        } catch let error as LLMError {
+            guard case .unknown = error else {
+                Issue.record("unknown であるべき: \(error)")
+                return
+            }
+        } catch {
+            Issue.record("LLMError であるべき: \(error)")
+        }
+    }
+}
+
+private struct UnrecognisedFailure: Error {}

@@ -68,8 +68,9 @@ extension ChatCapableClient {
     ///     differs by provider.
     ///   - maxTokens: Ceiling on output tokens.
     /// - Returns: The decoded value. Everything else about the turn is left in the history.
-    /// - Throws: `LLMError`. Any other error is wrapped as `LLMError.networkError` first, so a
-    ///   caller only ever has one error type to match on.
+    /// - Throws: `LLMError`. Anything else is classified by `LLMError(wrapping:)` first, so a
+    ///   caller only ever has one error type to match on — and a reply that will not decode
+    ///   arrives as `decodingFailed`, not as a network failure a retry policy would repeat.
     public func chat<T: StructuredProtocol, History: ConversationHistoryProtocol>(
         input: LLMInput,
         history: History,
@@ -99,13 +100,9 @@ extension ChatCapableClient {
             await history.addUsage(response.usage)
 
             return response.result
-        } catch let llmError as LLMError {
-            // Emit an error event.
-            await history.emitError(llmError)
-            throw llmError
         } catch {
-            // Wrap an unrecognised error as an LLMError.
-            let llmError = LLMError.networkError(error)
+            // A decode failure is not a transport failure; `LLMError(wrapping:)` keeps them apart.
+            let llmError = LLMError(wrapping: error)
             await history.emitError(llmError)
             throw llmError
         }
@@ -127,7 +124,7 @@ extension ChatCapableClient {
     ///     differs by provider.
     ///   - maxTokens: Ceiling on output tokens.
     /// - Returns: The decoded value together with the metadata of this one turn.
-    /// - Throws: `LLMError`. Any other error is wrapped as `LLMError.networkError` first.
+    /// - Throws: `LLMError`. Anything else is classified by `LLMError(wrapping:)` first.
     public func chatWithDetails<T: StructuredProtocol, History: ConversationHistoryProtocol>(
         input: LLMInput,
         history: History,
@@ -157,13 +154,9 @@ extension ChatCapableClient {
             await history.addUsage(response.usage)
 
             return response
-        } catch let llmError as LLMError {
-            // Emit an error event.
-            await history.emitError(llmError)
-            throw llmError
         } catch {
-            // Wrap an unrecognised error as an LLMError.
-            let llmError = LLMError.networkError(error)
+            // A decode failure is not a transport failure; `LLMError(wrapping:)` keeps them apart.
+            let llmError = LLMError(wrapping: error)
             await history.emitError(llmError)
             throw llmError
         }

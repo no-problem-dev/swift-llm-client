@@ -63,6 +63,32 @@ public enum LLMError: Error, Sendable {
     case unknown(Error)
 }
 
+extension LLMError {
+    /// Names a failure that arrived from outside this type, without claiming more about it
+    /// than is known.
+    ///
+    /// The distinction that matters is between a failure worth retrying and one that is not.
+    /// A `DecodingError` is a reply that did arrive and will not decode however many times it
+    /// is asked for again, so calling it ``networkError(_:)`` — whose meaning is "the request
+    /// never reached the provider" — invites a retry policy to pay for the same failure
+    /// repeatedly. Only a genuine transport failure keeps that name; anything unrecognised
+    /// becomes ``unknown(_:)`` rather than borrowing one.
+    ///
+    /// - Parameter error: The failure to classify. An `LLMError` is returned unchanged.
+    public init(wrapping error: any Error) {
+        switch error {
+        case let llmError as LLMError:
+            self = llmError
+        case is DecodingError:
+            self = .decodingFailed(error)
+        case is URLError:
+            self = .networkError(error)
+        default:
+            self = .unknown(error)
+        }
+    }
+}
+
 extension LLMError: LocalizedError {
     public var errorDescription: String? {
         switch self {

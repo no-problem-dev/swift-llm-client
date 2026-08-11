@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING** — `GeneratedAudio.audioPlayer` is a throwing property. It was
+  `try? AVAudioPlayer(data:)`, so a caller got `nil` and could not tell raw PCM with no container
+  from truncated bytes.
+
+### Fixed
+
+- **A decode failure was reported as a network failure.** `catch { LLMError.networkError(error) }`
+  relabelled every non-`LLMError`, and that case's own doc says the request never reached the
+  provider. The dominant such failure is a `DecodingError` from structured output — so a
+  schema-mismatched model reply was reported as a network error, `catch LLMError.decodingFailed`
+  never fired, and **any retry-on-network policy retried a deterministically failing decode, paying
+  tokens each time**. Classification now lives on `LLMError` itself, and `.networkError` has exactly
+  one construction site in the package.
+- `GeneratedMediaError.saveError` is raised. `save(to:)` was a bare `try data.write(to:)`, so a
+  write failure threw a raw `CocoaError` and `catch GeneratedMediaError` around a save fell through.
+
+
 ## [4.0.0] - 2026-08-11
 
 ### Removed
