@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-08-11
+
 ### Removed
 
 - **BREAKING** — the default-argument convenience methods on the client protocols no longer share
