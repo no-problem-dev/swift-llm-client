@@ -64,14 +64,14 @@ extension DeepSeekModel {
             switch self {
             case .v4Flash:
                 return ModelProfile(
-                    summary: "コスト効率重視。100万トークンの長文脈とツール呼び出しに対応",
+                    summary: "Cost-efficient: a 1M-token context and tool calling",
                     modelFamily: "DeepSeek",
-                    description: "DeepSeek V4 Flash は DeepSeek V4 世代の標準モデルです。100万トークンの長大なコンテキストウィンドウと思考モード（thinking / non-thinking の切り替え）を備え、高品質なテキスト生成・コーディング・ツール呼び出しを極めて低コストで提供します。コストを重視する幅広い日常タスクに最適です。",
+                    description: "DeepSeek V4 Flash is the standard model of the DeepSeek V4 generation. It has a 1M-token context window and a thinking mode that switches between thinking and non-thinking, and it delivers high-quality text generation, coding, and tool calling at very low cost. It suits a wide range of everyday work where cost matters.",
                     contextWindow: 1_000_000,
                     maxOutputTokens: 384_000,
                     knowledgeCutoff: nil,
-                    strengths: ["高いコスト効率", "100万トークンの長文脈", "思考モード", "ツール呼び出し", "コーディング"],
-                    bestFor: ["汎用チャット", "コード生成", "長文ドキュメント処理", "コスト重視のタスク"],
+                    strengths: ["Strong cost efficiency", "1M-token context", "Thinking mode", "Tool calling", "Coding"],
+                    bestFor: ["General chat", "Code generation", "Long document processing", "Cost-sensitive tasks"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
                     modalities: [.text, .code],
@@ -79,14 +79,14 @@ extension DeepSeekModel {
                 )
             case .v4Pro:
                 return ModelProfile(
-                    summary: "高性能。100万トークンの長文脈と深い思考、ツール呼び出しに対応",
+                    summary: "High performance: a 1M-token context, deep thinking, and tool calling",
                     modelFamily: "DeepSeek",
-                    description: "DeepSeek V4 Pro は DeepSeek V4 世代の高性能モデルです。100万トークンの長大なコンテキストウィンドウと思考モード（thinking / non-thinking の切り替え）を備え、複雑な推論・高度なコーディング・ツール呼び出しで優れた性能を発揮します。品質を最優先する難易度の高いタスクに最適です。",
+                    description: "DeepSeek V4 Pro is the high-performance model of the DeepSeek V4 generation. It has a 1M-token context window and a thinking mode that switches between thinking and non-thinking, and it performs well on complex reasoning, advanced coding, and tool calling. It suits demanding work where quality comes first.",
                     contextWindow: 1_000_000,
                     maxOutputTokens: 384_000,
                     knowledgeCutoff: nil,
-                    strengths: ["高性能", "深い推論", "100万トークンの長文脈", "思考モード", "ツール呼び出し"],
-                    bestFor: ["複雑な推論", "高度なコード生成", "長文ドキュメント処理", "品質重視のタスク"],
+                    strengths: ["High performance", "Deep reasoning", "1M-token context", "Thinking mode", "Tool calling"],
+                    bestFor: ["Complex reasoning", "Advanced code generation", "Long document processing", "Quality-first tasks"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
                     modalities: [.text, .code],

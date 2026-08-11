@@ -191,14 +191,14 @@ extension ClaudeModel {
             switch self {
             case .opus:
                 return ModelProfile(
-                    summary: "最高性能。複雑な推論・コード生成に最適",
+                    summary: "Top performance: best for complex reasoning and code generation",
                     modelFamily: "Claude",
-                    description: "Claude Opus 4.8 は Anthropic の現フラッグシップ。複雑な多段階推論、高度なコード生成、エージェントワークフローに優れる。1M トークンの context window と 128K の出力に対応。Adaptive Thinking で複雑度に応じて計算リソースを自動配分。新トークナイザを採用しており、同じテキストでも 4.6 比で最大 35% トークンが増える場合がある。",
+                    description: "Claude Opus 4.8 is Anthropic's current flagship. It excels at complex multi-step reasoning, advanced code generation, and agent workflows. It takes a 1M-token context window and produces up to 128K of output. Adaptive Thinking allocates compute automatically according to how hard the work is. It uses a new tokenizer, so the same text can come to up to 35% more tokens than on 4.6.",
                     contextWindow: 1_000_000,
                     maxOutputTokens: 128_000,
                     knowledgeCutoff: "2026-01",
-                    strengths: ["複雑な推論", "コード生成", "エージェント構築", "Adaptive Thinking", "超大容量コンテキスト"],
-                    bestFor: ["エージェントワークフロー", "複雑な分析・推論", "長文コード生成"],
+                    strengths: ["Complex reasoning", "Code generation", "Building agents", "Adaptive Thinking", "Very large context"],
+                    bestFor: ["Agent workflows", "Complex analysis and reasoning", "Long-form code generation"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code],
@@ -212,14 +212,14 @@ extension ClaudeModel {
                 )
             case .sonnet:
                 return ModelProfile(
-                    summary: "バランス型。速度と品質の最適なトレードオフ",
+                    summary: "Balanced: the best trade-off of speed and quality",
                     modelFamily: "Claude",
-                    description: "Claude Sonnet 4.6 は速度と知性の最適バランスを実現するモデル。1M トークンの context window、Extended Thinking と Adaptive Thinking の両方に対応。",
+                    description: "Claude Sonnet 4.6 strikes the best balance of speed and intelligence. It takes a 1M-token context window and supports both Extended Thinking and Adaptive Thinking.",
                     contextWindow: 1_000_000,
                     maxOutputTokens: 64_000,
                     knowledgeCutoff: "2025-08",
-                    strengths: ["速度と品質のバランス", "コーディング", "超大容量コンテキスト", "Extended Thinking"],
-                    bestFor: ["高スループット分析", "コーディングタスク", "コスト効率重視の汎用タスク"],
+                    strengths: ["Speed and quality balance", "Coding", "Very large context", "Extended Thinking"],
+                    bestFor: ["High-throughput analysis", "Coding tasks", "Cost-efficient general tasks"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code],
@@ -233,14 +233,14 @@ extension ClaudeModel {
                 )
             case .haiku:
                 return ModelProfile(
-                    summary: "高速・低コスト。軽量タスクに最適",
+                    summary: "Fast and inexpensive: best for light tasks",
                     modelFamily: "Claude",
-                    description: "Claude Haiku 4.5 は最速の Claude モデルで、フロンティアに近い知性を低コストで提供する。リアルタイムチャットや大量処理に最適。",
+                    description: "Claude Haiku 4.5 is the fastest Claude model, offering near-frontier intelligence at low cost. It suits real-time chat and high-volume work.",
                     contextWindow: 200_000,
                     maxOutputTokens: 64_000,
                     knowledgeCutoff: "2025-02",
-                    strengths: ["高速応答", "低コスト", "大量処理向き"],
-                    bestFor: ["リアルタイムチャット", "大量バッチ処理", "コスト重視のアプリケーション"],
+                    strengths: ["Fast responses", "Low cost", "High-volume work"],
+                    bestFor: ["Real-time chat", "High-volume batches", "Cost-sensitive apps"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code],

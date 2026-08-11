@@ -104,14 +104,14 @@ extension GroqModel {
             switch self {
             case .gptOss120b:
                 return ModelProfile(
-                    summary: "最高性能。ツール呼び出しに最適",
+                    summary: "Top performance: best for tool calling",
                     modelFamily: "GPT-OSS",
-                    description: "GPT-OSS 120B は OpenAI のオープンウェイトモデルを Groq の高速推論エンジンで提供します。優れたツール呼び出し能力とコスト効率を両立し、エージェント用途の第一候補となります。",
+                    description: "GPT-OSS 120B serves OpenAI's open-weight model on Groq's fast inference engine. It combines strong tool calling with cost efficiency, which makes it the first candidate for agent work.",
                     contextWindow: 131_072,
                     maxOutputTokens: nil,
                     knowledgeCutoff: nil,
-                    strengths: ["優れたツール呼び出し", "高品質推論", "コスト効率", "超高速推論"],
-                    bestFor: ["ツール利用エージェント", "汎用タスク", "コード生成"],
+                    strengths: ["Strong tool calling", "High-quality reasoning", "Cost efficiency", "Ultra-fast inference"],
+                    bestFor: ["Tool-using agents", "General tasks", "Code generation"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .code],
@@ -119,14 +119,14 @@ extension GroqModel {
                 )
             case .gptOss20b:
                 return ModelProfile(
-                    summary: "軽量高性能。低コストでツール対応",
+                    summary: "Light and capable: tool calling at low cost",
                     modelFamily: "GPT-OSS",
-                    description: "GPT-OSS 20B は OpenAI のオープンウェイトモデルを Groq で軽量・高速に実行します。優れたツール呼び出し能力を低コストで利用でき、軽量なエージェント用途に最適です。",
+                    description: "GPT-OSS 20B runs OpenAI's open-weight model light and fast on Groq. It puts strong tool calling within reach at low cost, which suits lightweight agent work.",
                     contextWindow: 131_072,
                     maxOutputTokens: nil,
                     knowledgeCutoff: nil,
-                    strengths: ["優れたツール呼び出し", "軽量", "低コスト", "超高速推論"],
-                    bestFor: ["軽量エージェント", "コスト重視のツール利用", "高速処理"],
+                    strengths: ["Strong tool calling", "Lightweight", "Low cost", "Ultra-fast inference"],
+                    bestFor: ["Lightweight agents", "Cost-sensitive tool use", "Fast processing"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .code],
@@ -134,14 +134,14 @@ extension GroqModel {
                 )
             case .llama3_3_70b:
                 return ModelProfile(
-                    summary: "高性能 70B。バランスの良い選択",
+                    summary: "A capable 70B: a well-balanced choice",
                     modelFamily: "Llama",
-                    description: "Llama 3.3 70B Versatile は高性能と汎用性のバランスに優れたモデルです。Groq の超低レイテンシ推論で高速に利用可能。",
+                    description: "Llama 3.3 70B Versatile balances capability and general usefulness well. Groq's very low latency inference makes it fast to use.",
                     contextWindow: 131_072,
                     maxOutputTokens: 32_768,
                     knowledgeCutoff: "2024-12",
-                    strengths: ["汎用性", "高品質", "ツール呼び出し", "超高速推論"],
-                    bestFor: ["汎用タスク", "ツール利用エージェント", "コード生成"],
+                    strengths: ["Versatility", "High quality", "Tool calling", "Ultra-fast inference"],
+                    bestFor: ["General tasks", "Tool-using agents", "Code generation"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
                     modalities: [.text, .code],
@@ -149,14 +149,14 @@ extension GroqModel {
                 )
             case .qwen3_32b:
                 return ModelProfile(
-                    summary: "推論特化。数学・科学に強い",
+                    summary: "Reasoning specialist: strong at maths and science",
                     modelFamily: "Qwen",
-                    description: "Qwen3 32B は Qwen の高性能モデルを Groq で高速実行するものです。数学・科学・論理的推論に優れ、多言語にも対応します。",
+                    description: "Qwen3 32B runs Qwen's high-performance model fast on Groq. It excels at maths, science, and logical reasoning, and handles many languages.",
                     contextWindow: 131_072,
                     maxOutputTokens: 40_960,
                     knowledgeCutoff: nil,
-                    strengths: ["推論特化", "数学・科学", "論理的思考", "高速推論"],
-                    bestFor: ["数学的推論", "科学的分析", "汎用タスク"],
+                    strengths: ["Reasoning specialist", "Maths and science", "Logical thinking", "Fast reasoning"],
+                    bestFor: ["Mathematical reasoning", "Scientific analysis", "General tasks"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
                     modalities: [.text, .code],
@@ -164,14 +164,14 @@ extension GroqModel {
                 )
             case .llama4Scout:
                 return ModelProfile(
-                    summary: "最新 Llama 4。マルチモーダル対応",
+                    summary: "The latest Llama 4: multimodal",
                     modelFamily: "Llama",
-                    description: "Llama 4 Scout 17B は Meta の最新モデルを Groq の高速推論エンジンで提供します。16 エキスパートの MoE アーキテクチャと画像入力対応により高品質な応答を実現。",
+                    description: "Llama 4 Scout 17B serves Meta's latest model on Groq's fast inference engine. A 16-expert MoE architecture and image input give it high-quality answers.",
                     contextWindow: 131_072,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: "2025-03",
-                    strengths: ["最新アーキテクチャ", "MoE", "マルチモーダル", "超高速推論"],
-                    bestFor: ["汎用チャット", "画像理解", "高速処理"],
+                    strengths: ["Latest architecture", "MoE", "Multimodal", "Ultra-fast inference"],
+                    bestFor: ["General chat", "Image understanding", "Fast processing"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -179,14 +179,14 @@ extension GroqModel {
                 )
             case .llama3_1_8b:
                 return ModelProfile(
-                    summary: "超高速 8B。最低レイテンシ",
+                    summary: "A very fast 8B: the lowest latency",
                     modelFamily: "Llama",
-                    description: "Llama 3.1 8B Instant は最も軽量で高速なモデルです。Groq 上で最低レイテンシを実現し、シンプルなタスクに最適。",
+                    description: "Llama 3.1 8B Instant is the lightest and fastest model here. It reaches the lowest latency on Groq and suits simple work.",
                     contextWindow: 131_072,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: "2024-12",
-                    strengths: ["超低レイテンシ", "軽量", "低コスト", "高速応答"],
-                    bestFor: ["シンプルなチャット", "分類タスク", "大量バッチ処理"],
+                    strengths: ["Very low latency", "Lightweight", "Low cost", "Fast responses"],
+                    bestFor: ["Simple chat", "Classification tasks", "High-volume batches"],
                     toolCallSupport: .basic,
                     japaneseSupport: .basic,
                     modalities: [.text, .code],

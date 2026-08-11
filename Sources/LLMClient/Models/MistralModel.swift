@@ -97,14 +97,14 @@ extension MistralModel {
             switch self {
             case .small:
                 return ModelProfile(
-                    summary: "一般用途デフォルト。推論+コーディングのハイブリッド",
+                    summary: "The general-purpose default: a reasoning and coding hybrid",
                     modelFamily: "Mistral",
-                    description: "Mistral Small 4 は instruct・推論・コーディングを統合したハイブリッドモデルです。低コストながら高い汎用性能を発揮し、一般用途のデフォルトとして大量処理やリアルタイムアプリケーションに適しています。マルチモーダル（テキスト・画像・コード）に対応します。",
+                    description: "Mistral Small 4 is a hybrid model that brings instruct, reasoning, and coding together. It is inexpensive yet broadly capable, which makes it a general-purpose default for high-volume work and real-time apps. It takes text, images, and code.",
                     contextWindow: 32_000,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["ハイブリッド推論", "コスト効率", "多言語対応", "マルチモーダル"],
-                    bestFor: ["一般用途デフォルト", "分類・要約", "大量バッチ処理"],
+                    strengths: ["Hybrid reasoning", "Cost efficiency", "Multilingual", "Multimodal"],
+                    bestFor: ["General-purpose default", "Classification and summarization", "High-volume batches"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -112,14 +112,14 @@ extension MistralModel {
                 )
             case .medium:
                 return ModelProfile(
-                    summary: "フロンティア・エージェント/コーディング特化",
+                    summary: "Frontier tier: specialized for agents and coding",
                     modelFamily: "Mistral",
-                    description: "Mistral Medium 3.5 はエージェントワークフローと高度なコーディングに特化したフロンティアモデルです。複雑なツール連携や多段階タスクで高い実行精度を発揮し、マルチモーダル（テキスト・画像・コード）に対応します。",
+                    description: "Mistral Medium 3.5 is a frontier model specialized for agent workflows and advanced coding. It executes accurately across complex tool integrations and multi-step work, and it takes text, images, and code.",
                     contextWindow: 128_000,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["エージェント実行", "高度なコーディング", "ツール連携", "マルチモーダル"],
-                    bestFor: ["エージェントワークフロー", "コード生成", "複雑なタスク自動化"],
+                    strengths: ["Agent execution", "Advanced coding", "Tool integration", "Multimodal"],
+                    bestFor: ["Agent workflows", "Code generation", "Complex task automation"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -127,14 +127,14 @@ extension MistralModel {
                 )
             case .large:
                 return ModelProfile(
-                    summary: "オープンウェイト・フラッグシップ MoE",
+                    summary: "The open-weight flagship MoE",
                     modelFamily: "Mistral",
-                    description: "Mistral Large 3 はオープンウェイトのフラッグシップ MoE（Mixture-of-Experts）モデルです。複雑な推論、多段階分析、高度なコード生成に優れ、マルチモーダル（テキスト・画像・コード）に対応します。",
+                    description: "Mistral Large 3 is the open-weight flagship, a Mixture-of-Experts model. It excels at complex reasoning, multi-step analysis, and advanced code generation, and it takes text, images, and code.",
                     contextWindow: 128_000,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["高度な推論", "MoE アーキテクチャ", "コーディング", "マルチモーダル"],
-                    bestFor: ["複雑な推論", "コード生成", "多言語タスク"],
+                    strengths: ["Advanced reasoning", "MoE architecture", "Coding", "Multimodal"],
+                    bestFor: ["Complex reasoning", "Code generation", "Multilingual tasks"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -142,14 +142,14 @@ extension MistralModel {
                 )
             case .codestral:
                 return ModelProfile(
-                    summary: "コーディング特化。80+ 言語対応",
+                    summary: "Coding specialist: 80+ languages",
                     modelFamily: "Mistral",
-                    description: "Codestral は Mistral のコーディング特化モデルです。80 以上のプログラミング言語に対応し、コード生成・補完・リファクタリングに特化しています。",
+                    description: "Codestral is Mistral's coding specialist. It covers more than 80 programming languages and is built for code generation, completion, and refactoring.",
                     contextWindow: 256_000,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["コーディング特化", "80+ 言語", "コード補完", "リファクタリング"],
-                    bestFor: ["コード生成", "コードレビュー", "リファクタリング"],
+                    strengths: ["Coding specialist", "80+ languages", "Code completion", "Refactoring"],
+                    bestFor: ["Code generation", "Code review", "Refactoring"],
                     toolCallSupport: .good,
                     japaneseSupport: .basic,
                     modalities: [.text, .code],
@@ -157,14 +157,14 @@ extension MistralModel {
                 )
             case .ministral8b:
                 return ModelProfile(
-                    summary: "軽量マルチモーダル。低コスト・高速",
+                    summary: "Lightweight multimodal: cheap and fast",
                     modelFamily: "Mistral",
-                    description: "Ministral 3 8B は軽量なマルチモーダルモデルで、低コスト・高速にテキスト・画像・コードを処理します。エッジ寄りのユースケースや大量処理に適し、入出力が均一価格で扱いやすいモデルです。",
+                    description: "Ministral 3 8B is a lightweight multimodal model that handles text, images, and code cheaply and quickly. It suits edge-leaning use cases and high-volume work, and its flat input and output price keeps it easy to reason about.",
                     contextWindow: 128_000,
                     maxOutputTokens: 8_192,
                     knowledgeCutoff: nil,
-                    strengths: ["軽量マルチモーダル", "高速", "低コスト", "関数呼び出し"],
-                    bestFor: ["軽量チャット", "軽量な分類", "大量処理"],
+                    strengths: ["Lightweight multimodal", "Fast", "Low cost", "Function calling"],
+                    bestFor: ["Lightweight chat", "Lightweight classification", "High-volume work"],
                     toolCallSupport: .good,
                     japaneseSupport: .basic,
                     modalities: [.text, .vision, .code],

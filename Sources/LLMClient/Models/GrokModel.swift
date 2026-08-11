@@ -97,13 +97,13 @@ extension GrokModel {
             switch self {
             case .grok43:
                 return ModelProfile(
-                    summary: "xAI フラッグシップ。100万トークンの高度な推論",
+                    summary: "The xAI flagship: advanced reasoning over 1M tokens",
                     modelFamily: "Grok",
-                    description: "Grok 4.3 は xAI のフラッグシップモデルです。100万トークンの巨大なコンテキストと最高水準の推論能力を備え、マルチモーダル（テキスト・画像）入力に対応します。複雑なタスクの主力として最適です。",
+                    description: "Grok 4.3 is xAI's flagship model. It has a huge 1M-token context and top-tier reasoning, and it takes multimodal input of text and images. It is the one to reach for first on complex work.",
                     contextWindow: 1_000_000,
                     knowledgeCutoff: "2024-11",
-                    strengths: ["高度な推論", "巨大コンテキスト", "マルチモーダル", "ツール呼び出し"],
-                    bestFor: ["複雑な推論タスク", "長文・大規模文脈の処理", "エージェントワークフロー"],
+                    strengths: ["Advanced reasoning", "Very large context", "Multimodal", "Tool calling"],
+                    bestFor: ["Complex reasoning tasks", "Long-form, large-context work", "Agent workflows"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -111,13 +111,13 @@ extension GrokModel {
                 )
             case .grok420Reasoning:
                 return ModelProfile(
-                    summary: "高速エージェント特化。推論モード・低ハルシネーション",
+                    summary: "Fast agent specialist: reasoning mode, low hallucination",
                     modelFamily: "Grok",
-                    description: "Grok 4.20 Reasoning は推論を有効化した高速バリアントです。強力な agentic ツール呼び出しと市場最低水準のハルシネーション率を両立し、エージェント・高速推論用途で最良の選択肢です。",
+                    description: "Grok 4.20 Reasoning is the fast variant with reasoning switched on. It combines strong agentic tool calling with one of the lowest hallucination rates on the market, which makes it the best choice for agents and fast reasoning.",
                     contextWindow: 1_000_000,
                     knowledgeCutoff: "2024-11",
-                    strengths: ["高速推論", "agentic ツール呼び出し", "低ハルシネーション", "巨大コンテキスト"],
-                    bestFor: ["エージェントワークフロー", "高速な推論タスク", "大規模文脈の処理"],
+                    strengths: ["Fast reasoning", "Agentic tool calling", "Low hallucination", "Very large context"],
+                    bestFor: ["Agent workflows", "Fast reasoning tasks", "Large-context work"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -125,13 +125,13 @@ extension GrokModel {
                 )
             case .grok420NonReasoning:
                 return ModelProfile(
-                    summary: "大量処理向け。非推論・低レイテンシ",
+                    summary: "For high-volume work: no reasoning, low latency",
                     modelFamily: "Grok",
-                    description: "Grok 4.20 Non-Reasoning は推論を無効化したコスト効率重視の Grok モデルです。100万トークンのコンテキストと低レイテンシを活かし、大量処理や高頻度な呼び出しに最適です。",
+                    description: "Grok 4.20 Non-Reasoning is the cost-focused Grok with reasoning switched off. Its 1M-token context and low latency suit high-volume work and frequent calls.",
                     contextWindow: 1_000_000,
                     knowledgeCutoff: "2024-11",
-                    strengths: ["大量処理向き", "巨大コンテキスト", "低レイテンシ", "ツール呼び出し"],
-                    bestFor: ["大量バッチ処理", "高頻度な呼び出し", "汎用チャット"],
+                    strengths: ["High-volume work", "Very large context", "Low latency", "Tool calling"],
+                    bestFor: ["High-volume batches", "High-frequency calls", "General chat"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -139,13 +139,13 @@ extension GrokModel {
                 )
             case .grok420MultiAgent:
                 return ModelProfile(
-                    summary: "マルチエージェント協調。複数エージェントの並列推論",
+                    summary: "Multi-agent collaboration: several agents reasoning in parallel",
                     modelFamily: "Grok",
-                    description: "Grok 4.20 Multi-Agent は複数エージェントの協調推論に最適化されたモデルです。難度の高いタスクを並列に分割・統合し、単一エージェントを超える品質を狙います。",
+                    description: "Grok 4.20 Multi-Agent is tuned for several agents reasoning together. It splits hard work up, runs it in parallel, and merges the results, aiming past what a single agent reaches.",
                     contextWindow: 1_000_000,
                     knowledgeCutoff: "2024-11",
-                    strengths: ["マルチエージェント協調", "高難度タスク", "巨大コンテキスト", "ツール呼び出し"],
-                    bestFor: ["複雑な分割統合タスク", "高難度の推論", "エージェントワークフロー"],
+                    strengths: ["Multi-agent collaboration", "Hard tasks", "Very large context", "Tool calling"],
+                    bestFor: ["Complex split-and-merge tasks", "Hard reasoning", "Agent workflows"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -153,13 +153,13 @@ extension GrokModel {
                 )
             case .grokBuild:
                 return ModelProfile(
-                    summary: "コーディング特化ベータ。開発タスク向け",
+                    summary: "Coding specialist (beta): for development work",
                     modelFamily: "Grok",
-                    description: "Grok Build はコーディングに特化したベータモデルです。コード生成・リファクタリング・デバッグといった開発タスクに最適化されており、マルチモーダル入力にも対応します。",
+                    description: "Grok Build is a beta model specialized for coding. It is tuned for development work such as code generation, refactoring, and debugging, and it takes multimodal input as well.",
                     contextWindow: 256_000,
                     knowledgeCutoff: "2024-11",
-                    strengths: ["コーディング", "リファクタリング", "デバッグ", "マルチモーダル"],
-                    bestFor: ["コード生成", "リファクタリング", "開発支援"],
+                    strengths: ["Coding", "Refactoring", "Debugging", "Multimodal"],
+                    bestFor: ["Code generation", "Refactoring", "Development assistance"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],

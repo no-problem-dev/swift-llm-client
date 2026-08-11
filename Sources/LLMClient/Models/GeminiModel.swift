@@ -243,14 +243,14 @@ extension GeminiModel {
             switch self {
             case .flash36:
                 return ModelProfile(
-                    summary: "最新 Flash。3.5 Flash より安い出力単価",
+                    summary: "The latest Flash: cheaper output than 3.5 Flash",
                     modelFamily: "Gemini",
-                    description: "Gemini 3.6 Flash は Google の最新 Flash GA モデル。3.5 Flash と同じ入力単価のまま出力が $9 → $7.50 に下がった。エージェント・コーディング用途の主力。",
+                    description: "Gemini 3.6 Flash is Google's latest GA Flash model. Input costs the same as 3.5 Flash while output has come down from $9 to $7.50. It is the mainstay for agent and coding work.",
                     contextWindow: 1_048_576,
                     maxOutputTokens: 65_536,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["フロンティアレベルの知性", "エージェント最適化", "高速レスポンス", "コーディング性能"],
-                    bestFor: ["エージェント開発", "マルチステップワークフロー", "コーディング支援", "大量処理"],
+                    strengths: ["Frontier-level intelligence", "Tuned for agents", "Fast responses", "Coding performance"],
+                    bestFor: ["Agent development", "Multi-step workflows", "Coding assistance", "High-volume work"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code],
@@ -262,14 +262,14 @@ extension GeminiModel {
                 )
             case .flashLite35:
                 return ModelProfile(
-                    summary: "3.5 系の軽量版。大量処理向け",
+                    summary: "The light 3.5: for high-volume work",
                     modelFamily: "Gemini",
-                    description: "Gemini 3.5 Flash-Lite は 3.5 系の軽量・低コストモデル。3.1 Flash-Lite より単価は上がるが、より新しい世代の知性を持つ。",
+                    description: "Gemini 3.5 Flash-Lite is the light, low-cost model of the 3.5 line. It costs more than 3.1 Flash-Lite but carries the intelligence of a newer generation.",
                     contextWindow: 1_048_576,
                     maxOutputTokens: 65_536,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["低コスト", "高スループット", "エージェント最適化"],
-                    bestFor: ["大量エージェントタスク", "データ抽出", "分類"],
+                    strengths: ["Low cost", "High throughput", "Tuned for agents"],
+                    bestFor: ["High-volume agent tasks", "Data extraction", "Classification"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -281,14 +281,14 @@ extension GeminiModel {
                 )
             case .flash35:
                 return ModelProfile(
-                    summary: "最新 Flash GA。エージェント・コーディングに最強",
+                    summary: "The latest GA Flash: strongest at agents and coding",
                     modelFamily: "Gemini",
-                    description: "Gemini 3.5 Flash は Google の最新 Flash GA モデル。エージェントワークフローとコーディングタスクでフロンティアレベルの知性を発揮。高速・低コストながら長期マルチステップタスクに最適化。",
+                    description: "Gemini 3.5 Flash is Google's latest GA Flash model. It shows frontier-level intelligence on agent workflows and coding tasks, and though it is fast and inexpensive it is tuned for long multi-step work.",
                     contextWindow: 1_048_576,
                     maxOutputTokens: 65_536,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["フロンティアレベルの知性", "エージェント最適化", "高速レスポンス", "コーディング性能"],
-                    bestFor: ["エージェント開発", "マルチステップワークフロー", "コーディング支援", "大量処理"],
+                    strengths: ["Frontier-level intelligence", "Tuned for agents", "Fast responses", "Coding performance"],
+                    bestFor: ["Agent development", "Multi-step workflows", "Coding assistance", "High-volume work"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code],
@@ -300,14 +300,14 @@ extension GeminiModel {
                 )
             case .pro31Preview:
                 return ModelProfile(
-                    summary: "最新 Pro Preview。最高品質の推論（preview 段階）",
+                    summary: "The latest Pro (preview): top-quality reasoning",
                     modelFamily: "Gemini",
-                    description: "Gemini 3.1 Pro は Google の最新 Pro モデル（preview）。100 万トークンの context、マルチモーダル入力に対応。≤200K と >200K で単価が変わる。",
+                    description: "Gemini 3.1 Pro is Google's latest Pro model, in preview. It takes a 1M-token context and multimodal input. The rate differs between ≤200K and >200K.",
                     contextWindow: 1_048_576,
                     maxOutputTokens: 65_536,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["超大容量コンテキスト", "マルチモーダル", "エージェント最適化", "高品質推論"],
-                    bestFor: ["マルチモーダル分析", "エージェント開発", "大量ドキュメント処理"],
+                    strengths: ["Very large context", "Multimodal", "Tuned for agents", "High-quality reasoning"],
+                    bestFor: ["Multimodal analysis", "Agent development", "Large document processing"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code, .audio],
@@ -321,14 +321,14 @@ extension GeminiModel {
                 )
             case .flashLite31:
                 return ModelProfile(
-                    summary: "最速・最低コスト。高速エージェント向け",
+                    summary: "Fastest and cheapest: for fast agents",
                     modelFamily: "Gemini",
-                    description: "Gemini 3.1 Flash-Lite は Gemini 3 シリーズ最速・最低コストのモデル。2.5 Flash 比で 2.5 倍高速な TTFA、45% の出力速度向上。",
+                    description: "Gemini 3.1 Flash-Lite is the fastest and cheapest model of the Gemini 3 series. Against 2.5 Flash it has 2.5x faster TTFA and 45% higher output speed.",
                     contextWindow: 1_048_576,
                     maxOutputTokens: 65_536,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["最速レスポンス", "最低コスト", "高スループット", "エージェント最適化"],
-                    bestFor: ["大量エージェントタスク", "データ抽出", "超低レイテンシ処理"],
+                    strengths: ["Fastest responses", "Lowest cost", "High throughput", "Tuned for agents"],
+                    bestFor: ["High-volume agent tasks", "Data extraction", "Very low latency work"],
                     toolCallSupport: .good,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -340,14 +340,14 @@ extension GeminiModel {
                 )
             case .flash3Preview:
                 return ModelProfile(
-                    summary: "Gemini 3 Flash (preview)。Pro レベルの知性を低コストで",
+                    summary: "Gemini 3 Flash (preview): Pro-level intelligence at low cost",
                     modelFamily: "Gemini",
-                    description: "Gemini 3 Flash (preview) は Pro レベルの知性を Flash の速度・コストで提供する preview モデル。思考レベルの調整が可能。",
+                    description: "Gemini 3 Flash (preview) delivers Pro-level intelligence at Flash speed and cost. Its thinking level can be adjusted.",
                     contextWindow: 1_048_576,
                     maxOutputTokens: 65_536,
                     knowledgeCutoff: "2025-01",
-                    strengths: ["Pro レベルの知性", "調整可能な思考レベル", "マルチモーダル", "ストリーミング関数呼び出し"],
-                    bestFor: ["高スループット処理", "コスト効率重視の推論", "リアルタイムアプリケーション"],
+                    strengths: ["Pro-level intelligence", "Adjustable thinking level", "Multimodal", "Streaming function calls"],
+                    bestFor: ["High-throughput work", "Cost-efficient reasoning", "Real-time apps"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],

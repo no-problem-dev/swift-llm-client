@@ -172,13 +172,13 @@ public enum Modality: String, Sendable, Hashable, Codable {
     /// Built for generating code.
     case code
 
-    /// Japanese label for showing the modality in a user interface.
+    /// Label for showing the modality in a user interface.
     public var displayName: String {
         switch self {
-        case .text: return "テキスト"
-        case .vision: return "画像入力（VLM）"
-        case .audio: return "音声"
-        case .code: return "コード生成"
+        case .text: return "Text"
+        case .vision: return "Image input (VLM)"
+        case .audio: return "Audio"
+        case .code: return "Code generation"
         }
     }
 }
@@ -195,12 +195,12 @@ public enum InferenceSpeed: String, Sendable, Hashable, Codable {
     /// Slow, as large models are.
     case slow
 
-    /// Japanese label for showing the speed in a user interface.
+    /// Label for showing the speed in a user interface.
     public var displayName: String {
         switch self {
-        case .fast: return "高速"
-        case .medium: return "標準"
-        case .slow: return "低速"
+        case .fast: return "Fast"
+        case .medium: return "Standard"
+        case .slow: return "Slow"
         }
     }
 }

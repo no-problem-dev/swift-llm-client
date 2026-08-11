@@ -98,7 +98,7 @@ public enum GPTModel: Sendable, Equatable {
     ///
     /// - Warning: This answers for one rung only. **New code should call `supports(_:)`**, because
     ///   models differ on more than minimal.
-    @available(*, deprecated, message: "supports(_:) を使う")
+    @available(*, deprecated, message: "Use supports(_:) instead")
     public var supportsMinimalReasoningEffort: Bool { supports(.minimal) }
 
     /// Moves an effort to the nearest rung this model accepts.
@@ -311,14 +311,14 @@ extension GPTModel {
             switch self {
             case .gpt5_6Sol:
                 return ModelProfile(
-                    summary: "現フラッグシップ。最も複雑な推論とエージェント",
+                    summary: "The current flagship: the most complex reasoning and agent work",
                     modelFamily: "GPT",
-                    description: "GPT-5.6 Sol は GPT-5.6 ファミリーのフロンティアモデル。最大 105 万トークンのコンテキストで、高度なコーディング・多段の計画・ツール利用に向く。272K を超える入力は入力 2 倍・出力 1.5 倍。",
+                    description: "GPT-5.6 Sol is the frontier model of the GPT-5.6 family. With a context of up to 1.05M tokens, it suits advanced coding, multi-step planning, and tool use. Input past 272K is charged at 2x on input and 1.5x on output.",
                     contextWindow: 1_050_000,
                     maxOutputTokens: 128_000,
                     knowledgeCutoff: "2026-02",
-                    strengths: ["最高品質の推論", "マルチモーダル", "ツール呼び出し", "エージェント性能"],
-                    bestFor: ["最高品質を要する分析", "重要なエージェントタスク", "高度なコーディング"],
+                    strengths: ["Top-quality reasoning", "Multimodal", "Tool calling", "Agent performance"],
+                    bestFor: ["Analysis needing top quality", "Critical agent tasks", "Advanced coding"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code],
@@ -332,14 +332,14 @@ extension GPTModel {
                 )
             case .gpt5_6Terra:
                 return ModelProfile(
-                    summary: "バランス型。知性とコストの中間",
+                    summary: "Balanced: midway between intelligence and cost",
                     modelFamily: "GPT",
-                    description: "GPT-5.6 Terra は Sol と Luna の中間に位置する汎用モデル。$2 / $12 の単価で、日常のコーディング・推論・エージェント処理に広く適合する。272K を超える入力は入力 2 倍・出力 1.5 倍。",
+                    description: "GPT-5.6 Terra sits between Sol and Luna as the general-purpose model. At $2 / $12 it fits everyday coding, reasoning, and agent work. Input past 272K is charged at 2x on input and 1.5x on output.",
                     contextWindow: 1_050_000,
                     maxOutputTokens: 128_000,
                     knowledgeCutoff: "2026-02",
-                    strengths: ["汎用性", "コスト効率", "ツール呼び出し", "適応的推論"],
-                    bestFor: ["汎用エージェント", "中規模分析", "コスト重視のプロダクション"],
+                    strengths: ["Versatility", "Cost efficiency", "Tool calling", "Adaptive reasoning"],
+                    bestFor: ["General agents", "Mid-sized analysis", "Cost-sensitive production"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .excellent,
                     modalities: [.text, .vision, .code],
@@ -353,14 +353,14 @@ extension GPTModel {
                 )
             case .gpt5_6Luna:
                 return ModelProfile(
-                    summary: "最安・高スループット。大量処理向け",
+                    summary: "Cheapest and highest throughput: for high-volume work",
                     modelFamily: "GPT",
-                    description: "GPT-5.6 Luna はコスト重視・大量処理向けのモデル。$0.20 / $1.20 の単価ながら 105 万トークンのコンテキストを持ち、チャット・分類・軽量なエージェント処理に向く。272K を超える入力は入力 2 倍・出力 1.5 倍。",
+                    description: "GPT-5.6 Luna is built for cost and volume. At $0.20 / $1.20 it still carries a 1.05M-token context, and it suits chat, classification, and light agent work. Input past 272K is charged at 2x on input and 1.5x on output.",
                     contextWindow: 1_050_000,
                     maxOutputTokens: 128_000,
                     knowledgeCutoff: "2026-02",
-                    strengths: ["最安コスト", "高スループット", "低レイテンシ", "ツール呼び出し"],
-                    bestFor: ["大量バッチ", "分類", "チャット", "軽量なエージェント処理"],
+                    strengths: ["Lowest cost", "High throughput", "Low latency", "Tool calling"],
+                    bestFor: ["High-volume batches", "Classification", "Chat", "Light agent work"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -374,14 +374,14 @@ extension GPTModel {
                 )
             case .gpt5_3Codex:
                 return ModelProfile(
-                    summary: "コーディング特化。コード生成・修正に最適化",
+                    summary: "Coding specialist: tuned for writing and fixing code",
                     modelFamily: "GPT",
-                    description: "GPT-5.3 Codex は OpenAI のコーディング専用モデル。$1.75 / $14 の単価でコード生成、リファクタリング、コードレビュー、デバッグに最適化されている。",
+                    description: "GPT-5.3 Codex is OpenAI's dedicated coding model. At $1.75 / $14 it is tuned for code generation, refactoring, code review, and debugging.",
                     contextWindow: 400_000,
                     maxOutputTokens: 128_000,
                     knowledgeCutoff: "2025-08",
-                    strengths: ["コード生成", "コードレビュー", "リファクタリング", "デバッグ"],
-                    bestFor: ["コーディングエージェント", "コード解析", "大規模リファクタリング"],
+                    strengths: ["Code generation", "Code review", "Refactoring", "Debugging"],
+                    bestFor: ["Coding agents", "Code analysis", "Large-scale refactoring"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -389,14 +389,14 @@ extension GPTModel {
                 )
             case .gpt5_4Mini:
                 return ModelProfile(
-                    summary: "軽量版 5.4。コスト重視タスクに",
+                    summary: "The light 5.4: for cost-sensitive work",
                     modelFamily: "GPT",
-                    description: "GPT-5.4 mini は GPT-5.4 の軽量バリアント。$0.75 / $4.50 の単価で高スループットなタスクに適合する。",
+                    description: "GPT-5.4 mini is the light variant of GPT-5.4. At $0.75 / $4.50 it fits high-throughput work.",
                     contextWindow: 400_000,
                     maxOutputTokens: 128_000,
                     knowledgeCutoff: "2025-08",
-                    strengths: ["低コスト", "高スループット", "汎用性"],
-                    bestFor: ["大量バッチ", "分類", "簡易チャット"],
+                    strengths: ["Low cost", "High throughput", "Versatility"],
+                    bestFor: ["High-volume batches", "Classification", "Simple chat"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
@@ -404,14 +404,14 @@ extension GPTModel {
                 )
             case .gpt5_4Nano:
                 return ModelProfile(
-                    summary: "最軽量・最安。超高スループット向け",
+                    summary: "Lightest and cheapest: for very high throughput",
                     modelFamily: "GPT",
-                    description: "GPT-5.4 nano は GPT-5.4 ファミリーの最軽量モデル。$0.20 / $1.25 の最安単価で、レイテンシとコストを最優先する大量処理に適合する。",
+                    description: "GPT-5.4 nano is the lightest model of the GPT-5.4 family. At $0.20 / $1.25, the cheapest rate of the family, it fits high-volume work where latency and cost come first.",
                     contextWindow: 400_000,
                     maxOutputTokens: 128_000,
                     knowledgeCutoff: "2025-08",
-                    strengths: ["最安コスト", "超高スループット", "低レイテンシ"],
-                    bestFor: ["超大量バッチ", "簡易分類", "軽量な補完タスク"],
+                    strengths: ["Lowest cost", "Very high throughput", "Low latency"],
+                    bestFor: ["Very large batches", "Simple classification", "Light completion tasks"],
                     toolCallSupport: .excellent,
                     japaneseSupport: .good,
                     modalities: [.text, .vision, .code],
