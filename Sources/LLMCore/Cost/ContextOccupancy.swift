@@ -2,43 +2,47 @@ import Foundation
 
 // MARK: - ContextOccupancy
 
-/// コンテキストウィンドウの占有状態。
+/// How much of a model's context window the conversation currently takes up.
 ///
-/// 直近リクエストの `TokenUsage`（= API レスポンスに付随する正確値）から、
-/// 追加 API コールなしに算出できる「ライブ占有メーター」の値オブジェクト。
+/// Built from the token usage of the most recent request — the exact counts that came back with the
+/// response — so a live occupancy meter costs no extra API call.
 ///
-/// **設計方針**:
-/// - `promptTokens` は `TokenUsage.inputTokens`（キャッシュ込み総量に正規化済の契約）をそのまま占有とする。
-///   cacheRead / cacheCreation も占有はするため総量から差し引かない（コストが安いだけ）。
-/// - `windowSize` が `nil`（モデルプロファイル未定義）の場合、`free` / `usedFraction` は `nil` を返す。
-///   占有率を 0 や捏造値でごまかさない（silent fallback の排除）。呼び出し側は絶対値のみ表示する。
-/// - reserve（出力予約）/ buffer（compaction 予約）は呼び出し側のポリシー。純粋値型はそれを受け取るだけ。
+/// **Design**:
+/// - `promptTokens` uses `TokenUsage.inputTokens` as it stands, i.e. the cache-inclusive total the
+///   semantics contract guarantees. Cached tokens are not subtracted: they still fill the window,
+///   they are only cheaper.
+/// - When `windowSize` is `nil`, because the model profile does not state one, `free` and
+///   `usedFraction` return `nil` instead of 0 or an invented figure. Callers then show absolute
+///   counts only.
+/// - The output reserve and the compaction buffer are the caller's policy; this value type only
+///   holds what it is handed.
 ///
-/// ACP (`session/update` の `usage_update`) へは `used` → `used`、`windowSize` → `size` で直接マップする。
+/// Maps straight onto the ACP `usage_update` of `session/update`: `used` to `used`, `windowSize` to
+/// `size`.
 public struct ContextOccupancy: Sendable, Hashable {
 
-    /// コンテキストウィンドウ総サイズ（トークン）。未定義モデルでは `nil`。
+    /// Total size of the context window in tokens. Nil when the model profile does not state one.
     public let windowSize: Int?
 
-    /// 入力プロンプトの総占有（= キャッシュ込み総入力トークン）。
+    /// Tokens the prompt occupies, cache included.
     public let promptTokens: Int
 
-    /// プロンプトキャッシュ読出分（`promptTokens` のサブセット）。
+    /// Part of the prompt that was served from the prompt cache.
     public let cacheReadTokens: Int
 
-    /// プロンプトキャッシュ書込分（`promptTokens` のサブセット）。
+    /// Part of the prompt that was written into the prompt cache.
     public let cacheCreationTokens: Int
 
-    /// キャッシュを介さない純新規入力（`promptTokens` のサブセット）。
+    /// Part of the prompt that did not go through the cache at all.
     public let freshInputTokens: Int
 
-    /// 直近応答の出力トークン。
+    /// Output tokens of the most recent response.
     public let outputTokens: Int
 
-    /// 出力のために予約するトークン（ポリシー）。`free` の算出にのみ影響。
+    /// Tokens held back for the next response. Caller policy; affects the free figure only.
     public let outputReserve: Int
 
-    /// compaction / 安全余白として予約するトークン（ポリシー）。`free` の算出にのみ影響。
+    /// Tokens held back for compaction and safety margin. Caller policy; affects the free figure only.
     public let compactionBuffer: Int
 
     // MARK: - Designated init
@@ -65,13 +69,13 @@ public struct ContextOccupancy: Sendable, Hashable {
 
     // MARK: - Convenience init from usage
 
-    /// `TokenUsage` から占有を導出する。
+    /// Derives the occupancy from the token usage of a request.
     ///
     /// - Parameters:
-    ///   - usage: 直近リクエストの使用量。
-    ///   - windowSize: コンテキストウィンドウ総サイズ（未定義なら `nil`）。
-    ///   - outputReserve: 出力予約（既定 0）。
-    ///   - compactionBuffer: compaction 予約（既定 0）。
+    ///   - usage: Usage reported for the most recent request.
+    ///   - windowSize: Total size of the context window, or nil when the model does not state one.
+    ///   - outputReserve: Tokens to hold back for the response.
+    ///   - compactionBuffer: Tokens to hold back for compaction and safety margin.
     public init(
         usage: TokenUsage,
         windowSize: Int?,
@@ -90,10 +94,11 @@ public struct ContextOccupancy: Sendable, Hashable {
         )
     }
 
-    /// 占有総量のみが分かっている場合の初期化（cache 内訳なし）。
+    /// Creates an occupancy from a total alone, with no cache breakdown.
     ///
-    /// ACP `usage_update`（`used` / `size`）や、現在のコンテキストサイズスナップショットから
-    /// 占有を構築する用途。`used` は全量を `freshInputTokens` として扱う。
+    /// Use it when a total is all there is: an ACP `usage_update` carrying `used` and `size`, or a
+    /// snapshot of the current context size. The whole amount is recorded as fresh input and the
+    /// output count as 0, so the cache figures of the result are not evidence that nothing was cached.
     public init(
         used: Int,
         windowSize: Int?,
@@ -112,10 +117,11 @@ public struct ContextOccupancy: Sendable, Hashable {
         )
     }
 
-    /// `ModelProfile` からウィンドウサイズと出力予約（= `maxOutputTokens`）を解決して導出する。
+    /// Derives the occupancy from a usage and a model profile, taking the window size from the profile.
     ///
-    /// `outputReserve` を明示しない場合、モデルの `maxOutputTokens` を予約として用いる
-    /// （「出力に使う分は実質使えない容量」という保守的かつ正直な既定）。
+    /// When `outputReserve` is not given, the model's `maxOutputTokens` is reserved. A provider
+    /// rejects a request whose prompt plus requested output overflows the window, so the capacity an
+    /// answer will claim is not really free, and reserving it keeps the free figure honest.
     public init(
         usage: TokenUsage,
         profile: ModelProfile,
@@ -132,27 +138,33 @@ public struct ContextOccupancy: Sendable, Hashable {
 
     // MARK: - Derived
 
-    /// 占有トークン（ACP `used` 相当）。
+    /// Tokens currently filling the window, which is what ACP reports as used.
     @inlinable
     public var used: Int { promptTokens }
 
-    /// 使用可能な空き容量。`windowSize` が `nil` の場合は `nil`。
+    /// Tokens a request may still add, or nil when the window size is unknown.
     ///
-    /// `windowSize - used - outputReserve - compactionBuffer` を 0 でクランプ。
+    /// The window size less the occupancy, the output reserve and the compaction buffer, clamped at
+    /// zero. Zero means the reserves are already being eaten into, not that the window is full.
     @inlinable
     public var free: Int? {
         guard let windowSize else { return nil }
         return max(0, windowSize - promptTokens - outputReserve - compactionBuffer)
     }
 
-    /// 占有率（0.0–1.0+）。`windowSize` が `nil` または 0 以下の場合は `nil`。
+    /// Share of the window the prompt fills, from 0.0 upward and able to pass 1.0.
+    ///
+    /// Nil when the window size is unknown or not positive. Reserves are ignored here, so this
+    /// measures the raw window and not what a request may still add.
     @inlinable
     public var usedFraction: Double? {
         guard let windowSize, windowSize > 0 else { return nil }
         return Double(promptTokens) / Double(windowSize)
     }
 
-    /// ウィンドウ上限を超過しているか（`windowSize` 未定義なら `false`）。
+    /// Whether the prompt has outgrown the window, which a provider answers with an error.
+    ///
+    /// False when the window size is unknown, so it never reports an overflow it cannot see.
     @inlinable
     public var isOverLimit: Bool {
         guard let windowSize else { return false }

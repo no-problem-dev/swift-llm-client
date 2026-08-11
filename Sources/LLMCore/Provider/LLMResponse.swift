@@ -5,21 +5,20 @@ import Foundation
 
 // MARK: - LLMResponse
 
-/// LLM からの統一レスポンス形式
+/// A reply from a model, in the same shape whichever provider produced it.
 public struct LLMResponse: Sendable {
-    /// レスポンスコンテンツ
+    /// Content blocks in the order the model produced them.
     public let content: [ContentBlock]
 
-    /// 使用されたモデル
+    /// Model that answered, as the provider named it, which can be more exact than the alias asked for.
     public let model: String
 
-    /// 使用トークン数
+    /// Token counts for the request, normalized so the input figure includes cached tokens.
     public let usage: TokenUsage
 
-    /// 停止理由
+    /// Why generation stopped. Nil when the provider did not say.
     public let stopReason: StopReason?
 
-    /// レスポンスを初期化
     public init(
         content: [ContentBlock],
         model: String,
@@ -34,100 +33,77 @@ public struct LLMResponse: Sendable {
 
     // MARK: - Convenience Accessors
 
-    /// すべてのテキストコンテンツを結合して取得
+    /// The text blocks joined into one string, with tool calls, media and thinking left out.
     public var text: String {
         content.compactMap { $0.text }.joined()
     }
 
-    /// すべての思考テキストを結合して取得
+    /// The extended-thinking blocks joined into one string, without their signatures.
     public var thinkingText: String {
         content.compactMap { $0.thinkingText }.joined()
     }
 
-    /// 生成された画像をすべて取得
-    ///
-    /// レスポンスに含まれる全ての画像を配列で返す。
-    /// 画像が含まれていない場合は空の配列を返す。
+    /// Images the model produced, empty when it produced none.
     public var generatedImages: [GeneratedImage] {
         content.compactMap { $0.generatedImage }
     }
 
-    /// 最初の生成された画像を取得
-    ///
-    /// レスポンスに含まれる最初の画像を返す。
-    /// 画像が含まれていない場合は `nil` を返す。
+    /// The first image the model produced, or nil when it produced none.
     public var firstGeneratedImage: GeneratedImage? {
         generatedImages.first
     }
 
-    /// 生成された音声をすべて取得
-    ///
-    /// レスポンスに含まれる全ての音声を配列で返す。
-    /// 音声が含まれていない場合は空の配列を返す。
+    /// Audio the model produced, empty when it produced none.
     public var generatedAudio: [GeneratedAudio] {
         content.compactMap { $0.generatedAudio }
     }
 
-    /// 最初の生成された音声を取得
-    ///
-    /// レスポンスに含まれる最初の音声を返す。
-    /// 音声が含まれていない場合は `nil` を返す。
+    /// The first audio the model produced, or nil when it produced none.
     public var firstGeneratedAudio: GeneratedAudio? {
         generatedAudio.first
     }
 
-    /// レスポンスに画像が含まれているかどうか
     public var hasImages: Bool {
         content.contains { $0.generatedImage != nil }
     }
 
-    /// レスポンスに音声が含まれているかどうか
     public var hasAudio: Bool {
         content.contains { $0.generatedAudio != nil }
     }
 
-    /// レスポンスにメディア（画像または音声）が含まれているかどうか
+    /// Whether the response carries an image or audio.
     public var hasMedia: Bool {
         hasImages || hasAudio
     }
 
-    /// コンテンツブロック
+    /// One block of content in a response.
     ///
-    /// LLM レスポンスに含まれるコンテンツの種類。
-    ///
-    /// ## コンテンツの種類
-    /// - `text`: テキストコンテンツ
-    /// - `toolUse`: ツール呼び出し（LLM がツールを使用したい場合）
-    /// - `image`: 生成された画像（Gemini のインライン画像生成など）
-    /// - `audio`: 生成された音声（TTS など）
+    /// ## Kinds
+    /// - `text`: text the model wrote
+    /// - `toolUse`: a tool the model wants run before it can continue
+    /// - `image`: an image produced inline, as Gemini does
+    /// - `audio`: speech produced inline, as text-to-speech models do
     public enum ContentBlock: Sendable {
-        /// テキストコンテンツ
         case text(String)
 
-        /// ツール呼び出し
+        /// A tool the model wants run. Answer it with a result quoting the same identifier before
+        /// asking for another turn.
         case toolUse(id: String, name: String, input: Data)
 
-        /// 生成された画像
-        ///
-        /// Gemini のマルチモーダル出力など、レスポンス内にインラインで
-        /// 画像が含まれる場合に使用する。
+        /// An image returned inline in the response, as with Gemini's multimodal output.
         case image(GeneratedImage)
 
-        /// 生成された音声
-        ///
-        /// TTS（Text-to-Speech）など、レスポンス内にインラインで
-        /// 音声が含まれる場合に使用する。
+        /// Speech returned inline in the response, as with text-to-speech models.
         case audio(GeneratedAudio)
 
-        /// 思考コンテンツ（Extended Thinking）
+        /// Reasoning the model produced with extended thinking.
         ///
-        /// Claude の Extended Thinking で生成された思考プロセスを表す。
-        /// signature は後続リクエストで思考ブロックを参照するために使用する。
+        /// The signature identifies the block when it is handed back on a later request.
         case thinking(text: String, signature: String?)
 
         // MARK: - Convenience Accessors
 
-        /// テキストコンテンツを取得（text ブロックの場合のみ）
+        /// The text of the block, or nil when it is not a text block.
         public var text: String? {
             if case .text(let value) = self {
                 return value
@@ -135,7 +111,7 @@ public struct LLMResponse: Sendable {
             return nil
         }
 
-        /// 生成された画像を取得（image ブロックの場合のみ）
+        /// The image of the block, or nil when it is not an image block.
         public var generatedImage: GeneratedImage? {
             if case .image(let image) = self {
                 return image
@@ -143,7 +119,7 @@ public struct LLMResponse: Sendable {
             return nil
         }
 
-        /// 生成された音声を取得（audio ブロックの場合のみ）
+        /// The audio of the block, or nil when it is not an audio block.
         public var generatedAudio: GeneratedAudio? {
             if case .audio(let audio) = self {
                 return audio
@@ -151,7 +127,7 @@ public struct LLMResponse: Sendable {
             return nil
         }
 
-        /// 思考テキストを取得（thinking ブロックの場合のみ）
+        /// The thinking text of the block, or nil when it is not a thinking block.
         public var thinkingText: String? {
             if case .thinking(let text, _) = self {
                 return text
@@ -159,7 +135,10 @@ public struct LLMResponse: Sendable {
             return nil
         }
 
-        /// ツール使用の入力を JSON としてデコード
+        /// Decodes the arguments of a tool call into a value.
+        ///
+        /// Returns nil when the block is not a tool call, and throws when the arguments do not fit
+        /// the requested type. Keys are read from snake case, which is how providers emit them.
         public func toolInput<T: Decodable>(as type: T.Type) throws -> T? {
             guard case .toolUse(_, _, let data) = self else {
                 return nil
@@ -170,15 +149,20 @@ public struct LLMResponse: Sendable {
         }
     }
 
-    /// 停止理由
+    /// Why the model stopped generating.
     public enum StopReason: String, Sendable {
+        /// The model finished what it had to say.
         case endTurn = "end_turn"
+        /// The output cap was reached, so the text is cut off mid-answer.
         case maxTokens = "max_tokens"
+        /// A configured stop sequence came up.
         case stopSequence = "stop_sequence"
+        /// The model is waiting for tool results before it can go on.
         case toolUse = "tool_use"
+        /// The conversation no longer fits the model's context window.
         case modelContextWindowExceeded = "model_context_window_exceeded"
     }
 }
 
-// TokenUsage は Cost/TokenUsage.swift に分離。
+// TokenUsage lives in Cost/TokenUsage.swift.
 

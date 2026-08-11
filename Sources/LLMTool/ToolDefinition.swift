@@ -3,12 +3,13 @@ import LLMClient
 
 // MARK: - ToolDefinition
 
-/// ツール定義情報（シリアライズ可能）
+/// A serializable description of one tool, as the provider receives it.
 ///
-/// プロバイダーへ送信するツール定義を保持する。
-/// 実行機能は含まず、定義情報のみを保持する。
+/// It carries the name, the description and the argument schema, and nothing that can run — no
+/// closure, no configuration, no annotations. This is exactly what the model gets to see, and
+/// what it is charged input tokens for on every request of the turn.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let tools = ToolSet {
@@ -16,20 +17,20 @@ import LLMClient
 ///     Calculator()
 /// }
 ///
-/// // ツール定義を取得
+/// // Read the definitions
 /// for definition in tools.definitions {
 ///     print("Tool: \(definition.name)")
 ///     print("Description: \(definition.description)")
 /// }
 /// ```
 public struct ToolDefinition: Sendable, Equatable {
-    /// ツール名
+    /// The identifier the model calls, matching `^[a-zA-Z0-9_-]{1,64}$`.
     public let name: String
 
-    /// ツールの説明
+    /// The prose the model reads when choosing between tools.
     public let description: String
 
-    /// 引数のスキーマ
+    /// The argument schema, before any provider-specific adaptation.
     public let inputSchema: JSONSchema
 
     public init(name: String, description: String, inputSchema: JSONSchema) {
@@ -42,7 +43,7 @@ public struct ToolDefinition: Sendable, Equatable {
 // MARK: - Tool Extension
 
 extension Tool {
-    /// ToolDefinition に変換
+    /// The definition to send to a provider, taken from this tool.
     public var definition: ToolDefinition {
         ToolDefinition(
             name: toolName,

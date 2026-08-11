@@ -2,37 +2,52 @@ import Foundation
 
 // MARK: - TokenUsage
 
-/// LLM API のトークン使用量。
+/// Token counts an LLM API reported for one request.
 ///
-/// **セマンティクス契約**（プロバイダー Converter はこの契約に従って正規化する責務を負う）:
-/// - `inputTokens` は **キャッシュ込みの総入力トークン数**
-///   - Anthropic の生レスポンス値は cache 抜きの「fresh のみ」なので Converter で合算して正規化する
-///   - OpenAI / Gemini の生レスポンスは既にキャッシュ込み総量なので生値をそのまま使う
-/// - `outputTokens` は **可視出力 + reasoning を含む総出力トークン数**
-///   - `reasoningTokens` は `outputTokens` のサブセット
-/// - `cacheReadTokens` / `cacheCreationTokens` は `inputTokens` のサブセット
+/// **Semantics contract** — provider converters are responsible for normalizing raw responses to it:
+/// - `inputTokens` is the **total input token count, cache included**.
+///   - Anthropic reports fresh input only, so its converter adds the cache read and cache creation
+///     counts back in.
+///   - OpenAI and Gemini already report a cache-inclusive total, so their raw value is used as is.
+/// - `outputTokens` is the **total output token count: visible output plus reasoning**.
+///   - `reasoningTokens` is a subset of `outputTokens`.
+/// - `cacheReadTokens` and `cacheCreationTokens` are subsets of `inputTokens`.
 ///   - `freshInputTokens = inputTokens - cacheRead - cacheCreation`
 public struct TokenUsage: Sendable, Hashable, Codable {
+    /// Total input tokens, including everything served from or written to the prompt cache.
     public let inputTokens: Int
+
+    /// Total output tokens, including reasoning tokens the model did not show.
     public let outputTokens: Int
+
+    /// Reasoning tokens, a subset of the output count. Nil when the provider does not report them.
     public let reasoningTokens: Int?
+
+    /// Input tokens served from the prompt cache, a subset of the input count.
     public let cacheReadTokens: Int?
+
+    /// Input tokens written into the prompt cache, a subset of the input count.
     public let cacheCreationTokens: Int?
+
+    /// Which cache lifetime the write was billed at. Nil when nothing was written or the provider
+    /// offers a single lifetime.
     public let cacheTier: CacheTier?
 
-    /// キャッシュ読出も書込も発生しなかった、純粋な新規入力トークン。
+    /// Input tokens that neither came from the cache nor were written to it.
+    ///
+    /// Clamped at zero, so a provider reporting subsets larger than the total cannot make it negative.
     @inlinable
     public var freshInputTokens: Int {
         max(0, inputTokens - (cacheReadTokens ?? 0) - (cacheCreationTokens ?? 0))
     }
 
-    /// 可視出力のみ（reasoning を除いた）トークン数。
+    /// Output tokens the model actually showed, with reasoning tokens taken out.
     @inlinable
     public var visibleOutputTokens: Int {
         max(0, outputTokens - (reasoningTokens ?? 0))
     }
 
-    /// 入出力合算（reasoning は outputTokens 込みなので二重カウントしない）。
+    /// Input plus output. Reasoning is not added again, since it is already inside the output count.
     @inlinable
     public var totalTokens: Int { inputTokens + outputTokens }
 
@@ -55,11 +70,12 @@ public struct TokenUsage: Sendable, Hashable, Codable {
 
 // MARK: - CacheTier
 
-/// プロンプトキャッシュの TTL 種別。
+/// How long a prompt cache entry stays alive, which decides the rate its creation is billed at.
 public enum CacheTier: String, Sendable, Hashable, Codable {
-    /// 短期 TTL（Anthropic = 5 分、OpenAI/Gemini の通常キャッシュも `.short` で表現）
+    /// Short lifetime: Anthropic's 5-minute cache. The ordinary caches of OpenAI and Gemini are
+    /// reported as this too.
     case short
-    /// 長期 TTL（Anthropic = 1 時間）
+    /// Long lifetime: Anthropic's 1-hour cache.
     case long
 }
 
@@ -70,8 +86,13 @@ extension TokenUsage {
         TokenUsage(inputTokens: 0, outputTokens: 0)
     }
 
-    /// 2 つの TokenUsage を合算する。
-    /// `cacheTier` は集計結果には保持しない（ステップ単位で異なるため）。
+    /// Returns the two usages added together, for totalling the steps of a run.
+    ///
+    /// The sum carries no cache tier: every step can be billed at a different lifetime, so a single
+    /// tier cannot describe the total. An optional component stays nil only when it is nil on both
+    /// sides.
+    ///
+    /// - Parameter other: The usage to add to this one.
     public func adding(_ other: TokenUsage) -> TokenUsage {
         TokenUsage(
             inputTokens: inputTokens + other.inputTokens,

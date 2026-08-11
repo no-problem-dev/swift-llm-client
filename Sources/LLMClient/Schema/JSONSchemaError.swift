@@ -2,14 +2,16 @@ import Foundation
 
 // MARK: - JSONSchemaError
 
-/// JSON Schema に関連するエラー
+/// An error raised while turning a schema into JSON.
 ///
-/// JSON Schema の処理中に発生する可能性のあるエラーを表す。
+/// Encoding failures from `JSONEncoder` itself surface as `EncodingError` and do not come through
+/// here.
 public enum JSONSchemaError: Error, Sendable {
-    /// JSON エンコーディングに失敗
+    /// The encoded schema could not be read back as UTF-8 text.
     ///
-    /// スキーマを JSON 文字列に変換する際に、
-    /// UTF-8 エンコーディングに失敗した場合に発生する。
+    /// Thrown only by ``JSONSchema/toJSONString(prettyPrinted:)``. Since `JSONEncoder` emits
+    /// UTF-8, there is no input that reaches it in practice; catch `EncodingError` for the
+    /// failures that do happen.
     case encodingFailed
 }
 

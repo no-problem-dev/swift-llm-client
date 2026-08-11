@@ -1,17 +1,17 @@
 import Foundation
 
-/// DeepSeek モデル
+/// The DeepSeek models.
 public enum DeepSeekModel: Sendable, Equatable {
-    /// DeepSeek V4 Flash（コスト効率重視・デフォルト）
+    /// DeepSeek V4 Flash, the cost-efficient default and the cheaper of the two.
     case v4Flash
 
-    /// DeepSeek V4 Pro（高性能）
+    /// DeepSeek V4 Pro, the higher-performance tier at roughly three times the price.
     case v4Pro
 
-    /// カスタムモデルID
+    /// An identifier passed to the API unchanged, for anything this enum does not name.
     case custom(String)
 
-    /// モデルID文字列を取得
+    /// The identifier sent to the API.
     public var id: String {
         switch self {
         case .v4Flash:
@@ -27,16 +27,16 @@ public enum DeepSeekModel: Sendable, Equatable {
 // MARK: - Preset
 
 extension DeepSeekModel {
-    /// UI選択用のプリセットモデル
+    /// The models to put in front of a user.
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
-        /// DeepSeek V4 Flash（コスト効率重視・デフォルト）
+        /// DeepSeek V4 Flash, the cost-efficient default.
         case v4Flash = "v4Flash"
-        /// DeepSeek V4 Pro（高性能）
+        /// DeepSeek V4 Pro, the higher-performance tier.
         case v4Pro = "v4Pro"
 
         public var id: String { rawValue }
 
-        /// 対応する `DeepSeekModel` を取得
+        /// The model this preset names.
         public var model: DeepSeekModel {
             switch self {
             case .v4Flash: return .v4Flash
@@ -44,7 +44,6 @@ extension DeepSeekModel {
             }
         }
 
-        /// 表示名
         public var displayName: String {
             switch self {
             case .v4Flash: return "DeepSeek V4 Flash"
@@ -52,7 +51,7 @@ extension DeepSeekModel {
             }
         }
 
-        /// 短い表示名
+        /// An abbreviated label, for places too narrow for the full name.
         public var shortName: String {
             switch self {
             case .v4Flash: return "V4 Flash"
@@ -60,7 +59,7 @@ extension DeepSeekModel {
             }
         }
 
-        /// モデルプロファイル
+        /// Context window, pricing, and capability facts for the model.
         public var profile: ModelProfile {
             switch self {
             case .v4Flash:

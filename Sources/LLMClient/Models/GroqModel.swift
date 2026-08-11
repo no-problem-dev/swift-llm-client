@@ -1,29 +1,29 @@
 import Foundation
 
-/// Groq モデル（ホステッドモデル）
+/// The open-weight models Groq hosts.
 public enum GroqModel: Sendable, Equatable {
-    /// GPT-OSS 120B
+    /// GPT-OSS 120B, the strongest of the hosted models and the best tool caller.
     case gptOss120b
 
-    /// GPT-OSS 20B
+    /// GPT-OSS 20B, with the same tool-calling strength at half the price.
     case gptOss20b
 
-    /// Llama 3.3 70B Versatile
+    /// Llama 3.3 70B Versatile, the balanced general-purpose choice.
     case llama3_3_70b
 
-    /// Qwen3 32B
+    /// Qwen3 32B, tuned for maths, science, and logical reasoning.
     case qwen3_32b
 
-    /// Llama 4 Scout 17B
+    /// Llama 4 Scout 17B, the only model here that takes image input.
     case llama4Scout
 
-    /// Llama 3.1 8B Instant
+    /// Llama 3.1 8B Instant, the cheapest and lowest latency, with only basic tool calling.
     case llama3_1_8b
 
-    /// カスタムモデルID
+    /// An identifier passed to the API unchanged, for anything this enum does not name.
     case custom(String)
 
-    /// モデルID文字列を取得
+    /// The identifier sent to the API.
     public var id: String {
         switch self {
         case .gptOss120b:
@@ -47,24 +47,24 @@ public enum GroqModel: Sendable, Equatable {
 // MARK: - Preset
 
 extension GroqModel {
-    /// UI選択用のプリセットモデル
+    /// The models to put in front of a user.
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
-        /// GPT-OSS 120B（デフォルト）
+        /// GPT-OSS 120B, the strongest of the hosted models and the usual starting point.
         case gptOss120b = "gptOss120b"
-        /// GPT-OSS 20B
+        /// GPT-OSS 20B, the lighter and cheaper GPT-OSS.
         case gptOss20b = "gptOss20b"
-        /// Llama 3.3 70B Versatile
+        /// Llama 3.3 70B Versatile, the balanced general-purpose choice.
         case llama3_3_70b = "llama3_3_70b"
-        /// Qwen3 32B
+        /// Qwen3 32B, tuned for maths, science, and logical reasoning.
         case qwen3_32b = "qwen3_32b"
-        /// Llama 4 Scout 17B
+        /// Llama 4 Scout 17B, the only preset here that takes image input.
         case llama4Scout = "llama4Scout"
-        /// Llama 3.1 8B Instant
+        /// Llama 3.1 8B Instant, the cheapest and lowest latency.
         case llama3_1_8b = "llama3_1_8b"
 
         public var id: String { rawValue }
 
-        /// 対応する `GroqModel` を取得
+        /// The model this preset names.
         public var model: GroqModel {
             switch self {
             case .gptOss120b: return .gptOss120b
@@ -76,7 +76,6 @@ extension GroqModel {
             }
         }
 
-        /// 表示名
         public var displayName: String {
             switch self {
             case .gptOss120b: return "GPT-OSS 120B"
@@ -88,7 +87,7 @@ extension GroqModel {
             }
         }
 
-        /// 短い表示名
+        /// An abbreviated label, for places too narrow for the full name.
         public var shortName: String {
             switch self {
             case .gptOss120b: return "120B"
@@ -100,7 +99,7 @@ extension GroqModel {
             }
         }
 
-        /// モデルプロファイル
+        /// Context window, pricing, and capability facts for the model.
         public var profile: ModelProfile {
             switch self {
             case .gptOss120b:

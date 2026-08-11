@@ -2,15 +2,16 @@ import Foundation
 
 // MARK: - ExchangeRate
 
-/// 通貨間の為替レート。
+/// A rate for converting one currency into another.
 ///
-/// `From` → `To` の方向を型レベルで固定し、誤った方向の換算をコンパイル時に防ぐ。
-/// 内部は「`From` 1 単位あたりの `To` の量」を保持する。
+/// The direction is fixed in the type, so converting the wrong way round is a compile error. What is
+/// stored is how much of the target currency one unit of the source is worth.
 @frozen
 public struct ExchangeRate<From: CurrencyProtocol, To: CurrencyProtocol>: Sendable, Hashable, Codable {
-    /// 1 `From` = `value` `To`。例: USD→JPY なら 150.0（1 USD = 150 JPY）。
+    /// How many units of the target currency one unit of the source buys. USD to JPY is 150.0 when
+    /// one dollar is 150 yen.
     public let value: Double
-    /// レートが取得・確定した時刻。鮮度判定に使う。
+    /// When the rate was obtained. Use it to decide whether the rate is still fresh enough to trust.
     public let asOf: Date
 
     @inlinable
@@ -24,7 +25,7 @@ public struct ExchangeRate<From: CurrencyProtocol, To: CurrencyProtocol>: Sendab
 // MARK: - Money conversion
 
 extension Money {
-    /// 別通貨へ換算する。
+    /// Converts the amount into another currency.
     @inlinable
     public func converted<To: CurrencyProtocol>(
         to _: To.Type,

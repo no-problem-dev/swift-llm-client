@@ -3,24 +3,24 @@ import LLMClient
 
 // MARK: - ToolCallableClient Protocol
 
-/// ツールコール機能を持つ LLM クライアントのプロトコル
+/// A client that can offer tools to the model and report back which ones it wants to call.
 ///
-/// `StructuredLLMClient` にツールコール機能を追加する。
-/// 各プロバイダー（Anthropic, OpenAI, Gemini）はこのプロトコルに準拠することで
-/// ツールコール機能を提供できる。
+/// Adds tool calling on top of structured output. Each provider — Anthropic, OpenAI, Gemini —
+/// conforms to it so that callers can hand over the same tool set regardless of which one is
+/// behind the client.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let client = AnthropicClient(apiKey: "sk-ant-...")
 ///
-/// @Tool("天気を取得する")
-/// struct GetWeather: Tool {
-///     @ToolArgument("場所")
+/// @Tool("Returns the weather")
+/// struct GetWeather {
+///     @ToolArgument("Location")
 ///     var location: String
 ///
 ///     func call() async throws -> String {
-///         return "晴れ"
+///         return "Sunny"
 ///     }
 /// }
 ///
@@ -29,27 +29,31 @@ import LLMClient
 /// }
 ///
 /// let response = try await client.planToolCalls(
-///     prompt: "東京の天気は？",
+///     prompt: "What is the weather in Tokyo?",
 ///     model: .sonnet,
 ///     tools: tools
 /// )
 /// ```
 public protocol ToolCallableClient: StructuredLLMClient {
-    /// ツール呼び出しを計画する（単一プロンプト）
+    /// Asks the model which tools to call for a single prompt, without calling any of them.
     ///
-    /// LLM にツールを提供し、どのツールをどの引数で呼び出すべきかを判断させる。
-    /// このメソッドはツールの選択と引数の決定のみを行い、実際のツール実行は行わない。
+    /// This is one request and one response. The model picks tools and fills in arguments; no
+    /// tool ever runs here, and nothing is fed back to the model. Running the calls, appending
+    /// the results to the conversation, and deciding whether to go around again are all the
+    /// caller's job. Use an agent run instead when that loop should be driven for you.
     ///
     /// - Parameters:
-    ///   - prompt: ユーザープロンプト
-    ///   - model: 使用するモデル
-    ///   - tools: 使用可能なツールセット
-    ///   - toolChoice: ツール選択の設定（オプション）
-    ///   - systemPrompt: システムプロンプト（オプション）
-    ///   - temperature: 温度パラメータ（オプション）
-    ///   - maxTokens: 最大トークン数（オプション）
-    ///   - cachePolicy: 安定プレフィックス（システムプロンプト + ツール）のキャッシュ方針
-    /// - Returns: ツール呼び出し計画を含むレスポンス
+    ///   - prompt: The user prompt.
+    ///   - model: The model to ask.
+    ///   - tools: The tools the model may choose from.
+    ///   - toolChoice: Constrains that choice. Automatic selection when omitted.
+    ///   - systemPrompt: System instructions for the request.
+    ///   - temperature: Sampling temperature.
+    ///   - maxTokens: Upper bound on tokens the model may generate in its reply.
+    ///   - cachePolicy: How to cache the stable prefix, meaning the system prompt and the tool
+    ///     definitions. Tool definitions are resent on every request and are often the largest
+    ///     part of the prompt, so caching them is what keeps a tool-heavy conversation cheap.
+    /// - Returns: The planned calls, along with any text the model produced alongside them.
     func planToolCalls(
         prompt: String,
         model: Model,
@@ -61,18 +65,24 @@ public protocol ToolCallableClient: StructuredLLMClient {
         cachePolicy: PromptCachePolicy
     ) async throws -> ToolCallResponse
 
-    /// ツール呼び出しを計画する（会話履歴付き）
+    /// Asks the model which tools to call given a conversation, without calling any of them.
+    ///
+    /// The form to use once tools have already run: append the assistant message holding the
+    /// previous calls and the tool results answering them, then ask again. Every earlier call
+    /// has to be answered by a result carrying its id, or providers reject the request.
     ///
     /// - Parameters:
-    ///   - messages: メッセージ履歴
-    ///   - model: 使用するモデル
-    ///   - tools: 使用可能なツールセット
-    ///   - toolChoice: ツール選択の設定（オプション）
-    ///   - systemPrompt: システムプロンプト（オプション）
-    ///   - temperature: 温度パラメータ（オプション）
-    ///   - maxTokens: 最大トークン数（オプション）
-    ///   - cachePolicy: 安定プレフィックス（システムプロンプト + ツール）のキャッシュ方針
-    /// - Returns: ツール呼び出し計画を含むレスポンス
+    ///   - messages: The conversation so far.
+    ///   - model: The model to ask.
+    ///   - tools: The tools the model may choose from.
+    ///   - toolChoice: Constrains that choice. Automatic selection when omitted.
+    ///   - systemPrompt: System instructions for the request.
+    ///   - temperature: Sampling temperature.
+    ///   - maxTokens: Upper bound on tokens the model may generate in its reply.
+    ///   - cachePolicy: How to cache the stable prefix, meaning the system prompt and the tool
+    ///     definitions. Tool definitions are resent on every request and are often the largest
+    ///     part of the prompt, so caching them is what keeps a tool-heavy conversation cheap.
+    /// - Returns: The planned calls, along with any text the model produced alongside them.
     func planToolCalls(
         messages: [LLMMessage],
         model: Model,
@@ -88,7 +98,8 @@ public protocol ToolCallableClient: StructuredLLMClient {
 // MARK: - Default Implementations
 
 extension ToolCallableClient {
-    /// 単一プロンプトから会話履歴形式に変換するデフォルト実装
+    /// Wraps the prompt in a one-message conversation and forwards it, so conformers only have
+    /// to implement the conversation form.
     public func planToolCalls(
         prompt: String,
         model: Model,

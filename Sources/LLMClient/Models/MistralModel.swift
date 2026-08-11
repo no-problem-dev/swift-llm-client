@@ -1,26 +1,29 @@
 import Foundation
 
-/// Mistral AI モデル
+/// The Mistral AI models.
 public enum MistralModel: Sendable, Equatable {
-    /// Mistral Small 4（一般用途デフォルト）
+    /// Mistral Small 4, the general-purpose choice. Its 32K context is the smallest of the family.
     case small
 
-    /// Mistral Medium 3.5（フロンティア・エージェント/コーディング）
+    /// Mistral Medium 3.5, the frontier tier for agent work and coding.
     case medium
 
-    /// Mistral Large 3（オープンウェイト・フラッグシップ）
+    /// Mistral Large 3, the open-weight flagship.
     case large
 
-    /// Codestral（コーディング特化）
+    /// Codestral, specialized for code, with the largest context of the family.
     case codestral
 
-    /// Ministral 3 8B（軽量マルチモーダル）
+    /// Ministral 3 8B, a lightweight multimodal model priced the same for input and output.
     case ministral8b
 
-    /// カスタムモデルID
+    /// An identifier passed to the API unchanged, for anything this enum does not name.
     case custom(String)
 
-    /// モデルID文字列を取得
+    /// The identifier sent to the API.
+    ///
+    /// Four of the five are `-latest` aliases, so they follow whatever snapshot Mistral currently
+    /// serves. Only Ministral 3 8B is pinned to a dated build.
     public var id: String {
         switch self {
         case .small:
@@ -42,22 +45,22 @@ public enum MistralModel: Sendable, Equatable {
 // MARK: - Preset
 
 extension MistralModel {
-    /// UI選択用のプリセットモデル
+    /// The models to put in front of a user.
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
-        /// Mistral Small 4（一般用途デフォルト）
+        /// Mistral Small 4, the general-purpose choice.
         case small = "small"
-        /// Mistral Medium 3.5（フロンティア・エージェント/コーディング）
+        /// Mistral Medium 3.5, the frontier tier for agent work and coding.
         case medium = "medium"
-        /// Mistral Large 3（オープンウェイト・フラッグシップ）
+        /// Mistral Large 3, the open-weight flagship.
         case large = "large"
-        /// Codestral（コーディング特化）
+        /// Codestral, specialized for code.
         case codestral = "codestral"
-        /// Ministral 3 8B（軽量マルチモーダル）
+        /// Ministral 3 8B, a lightweight multimodal model.
         case ministral8b = "ministral8b"
 
         public var id: String { rawValue }
 
-        /// 対応する `MistralModel` を取得
+        /// The model this preset names.
         public var model: MistralModel {
             switch self {
             case .small: return .small
@@ -68,7 +71,6 @@ extension MistralModel {
             }
         }
 
-        /// 表示名
         public var displayName: String {
             switch self {
             case .small: return "Mistral Small 4"
@@ -79,7 +81,7 @@ extension MistralModel {
             }
         }
 
-        /// 短い表示名
+        /// An abbreviated label, for places too narrow for the full name.
         public var shortName: String {
             switch self {
             case .small: return "Small 4"
@@ -90,7 +92,7 @@ extension MistralModel {
             }
         }
 
-        /// モデルプロファイル
+        /// Context window, pricing, and capability facts for the model.
         public var profile: ModelProfile {
             switch self {
             case .small:

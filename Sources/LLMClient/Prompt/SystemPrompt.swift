@@ -2,40 +2,44 @@ import Foundation
 
 // MARK: - SystemPrompt
 
-/// 構造化されたシステムプロンプト
+/// A system prompt assembled from tagged components.
 ///
-/// DSL を使用して構築された、複数のプロンプトコンポーネントから成る
-/// 構造化されたシステムプロンプト。記述順序がそのままプロンプトの
-/// 順序となる。
+/// Built with the DSL, and the order the components are written in is the order the model reads
+/// them in — the type never sorts or dedupes. Reordering a prompt therefore changes behavior, so
+/// treat the sequence as part of the contract.
 ///
-/// オプションで `SystemPromptMetadata` を保持し、UI 表示やカタログ管理に
-/// 活用できる。
+/// Despite the name this is the prompt type everywhere, not only for the system slot: a chat client
+/// renders it into the system field, while `LLMInput` renders the same type into the text of a user
+/// message.
 ///
-/// ## 使用例
+/// A `SystemPromptMetadata` can be attached for catalogs and UI. It is not rendered, so it never
+/// reaches the provider.
+///
+/// ## Example
 ///
 /// ```swift
-/// // メタデータなし（従来の Prompt と同等）
+/// // Without metadata
 /// let prompt = SystemPrompt {
-///     PromptComponent.role("データ分析の専門家")
-///     PromptComponent.objective("テキストからユーザー情報を抽出する")
-///     PromptComponent.context("日本語の SNS 投稿が入力される")
+///     PromptComponent.role("Data analysis expert")
+///     PromptComponent.objective("Extract user information from text")
+///     PromptComponent.context("The input is a social media post written in Japanese")
 ///
-///     PromptComponent.instruction("名前は敬称を除いて抽出する")
-///     PromptComponent.instruction("年齢は数値のみ抽出する")
+///     PromptComponent.instruction("Strip honorifics from names")
+///     PromptComponent.instruction("Extract ages as bare numbers")
 ///
-///     PromptComponent.constraint("推測はしない")
-///     PromptComponent.important("不明な場合は null を返す")
+///     PromptComponent.constraint("Never guess")
+///     PromptComponent.important("Return null when the information is missing")
 ///
 ///     PromptComponent.example(
-///         input: "佐藤花子さん（28）は東京在住",
-///         output: #"{"name": "佐藤花子", "age": 28}"#
+///         input: "Hanako Sato (28) lives in Tokyo",
+///         output: #"{"name": "Hanako Sato", "age": 28}"#
 ///     )
 /// }
 ///
-/// // メタデータ付き（カタログ登録用）
+/// // With metadata, for registering in a catalog
 /// let catalogPrompt = SystemPrompt(
 ///     "Researcher",
-///     description: "情報収集、分析、統合タスクに最適化",
+///     description: "Tuned for gathering, analyzing, and synthesizing information",
 ///     iconName: "magnifyingglass",
 ///     tags: ["research", "analysis"]
 /// ) {
@@ -49,23 +53,17 @@ import Foundation
 /// )
 /// ```
 ///
-/// ## レンダリング
+/// ## Rendering
 ///
-/// `render()` メソッドを呼び出すと、各コンポーネントが XML タグ形式で
-/// レンダリングされ、記述順に結合される。
+/// Each component becomes a one-line XML-style element, and the elements are joined with a blank
+/// line in declaration order.
 ///
 /// ```xml
-/// <role>
-/// データ分析の専門家
-/// </role>
+/// <role>Data analysis expert</role>
 ///
-/// <objective>
-/// テキストからユーザー情報を抽出する
-/// </objective>
+/// <objective>Extract user information from text</objective>
 ///
-/// <context>
-/// 日本語の SNS 投稿が入力される
-/// </context>
+/// <context>The input is a social media post written in Japanese</context>
 ///
 /// ...
 /// ```
@@ -73,27 +71,29 @@ public struct SystemPrompt: Sendable, Equatable, Codable {
 
     // MARK: - Properties
 
-    /// UI 表示用メタデータ（オプション）
+    /// Catalog and display information, when the prompt was built with any.
+    ///
+    /// Never rendered: `render()` walks the components only, so metadata cannot change the bytes
+    /// sent to the provider and cannot cost tokens or invalidate a cached prompt prefix. It does
+    /// take part in equality and encoding, so two prompts that render identically still compare
+    /// unequal when their metadata differs.
     public let metadata: SystemPromptMetadata?
 
-    /// プロンプトを構成するコンポーネントの配列（記述順）
+    /// The components in the order they were written, which is the order the model reads.
     public let components: [PromptComponent]
 
     // MARK: - Initializers
 
-    /// DSL を使用してシステムプロンプトを構築（メタデータなし）
+    /// Builds a prompt from a DSL block.
     ///
-    /// Result Builder を使用して、宣言的にプロンプトを構築する。
-    /// コンポーネントの記述順序がそのままプロンプトの順序になる。
+    /// - Parameter builder: A block listing the components, in the order they should be sent.
     ///
-    /// - Parameter builder: プロンプトコンポーネントを構築するクロージャ
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// let prompt = SystemPrompt {
-    ///     PromptComponent.role("データ分析の専門家")
-    ///     PromptComponent.objective("情報抽出")
-    ///     PromptComponent.instruction("名前を抽出する")
+    ///     PromptComponent.role("Data analysis expert")
+    ///     PromptComponent.objective("Extract information")
+    ///     PromptComponent.instruction("Extract the name")
     /// }
     /// ```
     public init(@SystemPromptBuilder _ builder: () -> [PromptComponent]) {
@@ -101,22 +101,24 @@ public struct SystemPrompt: Sendable, Equatable, Codable {
         self.components = builder()
     }
 
-    /// メタデータ付きでシステムプロンプトを構築
+    /// Builds a prompt that carries catalog metadata.
     ///
-    /// カタログ登録用のプロンプトを作成する場合に使用する。
+    /// The identifier is derived from the name: lowercased, with spaces and underscores turned into
+    /// hyphens. Nothing else is sanitized, so any other punctuation in the name survives into the
+    /// identifier, and two names that differ only in those characters collide.
     ///
     /// - Parameters:
-    ///   - name: 表示名
-    ///   - description: 説明文
-    ///   - iconName: SF Symbols アイコン名
-    ///   - tags: タグ（カテゴリ分類用）
-    ///   - builder: プロンプトコンポーネントを構築するクロージャ
+    ///   - name: The display name, which the identifier is derived from.
+    ///   - description: What the prompt is for.
+    ///   - iconName: An SF Symbols name.
+    ///   - tags: Free-form tags for grouping.
+    ///   - builder: A block listing the components, in the order they should be sent.
     ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// let prompt = SystemPrompt(
     ///     "Researcher",
-    ///     description: "情報収集・分析タスクに最適化",
+    ///     description: "Tuned for research and analysis tasks",
     ///     iconName: "magnifyingglass",
     ///     tags: ["research"]
     /// ) {
@@ -143,19 +145,20 @@ public struct SystemPrompt: Sendable, Equatable, Codable {
         self.components = builder()
     }
 
-    /// コンポーネント配列から直接初期化
+    /// Builds a prompt from an array that was assembled elsewhere.
     ///
-    /// プログラマティックにプロンプトを構築する場合に使用する。
+    /// Use it when the components are computed rather than written out — the constraints a schema
+    /// adapter had to drop, for instance.
     ///
     /// - Parameters:
-    ///   - components: プロンプトコンポーネントの配列
-    ///   - metadata: メタデータ（オプション）
+    ///   - components: The components, in the order they should be sent.
+    ///   - metadata: Catalog and display information, if any.
     ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// let components: [PromptComponent] = [
-    ///     .objective("情報抽出"),
-    ///     .instruction("名前を抽出する")
+    ///     .objective("Extract information"),
+    ///     .instruction("Extract the name")
     /// ]
     /// let prompt = SystemPrompt(components: components)
     /// ```
@@ -166,19 +169,24 @@ public struct SystemPrompt: Sendable, Equatable, Codable {
 
     // MARK: - Rendering
 
-    /// プロンプトを文字列としてレンダリング
+    /// Renders the prompt into the text the provider receives.
     ///
-    /// 各コンポーネントを XML タグ形式でレンダリングし、
-    /// 空行で区切って結合する。コンポーネントの記述順序が保持される。
+    /// Each component becomes an XML-style element and the elements are joined with a blank line,
+    /// in declaration order. Nothing is escaped, and the metadata is left out.
     ///
-    /// - Returns: レンダリングされたプロンプト文字列
+    /// The result is what a provider hashes for prompt caching, so a prompt that is rebuilt with
+    /// different content on every request cannot hit a cached prefix.
+    ///
+    /// - Returns: The rendered prompt, or an empty string when there are no components.
     public func render() -> String {
         components
             .map { $0.render() }
             .joined(separator: "\n\n")
     }
 
-    /// UI 表示用のプレーンテキスト（XML タグなし）
+    /// The prompt as plain text without the tags, for showing to a person.
+    ///
+    /// Not what the model receives — use `render()` for that.
     public var displayText: String {
         components
             .map { $0.contentPreview }
@@ -187,12 +195,15 @@ public struct SystemPrompt: Sendable, Equatable, Codable {
 
     // MARK: - Computed Properties
 
-    /// プロンプトが空かどうか
+    /// Whether the prompt holds no components at all.
+    ///
+    /// A prompt whose components carry empty strings is not empty by this measure: it still renders
+    /// a run of tags, and providers that reject a blank system prompt will accept it.
     public var isEmpty: Bool {
         components.isEmpty
     }
 
-    /// コンポーネントの数
+    /// The number of components, which says nothing about characters or tokens.
     public var count: Int {
         components.count
     }
@@ -209,16 +220,16 @@ extension SystemPrompt: CustomStringConvertible {
 // MARK: - ExpressibleByStringLiteral
 
 extension SystemPrompt: ExpressibleByStringLiteral {
-    /// 文字列リテラルからシステムプロンプトを作成
+    /// Builds a prompt from a plain string, so a literal can stand in anywhere a prompt is wanted.
     ///
-    /// 単純な文字列をプロンプトとして使用する場合の後方互換性のために提供する。
-    /// 文字列は `context` コンポーネントとして扱われる。
+    /// The string becomes a single context component, which means it does not reach the model as
+    /// written: it arrives wrapped in a context element. Build the components explicitly when the
+    /// exact bytes matter.
     ///
-    /// - Parameter value: プロンプト文字列
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// let prompt: SystemPrompt = "山田太郎さんは35歳です"
+    /// let prompt: SystemPrompt = "Taro Yamada is 35 years old"
+    /// // renders as <context>Taro Yamada is 35 years old</context>
     /// ```
     public init(stringLiteral value: String) {
         self.metadata = nil
@@ -229,50 +240,50 @@ extension SystemPrompt: ExpressibleByStringLiteral {
 // MARK: - SystemPrompt Combination
 
 extension SystemPrompt {
-    /// 2つのシステムプロンプトを結合
+    /// Concatenates two prompts, keeping the metadata of the left one.
     ///
-    /// メタデータは左辺のものが保持される。
+    /// The right-hand components land at the end, so everything the left prompt rendered stays
+    /// byte-identical and a provider's cached prefix survives. Appending is therefore the cheap
+    /// direction; putting the new material first is not.
     ///
     /// - Parameters:
-    ///   - lhs: 最初のプロンプト
-    ///   - rhs: 追加するプロンプト
-    /// - Returns: 結合されたプロンプト
+    ///   - lhs: The prompt that keeps its metadata and renders first.
+    ///   - rhs: The prompt appended after it.
+    /// - Returns: The concatenated prompt.
     public static func + (lhs: SystemPrompt, rhs: SystemPrompt) -> SystemPrompt {
         SystemPrompt(components: lhs.components + rhs.components, metadata: lhs.metadata)
     }
 
-    /// プロンプトにコンポーネントを追加
+    /// Appends a single component to the end of a prompt.
     ///
     /// - Parameters:
-    ///   - lhs: プロンプト
-    ///   - rhs: 追加するコンポーネント
-    /// - Returns: コンポーネントが追加されたプロンプト
+    ///   - lhs: The prompt, whose metadata is kept.
+    ///   - rhs: The component to append.
+    /// - Returns: The extended prompt.
     public static func + (lhs: SystemPrompt, rhs: PromptComponent) -> SystemPrompt {
         SystemPrompt(components: lhs.components + [rhs], metadata: lhs.metadata)
     }
 
-    /// 別のプロンプトを追加した新しいプロンプトを返す
+    /// Returns a prompt with another prompt's components appended.
     ///
-    /// - Parameter other: 追加するプロンプト
-    /// - Returns: 結合されたプロンプト
+    /// - Parameter other: The prompt to append. Its metadata is discarded.
     public func appending(_ other: SystemPrompt) -> SystemPrompt {
         self + other
     }
 
-    /// コンポーネントを追加した新しいプロンプトを返す
+    /// Returns a prompt with one more component at the end.
     ///
-    /// - Parameter component: 追加するコンポーネント
-    /// - Returns: コンポーネントが追加されたプロンプト
+    /// - Parameter component: The component to append.
     public func appending(_ component: PromptComponent) -> SystemPrompt {
         self + component
     }
 
-    /// コンポーネントを追加した新しいプロンプトを返す
+    /// Returns a prompt extended with the components a DSL block produces.
     ///
-    /// メタデータを保持しつつ、追加のコンポーネントで拡張する。
+    /// The metadata is carried over, which the concatenation operators do not do for the
+    /// right-hand side.
     ///
-    /// - Parameter builder: 追加するコンポーネントを構築するクロージャ
-    /// - Returns: コンポーネントが追加されたプロンプト
+    /// - Parameter builder: A block listing the components to append.
     public func modified(@SystemPromptBuilder with builder: () -> [PromptComponent]) -> SystemPrompt {
         SystemPrompt(components: components + builder(), metadata: metadata)
     }
@@ -281,20 +292,23 @@ extension SystemPrompt {
 // MARK: - Filtering and Transformation
 
 extension SystemPrompt {
-    /// 特定のタイプのコンポーネントのみを抽出
+    /// Returns a prompt holding only the components that satisfy a test.
     ///
-    /// - Parameter predicate: フィルタ条件
-    /// - Returns: フィルタされたプロンプト
+    /// Order is preserved, and the metadata comes along even when nothing survives the filter.
+    ///
+    /// - Parameter predicate: The test each component has to pass.
     public func filter(_ predicate: (PromptComponent) -> Bool) -> SystemPrompt {
         SystemPrompt(components: components.filter(predicate), metadata: metadata)
     }
 
-    /// 特定のタグ名を持つコンポーネントのみを抽出
+    /// Returns a prompt holding only the components that render under a given tag.
     ///
-    /// - Parameter tagName: 抽出するタグ名
-    /// - Returns: フィルタされたプロンプト
+    /// Match on the rendered tag rather than the case name; two of them differ, notably
+    /// `thinking_step` and `output_constraint`.
     ///
-    /// ## 使用例
+    /// - Parameter tagName: The tag to keep, as it appears in the rendered prompt.
+    ///
+    /// ## Example
     /// ```swift
     /// let instructions = prompt.components(withTag: "instruction")
     /// ```
@@ -306,6 +320,9 @@ extension SystemPrompt {
 // MARK: - LLMInputProtocol Conformance
 
 extension SystemPrompt: LLMInputProtocol {
-    /// SystemPrompt 自体をプロンプトとして返す
+    /// The prompt itself, so a bare prompt can be passed wherever an input is expected.
+    ///
+    /// The conformance carries no media, and going through it renders the prompt into a user
+    /// message rather than into the system slot.
     public var prompt: SystemPrompt { self }
 }

@@ -1,4 +1,4 @@
-// swift-llm-cloud 参照の後方互換性維持のためのプレースホルダーモジュール。
-// 構造化出力の実装は型安全性リファクタリングにより LLMClient に統合済み。
+// Compatibility module: structured output now lives in LLMClient, and this re-export keeps
+// existing `import LLMDynamicStructured` lines compiling. Import LLMClient in new code.
 
 @_exported import LLMClient

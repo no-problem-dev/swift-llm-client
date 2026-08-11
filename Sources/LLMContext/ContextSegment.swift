@@ -4,28 +4,36 @@ import LLMTool
 
 // MARK: - ContextSegment
 
-/// コンテキストウィンドウを占有する内容カテゴリ。プロバイダ非依存。
+/// A category of content that takes up room in the context window. Provider-independent.
 public enum ContextSegment: String, Sendable, Hashable, CaseIterable, Codable {
-    /// システムプロンプト
+    /// The system prompt, measured without the per-request overhead.
     case systemPrompt
-    /// 組み込みツール定義
+    /// Definitions of the built-in tools, resent in full on every request.
     case toolDefinitions
-    /// MCP ツール定義
+    /// Definitions of tools reached through MCP servers, kept apart because a server added to a
+    /// session can enlarge them without anything in the app changing.
     case mcpToolDefinitions
-    /// メモリ / プロジェクトファイル
+    /// Memory and project files carried into the prompt. Nothing charges to it unless a caller
+    /// asks for it explicitly.
     case memoryFiles
-    /// 会話履歴（不可避な per-request overhead を内包する基底）
+    /// The conversation, and with it the per-request overhead no request can avoid.
+    ///
+    /// The baseline every other segment is measured against, which is why the provider's hidden
+    /// per-request wrapper is charged here rather than spread across the others.
     case conversationHistory
-    /// 直近ターンのツール結果
+    /// Tool results from the most recent turn. Folded into the conversation unless a caller asks
+    /// for them to be measured on their own.
     case latestToolResults
 }
 
 // MARK: - ToolGroup
 
-/// 内訳算出時に「どの ToolSet をどのセグメントへ計上するか」を表すグループ。
+/// A set of tools together with the segment its tokens are charged to.
 ///
-/// 例: 組み込みツールを `.toolDefinitions`、MCP ツールを `.mcpToolDefinitions` へ。
-/// `SegmentBreakdownEngine` はこの順序で累積的にツールを差分計測する。
+/// Built-in tools go to the tool-definitions segment, MCP tools to the MCP one. Groups are
+/// measured cumulatively in the order given, so each group's figure is the cost of adding it on
+/// top of the groups before it. Reordering the groups can therefore move a few boundary tokens
+/// between them.
 public struct ToolGroup: Sendable {
     public let segment: ContextSegment
     public let tools: ToolSet
@@ -38,13 +46,16 @@ public struct ToolGroup: Sendable {
 
 // MARK: - SegmentBreakdown
 
-/// カテゴリ別トークン内訳。
+/// Tokens attributed to each category of a context window.
 ///
-/// **不変条件**: `perSegment` の総和は `totalMeasured`（= 全部入りの count）に厳密一致する
-/// （差分減算による構成のため）。これは取りこぼし／二重計上が無いことの検算でもある。
+/// **Invariant**: the per-segment figures sum exactly to the total. They are built by differencing
+/// counts rather than counted separately, which is what makes the sum add up — and what makes the
+/// check worth running, since a mismatch means something was double-counted or dropped.
 public struct SegmentBreakdown: Sendable, Hashable {
+    /// Tokens per category. A category that was not measured is absent rather than zero.
     public let perSegment: [ContextSegment: Int]
-    /// 全構成要素を含めた実測トークン（差分整合の基準）。
+
+    /// Tokens for the whole request with everything included, the figure the parts must sum to.
     public let totalMeasured: Int
 
     public init(perSegment: [ContextSegment: Int], totalMeasured: Int) {
@@ -52,12 +63,19 @@ public struct SegmentBreakdown: Sendable, Hashable {
         self.totalMeasured = totalMeasured
     }
 
-    /// 指定セグメントのトークン（未計上は 0）。
+    /// Returns the tokens charged to a segment, or zero when it was not measured.
+    ///
+    /// Zero is therefore ambiguous: it means either nothing or nothing measured. Read `perSegment`
+    /// directly to tell the two apart.
     public func tokens(for segment: ContextSegment) -> Int {
         perSegment[segment] ?? 0
     }
 
-    /// `perSegment` の総和が `totalMeasured` に一致するか（整合検算）。
+    /// Whether the per-segment figures still sum to the total.
+    ///
+    /// A self-check on the measurement rather than a property of the data: false means the
+    /// attribution is wrong somewhere, and the figures should not be shown as an explanation of
+    /// the total.
     public var isConsistent: Bool {
         perSegment.values.reduce(0, +) == totalMeasured
     }

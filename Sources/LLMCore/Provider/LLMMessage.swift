@@ -5,98 +5,100 @@ import Foundation
 
 // MARK: - LLMMessage
 
-/// LLM メッセージ
+/// One message in a conversation with a model.
 ///
-/// テキストメッセージに加えて、ツール呼び出しとツール結果もサポートする。
+/// Carries plain text as well as tool calls and tool results.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
-/// // テキストメッセージ
-/// let userMessage = LLMMessage.user("東京の天気は？")
-/// let assistantMessage = LLMMessage.assistant("東京は晴れです。")
+/// // Text messages
+/// let userMessage = LLMMessage.user("What's the weather in Tokyo?")
+/// let assistantMessage = LLMMessage.assistant("It's sunny in Tokyo.")
 ///
-/// // ツール呼び出し（アシスタントからの応答）
+/// // A tool call (the assistant's reply)
 /// let toolCallMessage = LLMMessage.toolUse(
 ///     id: "call_123",
 ///     name: "get_weather",
 ///     input: jsonData
 /// )
 ///
-/// // ツール結果（ユーザーからの応答として送信）
+/// // A tool result (sent back as a user message)
 /// let toolResultMessage = LLMMessage.toolResult(
 ///     toolCallId: "call_123",
 ///     name: "get_weather",
-///     content: "晴れ、25度"
+///     content: "Sunny, 25 degrees"
 /// )
 /// ```
 public struct LLMMessage: Sendable, Codable {
-    /// メッセージの役割
     public let role: Role
 
-    /// メッセージ内容（複合コンテンツ対応）
+    /// Blocks the message is made of; one message can mix text, media and tool blocks.
     public let contents: [MessageContent]
 
-    /// 役割
+    /// The two ends of a conversation.
+    ///
+    /// There is no system role: a system prompt travels as its own field of the request, not as a
+    /// message. Tool results are sent as a user message.
     public enum Role: String, Sendable, Codable {
         case user
         case assistant
     }
 
-    /// メッセージコンテンツの種類
+    /// One block of content inside a message.
     public enum MessageContent: Sendable, Equatable, Codable {
-        // MARK: - 既存（テキスト・ツール関連）
+        // MARK: - Text and tools
 
-        /// テキストコンテンツ
         case text(String)
 
-        /// ツール呼び出し（アシスタントが生成）
+        /// A tool call the assistant produced.
         case toolUse(id: String, name: String, input: Data)
 
-        /// ツール実行結果（ツール呼び出しへの応答）
+        /// The outcome of running a tool, sent back in answer to a tool call.
         /// - Parameters:
-        ///   - toolCallId: 対応するツール呼び出しID
-        ///   - name: ツール名（Gemini APIで必須）
-        ///   - content: 実行結果（成功または失敗）
+        ///   - toolCallId: Identifier of the call this answers; providers match the pair by it.
+        ///   - name: Tool name, which the Gemini API requires.
+        ///   - content: The outcome, successful or failed.
         case toolResult(toolCallId: String, name: String, content: ToolResultContent)
 
-        // MARK: - 新規（メディア入力）
+        // MARK: - Media input
 
-        /// 画像コンテンツ
+        /// An image.
         ///
-        /// サポート状況:
-        /// - Anthropic: ✓（JPEG, PNG, GIF, WebP）
-        /// - OpenAI: ✓（JPEG, PNG, GIF, WebP）
-        /// - Gemini: ✓（JPEG, PNG, GIF, WebP, HEIC, HEIF）
+        /// Support:
+        /// - Anthropic: yes (JPEG, PNG, GIF, WebP)
+        /// - OpenAI: yes (JPEG, PNG, GIF, WebP)
+        /// - Gemini: yes (JPEG, PNG, GIF, WebP, HEIC, HEIF)
         case image(ImageContent)
 
-        /// 音声コンテンツ
+        /// A sound file.
         ///
-        /// サポート状況:
-        /// - Anthropic: ✗
-        /// - OpenAI: ✓（WAV, MP3）gpt-4o-audio-preview のみ
-        /// - Gemini: ✓（WAV, MP3, AAC, FLAC, OGG, AIFF）
+        /// Support:
+        /// - Anthropic: no
+        /// - OpenAI: yes (WAV, MP3), on gpt-4o-audio-preview only
+        /// - Gemini: yes (WAV, MP3, AAC, FLAC, OGG, AIFF)
         case audio(AudioContent)
 
-        /// 動画コンテンツ
+        /// A video.
         ///
-        /// サポート状況:
-        /// - Anthropic: ✗
-        /// - OpenAI: ✗（フレーム分解が必要）
-        /// - Gemini: ✓（MP4, AVI, MOV, MKV, WebM, FLV, MPEG, 3GP, WMV）
+        /// Support:
+        /// - Anthropic: no
+        /// - OpenAI: no; the video has to be split into frames first
+        /// - Gemini: yes (MP4, AVI, MOV, MKV, WebM, FLV, MPEG, 3GP, WMV)
         case video(VideoContent)
 
-        /// ドキュメントコンテンツ
+        /// A document.
         ///
-        /// サポート状況:
-        /// - Anthropic: ✓（PDF, テキスト）
-        /// - OpenAI: ✓（PDF, テキスト）
-        /// - Gemini: ✓（PDF, テキスト）
+        /// Support:
+        /// - Anthropic: yes (PDF, text)
+        /// - OpenAI: yes (PDF, text)
+        /// - Gemini: yes (PDF, text)
         case document(DocumentContent)
 
-        /// 思考コンテンツ（Extended Thinking）
+        /// Reasoning the model produced with extended thinking.
         ///
-        /// Claude の Extended Thinking で生成された思考プロセスを会話履歴に保持するために使用。
+        /// Keeps Claude's thinking in the conversation history. The signature identifies the block
+        /// so it can be handed back on a later request.
         case thinking(text: String, signature: String?)
 
         // MARK: - Codable
@@ -203,13 +205,13 @@ public struct LLMMessage: Sendable, Codable {
 
     // MARK: - Initializers
 
-    /// メッセージを初期化（複合コンテンツ）
+    /// Creates a message from content blocks, keeping them in the order given.
     public init(role: Role, contents: [MessageContent]) {
         self.role = role
         self.contents = contents
     }
 
-    /// メッセージを初期化（単一テキスト）
+    /// Creates a message holding a single text block.
     public init(role: Role, content: String) {
         self.role = role
         self.contents = [.text(content)]
@@ -217,10 +219,10 @@ public struct LLMMessage: Sendable, Codable {
 
     // MARK: - Convenience Properties
 
-    /// テキストコンテンツを取得（後方互換性）
+    /// The text blocks of the message joined into one string.
     ///
-    /// 複数のテキストブロックがある場合は結合して返す。
-    /// テキストがない場合は空文字列を返す。
+    /// Tool and media blocks are skipped, so a message that carries only a tool call reads as empty
+    /// here rather than as missing text.
     public var content: String {
         contents.compactMap { content in
             if case .text(let text) = content {
@@ -230,7 +232,6 @@ public struct LLMMessage: Sendable, Codable {
         }.joined()
     }
 
-    /// ツール呼び出しを含むかどうか
     public var hasToolUse: Bool {
         contents.contains { content in
             if case .toolUse = content { return true }
@@ -238,7 +239,6 @@ public struct LLMMessage: Sendable, Codable {
         }
     }
 
-    /// ツール結果を含むかどうか
     public var hasToolResult: Bool {
         contents.contains { content in
             if case .toolResult = content { return true }
@@ -246,7 +246,7 @@ public struct LLMMessage: Sendable, Codable {
         }
     }
 
-    /// ツール呼び出しを取得
+    /// Tool calls in the message, in the order the model emitted them.
     public var toolUses: [(id: String, name: String, input: Data)] {
         contents.compactMap { content in
             if case .toolUse(let id, let name, let input) = content {
@@ -256,7 +256,7 @@ public struct LLMMessage: Sendable, Codable {
         }
     }
 
-    /// ツール結果を取得
+    /// Tool results in the message, in the order they were put in.
     public var toolResults: [(toolCallId: String, name: String, content: ToolResultContent)] {
         contents.compactMap { content in
             if case .toolResult(let id, let name, let resultContent) = content {
@@ -268,45 +268,45 @@ public struct LLMMessage: Sendable, Codable {
 
     // MARK: - Factory Methods
 
-    /// ユーザーメッセージを作成
+    /// Creates a user message holding a single text block.
     public static func user(_ content: String) -> LLMMessage {
         LLMMessage(role: .user, content: content)
     }
 
-    /// アシスタントメッセージを作成
+    /// Creates an assistant message holding a single text block.
     public static func assistant(_ content: String) -> LLMMessage {
         LLMMessage(role: .assistant, content: content)
     }
 
-    /// ツール呼び出しメッセージを作成（アシスタント）
+    /// Creates the assistant message that records a tool call.
     ///
-    /// LLM がツールを呼び出すことを決定した際のメッセージ。
-    /// 通常は `LLMResponse` から自動的に生成される。
+    /// It has to go into the history before the matching result, since a provider refuses a tool
+    /// result that answers nothing. Usually built from a response rather than by hand.
     ///
     /// - Parameters:
-    ///   - id: ツール呼び出しID
-    ///   - name: ツール名
-    ///   - input: ツール引数（JSON データ）
+    ///   - id: Identifier of the call, which the result has to quote back.
+    ///   - name: Tool name.
+    ///   - input: Tool arguments, as JSON.
     public static func toolUse(id: String, name: String, input: Data) -> LLMMessage {
         LLMMessage(role: .assistant, contents: [.toolUse(id: id, name: name, input: input)])
     }
 
-    /// 複数のツール呼び出しを含むメッセージを作成（アシスタント）
+    /// Creates one assistant message recording several tool calls the model asked for at once.
     ///
-    /// - Parameter toolCalls: ツール呼び出し情報の配列
+    /// - Parameter toolCalls: The calls, kept in the order given.
     public static func toolUses(_ toolCalls: [(id: String, name: String, input: Data)]) -> LLMMessage {
         let contents = toolCalls.map { MessageContent.toolUse(id: $0.id, name: $0.name, input: $0.input) }
         return LLMMessage(role: .assistant, contents: contents)
     }
 
-    /// ツール実行結果メッセージを作成（成功）（ユーザー）
+    /// Creates the user message that returns a successful tool result to the model.
     ///
-    /// ツールを実行した結果を LLM に返すためのメッセージ。
+    /// It takes the user role because that is how providers expect tool output to come back.
     ///
     /// - Parameters:
-    ///   - toolCallId: 対応するツール呼び出しID
-    ///   - name: ツール名
-    ///   - content: 実行結果の文字列
+    ///   - toolCallId: Identifier of the call this answers.
+    ///   - name: Tool name.
+    ///   - content: What the tool produced.
     public static func toolResult(
         toolCallId: String,
         name: String,
@@ -315,14 +315,15 @@ public struct LLMMessage: Sendable, Codable {
         LLMMessage(role: .user, contents: [.toolResult(toolCallId: toolCallId, name: name, content: .success(content))])
     }
 
-    /// ツール実行エラーメッセージを作成（ユーザー）
+    /// Creates the user message that tells the model a tool failed.
     ///
-    /// ツール実行時のエラーを LLM に返すためのメッセージ。
+    /// The failure is data the model reads and can react to, so send it rather than dropping the
+    /// turn: a call left unanswered makes the next request invalid.
     ///
     /// - Parameters:
-    ///   - toolCallId: 対応するツール呼び出しID
-    ///   - name: ツール名
-    ///   - error: エラーメッセージ
+    ///   - toolCallId: Identifier of the call this answers.
+    ///   - name: Tool name.
+    ///   - error: Message describing the failure, written for the model to read.
     public static func toolError(
         toolCallId: String,
         name: String,
@@ -331,9 +332,9 @@ public struct LLMMessage: Sendable, Codable {
         LLMMessage(role: .user, contents: [.toolResult(toolCallId: toolCallId, name: name, content: .failure(error))])
     }
 
-    /// 複数のツール実行結果を含むメッセージを作成（ユーザー）
+    /// Creates one user message returning the results of several tool calls at once.
     ///
-    /// - Parameter results: ツール結果情報の配列
+    /// - Parameter results: The results, one per outstanding call.
     public static func toolResults(_ results: [(toolCallId: String, name: String, content: ToolResultContent)]) -> LLMMessage {
         let contents = results.map {
             MessageContent.toolResult(toolCallId: $0.toolCallId, name: $0.name, content: $0.content)

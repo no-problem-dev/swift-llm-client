@@ -3,12 +3,13 @@ import LLMClient
 
 // MARK: - ToolSet
 
-/// ツールの集合
+/// An ordered collection of the tools offered to the model in one request.
 ///
-/// Result Builder を使って宣言的にツールを構築できる。
-/// SwiftUI の View と同様のパターンで条件分岐やループもサポートする。
+/// A result builder assembles it declaratively, so conditionals and loops work the way they do
+/// in a SwiftUI view body. Declaration order is preserved throughout — in the definitions sent
+/// to the provider, and in name lookup, where the first match wins.
 ///
-/// ## 使用例
+/// ## Building a set
 ///
 /// ```swift
 /// let tools = ToolSet {
@@ -25,13 +26,13 @@ import LLMClient
 /// }
 ///
 /// let result = try await client.generate(
-///     input: "東京の天気は？",
+///     input: "What is the weather in Tokyo?",
 ///     model: .sonnet,
 ///     tools: tools
 /// )
 /// ```
 ///
-/// ## ツールの結合
+/// ## Combining sets
 ///
 /// ```swift
 /// let baseTools = ToolSet {
@@ -45,14 +46,14 @@ public struct ToolSet: Sendable {
 
     // MARK: - Properties
 
-    /// 内部のツール配列
+    /// The tools, in the order they were declared.
     public let tools: [any Tool]
 
     // MARK: - Initializers
 
-    /// Result Builder でツールセットを構築
+    /// Creates a set from a builder body.
     ///
-    /// - Parameter builder: ツールを構築するクロージャ
+    /// - Parameter builder: A closure that lists the tools to include.
     ///
     /// ```swift
     /// let tools = ToolSet {
@@ -64,80 +65,90 @@ public struct ToolSet: Sendable {
         self.tools = builder()
     }
 
-    /// 配列から直接初期化
+    /// Creates a set from an existing array, keeping its order and any repeated names.
     public init(tools: [any Tool]) {
         self.tools = tools
     }
 
-    /// 空の ToolSet を作成
     public init() {
         self.tools = []
     }
 
     // MARK: - Properties
 
-    /// ツールセットが空かどうか
     public var isEmpty: Bool {
         tools.isEmpty
     }
 
-    /// ツールの数
     public var count: Int {
         tools.count
     }
 
-    /// ツール名のリスト
+    /// The tool names in declaration order, repeats included.
     public var toolNames: [String] {
         tools.map { $0.name }
     }
 
-    /// 各ツールが system prompt へ同伴を要求する指示（宣言順、nil は除外）
+    /// The system-prompt additions requested by the tools, in declaration order.
+    ///
+    /// Tools that ask for nothing are skipped, so this can be shorter than the set itself.
     public var systemInstructions: [String] {
         tools.compactMap { $0.systemInstruction }
     }
 
     // MARK: - Lookup
 
-    /// 名前でツールを検索
+    /// Returns the first tool carrying the given name.
     ///
-    /// - Parameter name: ツール名
-    /// - Returns: 見つかったツール
+    /// Nothing stops a set from holding two tools under one name, and only the first is ever
+    /// found here, so only the first can ever run. The scan is linear and the comparison is
+    /// exact, including case.
+    ///
+    /// - Parameter name: The tool name exactly as it was sent to the provider.
+    /// - Returns: The matching tool, or `nil` when the set holds none by that name.
     public func tool(named name: String) -> (any Tool)? {
         tools.first { $0.name == name }
     }
 
-    /// ツール定義のリストを取得
+    /// The provider-facing definition of every tool, in declaration order.
     public var definitions: [ToolDefinition] {
         tools.map { $0.definition }
     }
 
-    /// 名前でツールを実行
+    /// Runs the tool the model asked for by name.
+    ///
+    /// Arguments are coerced against that tool's schema first, which repairs the numbers and
+    /// booleans a small model tends to emit as strings. A tool conforming to
+    /// `TranscriptAwareTool` runs through its plain execute path here; reach for the transcript
+    /// overload to hand it the conversation.
     ///
     /// - Parameters:
-    ///   - name: ツール名
-    ///   - argumentsData: 引数の JSON データ
-    /// - Returns: ツールの実行結果
-    /// - Throws: ツールが見つからない場合、または実行エラー
+    ///   - name: The tool name carried by the tool call.
+    ///   - argumentsData: The raw JSON arguments carried by the tool call.
+    /// - Returns: The tool's result.
+    /// - Throws: `ToolExecutionError.toolNotFound` when no tool in the set answers to that name,
+    ///   which is where a hallucinated tool name lands, or whatever the tool itself throws.
     public func execute(toolNamed name: String, with argumentsData: Data) async throws -> ToolResult {
         guard let tool = tool(named: name) else {
             throw ToolExecutionError.toolNotFound(name)
         }
-        // 小型モデルが数値・真偽値を文字列で出すケースをスキーマに沿って吸収する
-        // （例: {"max_results":"10"} → {"max_results":10}）。正常な引数は不変。
+        // Absorbs the case where a small model emits a number or boolean as a string, following
+        // the schema (e.g. {"max_results":"10"} → {"max_results":10}). Valid arguments keep
+        // their values.
         let coerced = tool.inputSchema.coerceArguments(argumentsData)
         return try await tool.execute(with: coerced)
     }
 
-    /// トランスクリプト付きでツールを実行する。
+    /// Runs the tool the model asked for, offering it the conversation so far.
     ///
-    /// `TranscriptAwareTool` に準拠したツールには実行時点の会話メッセージ列を渡し、
-    /// それ以外は通常の `execute` と同じ経路で実行する。ループランタイムはツール実行時に
-    /// 常にこちらを呼べばよい（準拠の判定はここが行う）。
+    /// A tool conforming to `TranscriptAwareTool` receives the message list; every other tool
+    /// takes the same path as in the plain overload. The loop runtime can always call this one,
+    /// since the conformance check happens here rather than at the call site.
     ///
     /// - Parameters:
-    ///   - name: ツール名
-    ///   - argumentsData: 引数の JSON データ
-    ///   - transcript: 実行時点の会話メッセージ列
+    ///   - name: The tool name carried by the tool call.
+    ///   - argumentsData: The raw JSON arguments carried by the tool call.
+    ///   - transcript: The conversation as of this moment.
     public func execute(
         toolNamed name: String,
         with argumentsData: Data,
@@ -156,9 +167,12 @@ public struct ToolSet: Sendable {
 
 // MARK: - ToolExecutionError
 
-/// ツール実行時のエラー
+/// An error raised while dispatching a tool call.
 public enum ToolExecutionError: Error, LocalizedError {
-    /// ツールが見つからない
+    /// No tool in the set answers to the requested name.
+    ///
+    /// Either the model invented the name, or the set being executed against differs from the
+    /// one whose definitions were sent.
     case toolNotFound(String)
 
     public var errorDescription: String? {
@@ -172,38 +186,34 @@ public enum ToolExecutionError: Error, LocalizedError {
 // MARK: - ToolSet Combination
 
 extension ToolSet {
-    /// 2つの ToolSet を結合
+    /// Concatenates two sets, keeping the order of both and any name that now appears twice.
     ///
     /// - Parameters:
-    ///   - lhs: 最初の ToolSet
-    ///   - rhs: 追加する ToolSet
-    /// - Returns: 結合された ToolSet
+    ///   - lhs: The tools placed first.
+    ///   - rhs: The tools appended after them.
     public static func + (lhs: ToolSet, rhs: ToolSet) -> ToolSet {
         ToolSet(tools: lhs.tools + rhs.tools)
     }
 
-    /// ToolSet にツールを追加
+    /// Appends a single tool to a set.
     ///
     /// - Parameters:
-    ///   - lhs: ToolSet
-    ///   - rhs: 追加するツール
-    /// - Returns: ツールが追加された ToolSet
+    ///   - lhs: The tools placed first.
+    ///   - rhs: The tool appended after them.
     public static func + (lhs: ToolSet, rhs: some Tool) -> ToolSet {
         ToolSet(tools: lhs.tools + [rhs])
     }
 
-    /// 別の ToolSet を追加した新しい ToolSet を返す
+    /// Returns a new set with another set's tools appended.
     ///
-    /// - Parameter other: 追加する ToolSet
-    /// - Returns: 結合された ToolSet
+    /// - Parameter other: The tools to append.
     public func appending(_ other: ToolSet) -> ToolSet {
         self + other
     }
 
-    /// ツールを追加した新しい ToolSet を返す
+    /// Returns a new set with one more tool appended.
     ///
-    /// - Parameter tool: 追加するツール
-    /// - Returns: ツールが追加された ToolSet
+    /// - Parameter tool: The tool to append.
     public func appending(_ tool: some Tool) -> ToolSet {
         self + tool
     }
@@ -221,12 +231,16 @@ extension ToolSet: CustomStringConvertible {
 // MARK: - Provider Format Conversion
 
 extension ToolSet {
-    /// 指定されたアダプターを使用して、ツール定義をプロバイダー固有の形式に変換
+    /// Converts every tool into a provider's own definition shape.
+    ///
+    /// The adapter rewrites each schema for the target provider — reshaping or dropping the
+    /// keywords that provider rejects — before the builder wraps it up. One entry comes back per
+    /// tool, in declaration order; nothing is filtered out along the way.
     ///
     /// - Parameters:
-    ///   - adapter: スキーマアダプター
-    ///   - formatBuilder: 各ツールをプロバイダー形式に変換するクロージャ
-    /// - Returns: 変換されたツール定義の配列
+    ///   - adapter: The schema adapter for the target provider.
+    ///   - formatBuilder: Builds the provider's definition from a tool and its adapted schema.
+    /// - Returns: One provider definition per tool, in declaration order.
     public func toProviderFormat<Definition>(
         adapter: some ProviderSchemaAdapter,
         formatBuilder: (any Tool, _ adaptedSchema: JSONSchema) -> Definition

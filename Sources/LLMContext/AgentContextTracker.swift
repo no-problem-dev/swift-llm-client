@@ -4,20 +4,22 @@ import LLMTool
 
 // MARK: - AgentContextTracker
 
-/// host / 各サブエージェント (A2) ごとのコンテキストウィンドウ状況を集約する。
+/// Keeps one context-window report per agent, for the host and every subagent it delegates to.
 ///
-/// - キーは不透明な `agentID: String`（host・各 delegation を識別）。
-///   `swift-llm-agent` の具体型に依存しないため、純粋ドメイン層（LLMContext）に置ける。
-/// - `record(...)`: `usage` から **正確・即時** に `ContextOccupancy`（ライブメーター）を更新。
-/// - `refreshBreakdown(...)`: `count_tokens` 差分でカテゴリ別内訳を **オンデマンド** 取得。
-///   per-agent の `BreakdownCache` を保持し、メッセージのみ変化時は 1 回計測に抑える。
+/// Agents are identified by an opaque string the caller chooses, so this type needs no dependency
+/// on any agent implementation and can stay in the domain layer.
 ///
-/// `@MainActor` は SwiftUI からの参照を容易にするため（UsageLedger と同方針）。
-/// `@Observable` 等の UI 関心は app 層の ViewModel が担い、本型は Observation 非依存に保つ。
+/// The two halves of a report are gathered very differently, and the split is the point of this
+/// type. Recording usage updates the live occupancy from figures the response already carried, so
+/// it is exact and costs nothing. Refreshing the breakdown spends token-counting requests to
+/// attribute the window to categories, so it is on demand and cached per agent.
+///
+/// Runs on the main actor purely to be easy to read from SwiftUI. It stays free of Observation
+/// itself; making the reports observable is the app layer's business.
 @MainActor
 public final class AgentContextTracker {
 
-    /// agentID → 最新レポート。
+    /// The latest report for each agent, keyed by agent identifier.
     public private(set) var reports: [String: ContextReport] = [:]
 
     private let counter: any TokenCounting
@@ -27,9 +29,13 @@ public final class AgentContextTracker {
         self.counter = counter
     }
 
-    // MARK: - Live occupancy（usage 由来・正確）
+    // MARK: - Live occupancy (exact, from usage)
 
-    /// `ModelProfile` からウィンドウ/出力予約を解決して占有を更新する。
+    /// Updates an agent's live occupancy, taking the window size and output reserve from the model.
+    ///
+    /// Costs no request: the figures come from the usage the last response already carried. Call it
+    /// after every turn. Any breakdown already held for the agent is kept as it was, so the report
+    /// mixes a current occupancy with a breakdown that may be several turns old.
     public func record(
         agentID: String,
         usage: TokenUsage,
@@ -40,7 +46,10 @@ public final class AgentContextTracker {
         setOccupancy(occ, for: agentID)
     }
 
-    /// ウィンドウサイズ等を明示して占有を更新する。
+    /// Updates an agent's live occupancy with an explicitly stated window size.
+    ///
+    /// For a model with no profile to consult. Passing nil for the window size leaves the report
+    /// showing absolute counts with no free figure and no percentage, rather than inventing one.
     public func record(
         agentID: String,
         usage: TokenUsage,
@@ -55,8 +64,28 @@ public final class AgentContextTracker {
         setOccupancy(occ, for: agentID)
     }
 
-    // MARK: - On-demand breakdown（count_tokens 差分・per-agent キャッシュ）
+    // MARK: - On-demand breakdown (differenced token counts, cached per agent)
 
+    /// Measures how an agent's context window is divided between categories.
+    ///
+    /// Unlike recording occupancy, this spends token-counting requests: one per measurement rung,
+    /// so roughly two plus the number of tool groups on a cold cache, and one when only the
+    /// messages have changed since the last refresh. Call it when a user opens a breakdown view or
+    /// before deciding what to compact — not on every turn.
+    ///
+    /// The result replaces the agent's breakdown and leaves its occupancy alone. Where no
+    /// occupancy has been recorded yet, one is derived from the measured total with the window
+    /// size left unknown.
+    ///
+    /// - Parameters:
+    ///   - agentID: The agent whose report to update.
+    ///   - modelID: The model whose tokenizer applies. Counts from different models are not
+    ///     comparable.
+    ///   - systemPrompt: The system prompt, or nil to leave that rung out.
+    ///   - messages: The conversation, used unchanged at every rung so that differences isolate
+    ///     the segment being measured.
+    ///   - toolGroups: Tool sets paired with the segment each is charged to, measured cumulatively
+    ///     in the order given.
     @discardableResult
     public func refreshBreakdown(
         agentID: String,
@@ -78,11 +107,16 @@ public final class AgentContextTracker {
 
     public func report(for agentID: String) -> ContextReport? { reports[agentID] }
 
+    /// Forgets an agent's report and its cached measurements.
+    ///
+    /// Call it when a conversation is cleared or a subagent finishes; leaving the entry behind
+    /// shows an occupancy for a context that no longer exists.
     public func reset(agentID: String) {
         reports[agentID] = nil
         caches[agentID] = nil
     }
 
+    /// Forgets every report and cache, for the host and all subagents alike.
     public func resetAll() {
         reports = [:]
         caches = [:]
@@ -91,7 +125,7 @@ public final class AgentContextTracker {
     // MARK: - Private
 
     private func setOccupancy(_ occupancy: ContextOccupancy, for agentID: String) {
-        // 既存の内訳は保持し、占有のみ差し替える。
+        // Keep whatever breakdown is already there; only the occupancy is replaced.
         reports[agentID] = ContextReport(occupancy: occupancy, breakdown: reports[agentID]?.breakdown)
     }
 
@@ -99,7 +133,7 @@ public final class AgentContextTracker {
         if let existing = reports[agentID] {
             reports[agentID] = ContextReport(occupancy: existing.occupancy, breakdown: breakdown)
         } else {
-            // 占有未記録時は内訳総量から最小占有を導出（ウィンドウ不明）。
+            // With no occupancy recorded, derive a minimal one from the measured total, window unknown.
             let occupancy = ContextOccupancy(
                 windowSize: nil,
                 promptTokens: breakdown.totalMeasured,

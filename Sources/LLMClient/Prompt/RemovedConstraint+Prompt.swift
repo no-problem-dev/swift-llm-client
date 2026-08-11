@@ -3,14 +3,20 @@ import Foundation
 // MARK: - RemovedConstraint to PromptComponent Conversion
 
 extension RemovedConstraint {
-    /// 除去された制約を PromptComponent に変換
+    /// Restates a constraint the schema could not carry as an instruction the model can read.
     ///
-    /// JSON Schema でサポートされていない制約を、LLM が理解できる
-    /// 自然言語の指示に変換する。
+    /// This is the second half of a round trip. A field constraint starts life as a JSON Schema
+    /// keyword; a provider's schema adapter strips the keywords that provider rejects and records
+    /// each one as a removed constraint; this turns the record back into an output constraint
+    /// component so the requirement is at least stated in words.
     ///
-    /// - Returns: outputConstraint タイプの PromptComponent
+    /// What is lost in the round trip is enforcement. A keyword in the schema is checked by the
+    /// provider's decoder, while a sentence in the prompt is only a request the model usually
+    /// honors — so validate the decoded value yourself when the bound has to hold.
     ///
-    /// ## 使用例
+    /// - Returns: An output constraint component holding one English sentence.
+    ///
+    /// ## Example
     ///
     /// ```swift
     /// let constraint = RemovedConstraint(
@@ -25,9 +31,10 @@ extension RemovedConstraint {
         .outputConstraint(toConstraintDescription())
     }
 
-    /// 制約を自然言語の説明に変換
+    /// Writes the constraint as one English sentence naming the field and the bound.
     ///
-    /// - Returns: 制約を説明する文字列
+    /// The text is always English regardless of the prompt's language, and the field is quoted by
+    /// its path, so a nested field reads as `'user.age'` and an array element as `'items[].count'`.
     private func toConstraintDescription() -> String {
         let field = formatFieldPath(fieldPath)
 
@@ -64,9 +71,9 @@ extension RemovedConstraint {
         }
     }
 
-    /// フィールドパスを読みやすい形式にフォーマット
+    /// Turns a field path into something a sentence can name.
     private func formatFieldPath(_ path: String) -> String {
-        // ルートの場合は "response" と表示
+        // The root schema has no field name of its own, so call it the response.
         if path.isEmpty || path == "$" {
             return "response"
         }
@@ -77,11 +84,12 @@ extension RemovedConstraint {
 // MARK: - Array Extension
 
 extension Array where Element == RemovedConstraint {
-    /// 除去された制約の配列を PromptComponent の配列に変換
+    /// Restates every dropped constraint as an output constraint component.
     ///
-    /// - Returns: outputConstraint タイプの PromptComponent 配列
+    /// One component per constraint, in the order the adapter recorded them, which is the order the
+    /// model will read them in.
     ///
-    /// ## 使用例
+    /// ## Example
     ///
     /// ```swift
     /// let constraints = [
@@ -94,12 +102,15 @@ extension Array where Element == RemovedConstraint {
         map { $0.toPromptComponent() }
     }
 
-    /// 除去された制約の配列を SystemPrompt に変換
+    /// Collects the dropped constraints into a prompt of their own, or nil when none were dropped.
     ///
-    /// - Returns: outputConstraint コンポーネントで構成された SystemPrompt
-    ///            制約がない場合は nil
+    /// Returning nil rather than an empty prompt is what keeps the append conditional: a provider
+    /// that accepted the whole schema leaves the system prompt untouched, byte for byte, and any
+    /// cached prefix intact.
     ///
-    /// ## 使用例
+    /// - Returns: A prompt of output constraint components, or nil when the array is empty.
+    ///
+    /// ## Example
     ///
     /// ```swift
     /// if let constraintPrompt = removedConstraints.toSystemPrompt() {
@@ -115,19 +126,22 @@ extension Array where Element == RemovedConstraint {
 // MARK: - SchemaAdaptationResult Extension
 
 extension SchemaAdaptationResult {
-    /// 除去された制約を SystemPrompt に変換
+    /// The constraints this adaptation had to drop, written as a prompt.
     ///
-    /// - Returns: outputConstraint コンポーネントで構成された SystemPrompt
-    ///            制約がない場合は nil
+    /// Sending it is the caller's job: adapting a schema does not touch the system prompt, so a
+    /// result whose constraints are never appended silently loses them. Append rather than prepend
+    /// — the components belong after the existing prompt so the earlier text stays cacheable.
     ///
-    /// ## 使用例
+    /// - Returns: A prompt of output constraint components, or nil when nothing was dropped.
+    ///
+    /// ## Example
     ///
     /// ```swift
     /// let adapter = OpenAISchemaAdapter()
     /// let result = adapter.adaptWithConstraints(schema)
     ///
     /// if let constraintPrompt = result.toConstraintSystemPrompt() {
-    ///     // システムプロンプトに制約を追加
+    ///     // Add the constraints to the system prompt
     ///     let effectiveSystemPrompt = systemPrompt + constraintPrompt
     /// }
     /// ```

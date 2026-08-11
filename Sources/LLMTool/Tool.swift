@@ -3,33 +3,34 @@ import LLMClient
 
 // MARK: - Tool Protocol
 
-/// LLM が呼び出し可能なツールを定義するプロトコル
+/// A function the model may call during a turn.
 ///
-/// このプロトコルに準拠した型は LLM からの関数呼び出しを処理できる。
-/// 通常は `@Tool` マクロで自動的に準拠される。
+/// Conforming types are usually produced by the `@Tool` macro, which derives the name,
+/// description and argument schema from the declaration and synthesizes `execute(with:)`
+/// around a `call()` method you write by hand.
 ///
-/// ## 使用例（マクロ使用）
+/// ## Declaring a tool with the macro
 ///
 /// ```swift
-/// @Tool("指定された都市の天気を取得します")
+/// @Tool("Returns the current weather for a city.")
 /// struct GetWeather {
-///     // 設定プロパティ（オプショナル）
+///     // Configuration property (optional)
 ///     var apiKey: String?
 ///
-///     @ToolArgument("都市名")
+///     @ToolArgument("City name")
 ///     var location: String
 ///
-///     @ToolArgument("温度の単位", .enum(["celsius", "fahrenheit"]))
+///     @ToolArgument("Temperature unit", .enum(["celsius", "fahrenheit"]))
 ///     var unit: String?
 ///
 ///     func call() async throws -> String {
-///         // 天気 API を呼び出す
-///         return "東京: 晴れ、25°C"
+///         // Call the weather API
+///         return "Tokyo: sunny, 25°C"
 ///     }
 /// }
 /// ```
 ///
-/// ## ToolSet での使用
+/// ## Offering it to the model
 ///
 /// ```swift
 /// let tools = ToolSet {
@@ -39,99 +40,110 @@ import LLMClient
 /// }
 /// ```
 public protocol Tool: Sendable {
-    /// ツールの識別子
+    /// The identifier the model uses to call this tool.
     ///
-    /// API で使用される名前。
-    /// `^[a-zA-Z0-9_-]{1,64}$` のパターンに従う必要がある。
+    /// Providers require it to match `^[a-zA-Z0-9_-]{1,64}$`. Keep it unique within a tool set:
+    /// lookup returns the first match, so a second tool under the same name never runs.
     var toolName: String { get }
 
-    /// ツールの説明
+    /// The prose the model reads when deciding whether to call this tool.
     ///
-    /// LLM がツールを選択する際に参照する説明文。
-    /// 詳細に記述することで適切なタイミングで呼び出されやすくなる。
+    /// It is the only basis the model has for choosing between tools, so describe when the tool
+    /// applies rather than what it is. It ships with every request of the turn and is charged as
+    /// input tokens each time, which is the standing cost of keeping the tool attached.
     var toolDescription: String { get }
 
-    /// 引数の JSON Schema
+    /// The JSON Schema for the arguments the model has to produce.
     ///
-    /// ツールの入力パラメータを定義する JSON Schema。
+    /// It is sent to the provider after per-provider adaptation, and it also drives argument
+    /// coercion, so the declared types decide which loosely typed values from a small model can
+    /// still be decoded.
     var inputSchema: JSONSchema { get }
 
-    /// このツールがアタッチされたとき system prompt に同伴させる指示（ADK `process_llm_request` 相当）
+    /// Text this tool wants appended to the system prompt whenever it is attached.
     ///
-    /// スキーマ・手本などツールの前提知識はツール自身が所有し、ループランタイムが
-    /// system prompt の末尾へ追記する。`nil` = 追記なし（既定）。
+    /// Background the model needs before it can use the tool well — schema notes, worked
+    /// examples — belongs to the tool rather than to the caller's prompt, and the loop runtime
+    /// appends it to the end of the system prompt. It is charged as system-prompt tokens, not as
+    /// part of the tool definition. Defaults to `nil`, appending nothing.
     var systemInstruction: String? { get }
 
-    /// ツールを実行
+    /// Runs the tool against the arguments the model produced.
     ///
-    /// LLM から呼び出された際に実行される。
-    /// インスタンスメソッドとして実装することで設定プロパティにアクセスできる。
+    /// Implementing it as an instance method lets the body read configuration properties that
+    /// were set when the tool was constructed. When the call arrives through a tool set, the
+    /// arguments have already been coerced against the schema.
     ///
-    /// - Parameter argumentsData: 引数の JSON データ
-    /// - Returns: ツールの実行結果
-    /// - Throws: 引数のデコードエラーまたは実行エラー
+    /// - Parameter argumentsData: The raw JSON arguments carried by the tool call.
+    /// - Returns: The result to hand back to the model. Return a `ToolResult.error` for a failure
+    ///   the model should see and recover from.
+    /// - Throws: A decoding error when the arguments do not fit the schema, or any error the
+    ///   implementation raises. A thrown error propagates to the caller instead of reaching the
+    ///   model as a tool result.
     func execute(with argumentsData: Data) async throws -> ToolResult
 }
 
 // MARK: - TurnEndingTool
 
-/// 成功結果がエージェントターンを終了させるツール（ADK の `skip_summarization` 相当の契約）
+/// A tool whose successful result ends the agent turn instead of feeding another round of inference.
 ///
-/// ループランタイムは、このプロトコルに準拠したツールの非エラー結果を受け取ったら、
-/// 結果をモデルへ返す追加推論を行わずにターンを終える。エラー結果は通常どおりモデルへ
-/// 返り、ループは継続する（モデルが自己修正・謝罪できる）。
+/// On a non-error result from such a tool, the loop runtime finishes the turn without sending
+/// the result back to the model, saving one round trip and the tokens it would cost. Error
+/// results still go to the model and the loop continues, so the model can correct itself or
+/// apologise.
 ///
-/// 宣言（ツール層）と実施（ループランタイム層）を分離するためのマーカープロトコル。
+/// A marker protocol, separating the declaration (the tool layer) from its enforcement (the loop
+/// runtime).
 public protocol TurnEndingTool: Tool {}
 
 // MARK: - TranscriptAwareTool
 
-/// 実行時点の会話トランスクリプトを必要とするツール（LangGraph `ToolRuntime.state` /
-/// ADK `tool_context.session` / Strands `ctx.agent.messages` 相当の契約）
+/// A tool that needs the conversation as it stands at the moment it runs.
 ///
-/// ループランタイムは、このプロトコルに準拠したツールの実行時に、ループが保持している
-/// **その時点の**メッセージ列を渡す。ターン開始時のスナップショットではなく、同一 run 内で
-/// 先に完了したツール呼び出し / 結果を含む生きた状態である。値渡し（コピー）なので、
-/// ツール側からループの履歴を変更することはできない。
+/// The loop runtime hands such a tool the message list it is holding *right then* — not a
+/// snapshot taken when the turn began, so it includes tool calls and results that completed
+/// earlier in the same run. The list is passed by value, so a tool cannot mutate the loop's
+/// history.
 ///
-/// トランスクリプト末尾には「今まさに実行中のツール呼び出しを含む assistant メッセージ」が
-/// 入っている（対応する結果はまだ無い）。これをそのまま下流の LLM 呼び出しに使うと不均衡な
-/// toolUse としてプロバイダに拒否されるため、**必要な除去はツール側の責務**
-/// （自ツール名を知っているのはツール自身のため）。
+/// The last entry is the assistant message carrying the tool call currently executing, and its
+/// matching result does not exist yet. Feeding that transcript straight into a downstream LLM
+/// call is rejected by providers as an unbalanced tool use, so trimming it is the tool's own
+/// responsibility — the tool is the only party that knows its own name.
 ///
-/// 宣言（ツール層）と実施（ループランタイム層）を分離するためのプロトコル。
+/// Separates the declaration (the tool layer) from its enforcement (the loop runtime).
 public protocol TranscriptAwareTool: Tool {
-    /// トランスクリプト付きでツールを実行する。
+    /// Runs the tool with the conversation available to it.
     ///
     /// - Parameters:
-    ///   - argumentsData: 引数の JSON データ（スキーマ coercion 適用済み）
-    ///   - transcript: 実行時点の会話メッセージ列（読み取り専用コピー）
+    ///   - argumentsData: The raw JSON arguments, already coerced against the schema.
+    ///   - transcript: The conversation as of this moment, as a read-only copy.
     func execute(with argumentsData: Data, transcript: [LLMMessage]) async throws -> ToolResult
 }
 
 // MARK: - Tool Convenience Properties
 
 extension Tool {
-    /// 既定では system prompt への追記なし
+    /// Appends nothing to the system prompt.
     public var systemInstruction: String? { nil }
 
-    /// ツール名へのエイリアス
+    /// Shorthand spelling of the tool identifier.
     public var name: String { toolName }
 
-    /// ツールの説明へのエイリアス
+    /// Shorthand spelling of the tool description.
     public var description: String { toolDescription }
 }
 
 // MARK: - EmptyArguments
 
-/// 引数を持たないツール用の空の引数型
+/// The arguments type of a tool that takes no parameters.
 ///
-/// ツールがパラメータを必要としない場合に使用する。
+/// The `@Tool` macro aliases the generated `Arguments` type to this one when the declaration
+/// carries no `@ToolArgument` property, so it rarely has to be written out.
 ///
 /// ```swift
-/// @Tool("現在時刻を取得します")
+/// @Tool("Returns the current date and time.")
 /// struct GetCurrentTime {
-///     // 引数なし - EmptyArguments が自動的に使用される
+///     // No arguments — EmptyArguments is used automatically
 ///
 ///     func call() async throws -> String {
 ///         return ISO8601DateFormatter().string(from: Date())

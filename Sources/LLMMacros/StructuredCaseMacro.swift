@@ -1,24 +1,27 @@
 import SwiftSyntax
 import SwiftSyntaxMacros
 
-/// `@StructuredCase` マクロの実装
+/// Implements the `@StructuredCase` marker macro.
 ///
-/// enum ケースに説明を付与する peer マクロ。
-/// このマクロ自体は何も生成せず、`@StructuredEnum` マクロが
-/// ケースの説明を収集する際のマーカーとして機能する。
+/// It synthesizes nothing of its own. `@StructuredEnum` reads the attribute to attach a
+/// description to a case, and that description reaches the model through `enumDescription`
+/// rather than through the schema — the generated JSON Schema lists the raw values alone. A
+/// description written on a case declaration that names several cases applies to all of them.
 ///
-/// ## 使用例
+/// Attached to anything other than an enum case, it throws `onlyApplicableToEnumCase`.
+///
+/// ## Example
 ///
 /// ```swift
-/// @StructuredEnum("優先度")
+/// @StructuredEnum("Priority")
 /// enum Priority: String {
-///     @StructuredCase("緊急ではないタスク")
+///     @StructuredCase("Not urgent")
 ///     case low
 ///
-///     @StructuredCase("通常のタスク")
+///     @StructuredCase("Ordinary work")
 ///     case medium
 ///
-///     @StructuredCase("緊急のタスク")
+///     @StructuredCase("Urgent")
 ///     case high
 /// }
 /// ```
@@ -28,12 +31,11 @@ public struct StructuredCaseMacro: PeerMacro {
         providingPeersOf declaration: some DeclSyntaxProtocol,
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        // enum case 以外に適用された場合はエラー
         guard declaration.is(EnumCaseDeclSyntax.self) else {
             throw StructuredCaseMacroError.onlyApplicableToEnumCase
         }
 
-        // peer macro はマーカーとして機能するのみで、何も生成しない
+        // Nothing to emit: the description is read by @StructuredEnum.
         return []
     }
 }

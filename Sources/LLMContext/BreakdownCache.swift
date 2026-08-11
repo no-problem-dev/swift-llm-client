@@ -5,27 +5,32 @@ import LLMTool
 
 // MARK: - BreakdownCache
 
-/// 内訳の増分再計算キャッシュ。
+/// Reuses the parts of a breakdown that cannot have changed, so a growing conversation costs one
+/// measurement instead of many.
 ///
-/// `systemPrompt` と `toolGroups` が不変の限り、`systemPrompt` / 各 tool セグメントの
-/// marginal は **messages に依存しない**（差分なので wrapper/messages が相殺される）。
-/// この性質を利用し、メッセージのみが変化したときは `bare`（conversationHistory）だけを
-/// 再計測し、キャッシュした marginal を再利用する。
+/// What invalidates what: changing the system prompt or the tool groups invalidates every cached
+/// segment and forces a full re-measurement; appending messages invalidates only the conversation
+/// segment. That asymmetry holds because the marginal cost of the system prompt and of each tool
+/// group is a difference between two counts taken over the same messages, so the messages cancel
+/// out of it.
 ///
-/// これにより、会話が伸びるたびに発生する内訳更新のコストを
-/// `(2 + ツール群数)` 回の `count_tokens` から **1 回**へ削減する。
+/// The saving is the whole point of the type: an update after a new turn drops from one counting
+/// request per rung — two plus the number of tool groups — to a single one.
 ///
-/// - Note: marginal の messages 非依存は近似（境界トークン効果を無視）。内訳は表示用途であり、
-///   この近似は業界標準（Claude Code/Aider も内訳は概算）。占有メーター（`ContextOccupancy`）は
-///   別途 `usage` から正確に出るため、確定値はそちらが担う。
+/// - Note: The reuse is an approximation. It ignores the boundary tokens that shift when messages
+///   grow, and the total it reports on the cheap path is arithmetic rather than measured. A
+///   breakdown is for showing where the window went; the occupancy figure beside it is the exact
+///   one, and it comes from reported usage rather than from here.
 public actor BreakdownCache {
 
     private let counter: any TokenCounting
     private let engine: SegmentBreakdownEngine
 
-    /// 直近の (systemPrompt, toolGroups) シグネチャ。
+    /// Signature of the system prompt and tool groups the cached figures were measured against.
     private var signature: String?
-    /// 直近のシグネチャに対する system/tool セグメントの marginal（conversationHistory を除く）。
+
+    /// Marginal cost of each system and tool segment, with the conversation segment left out
+    /// because it is the one that has to be re-measured.
     private var cachedMarginals: [ContextSegment: Int] = [:]
 
     public init(counter: any TokenCounting) {
@@ -33,6 +38,20 @@ public actor BreakdownCache {
         self.engine = SegmentBreakdownEngine(counter: counter)
     }
 
+    /// Returns the breakdown, re-measuring only what the change could have affected.
+    ///
+    /// One counting request when just the messages moved; the full ladder when the system prompt
+    /// or the tool groups differ from what was cached. On the cheap path the total is derived by
+    /// adding the cached marginals to the freshly measured baseline rather than measured outright.
+    ///
+    /// - Parameters:
+    ///   - modelID: The model whose tokenizer applies. Not part of the cache signature, so
+    ///     switching models between calls reuses figures measured under the previous tokenizer;
+    ///     invalidate first when the model changes.
+    ///   - systemPrompt: The system prompt. A change invalidates every cached segment.
+    ///   - messages: The conversation, always re-measured.
+    ///   - toolGroups: Tool sets paired with the segment each is charged to. A change to any
+    ///     tool's name or description invalidates every cached segment.
     public func breakdown(
         modelID: String,
         systemPrompt: String?,
@@ -42,7 +61,7 @@ public actor BreakdownCache {
         let sig = Self.signature(systemPrompt: systemPrompt, toolGroups: toolGroups)
 
         if signature == sig {
-            // メッセージのみ変化: bare だけ再計測し、marginal を再利用。
+            // Only the messages moved: re-measure the baseline and reuse the marginals.
             let bare = try await counter.countInputTokens(
                 modelID: modelID, systemPrompt: nil, messages: messages, tools: nil
             )
@@ -52,7 +71,7 @@ public actor BreakdownCache {
             return SegmentBreakdown(perSegment: per, totalMeasured: total)
         }
 
-        // system/tools が変化: フル ladder を実行し marginal をキャッシュ。
+        // The system prompt or the tools changed: run the full ladder and cache the marginals.
         let full = try await engine.breakdown(
             modelID: modelID, systemPrompt: systemPrompt, messages: messages, toolGroups: toolGroups
         )
@@ -63,7 +82,10 @@ public actor BreakdownCache {
         return full
     }
 
-    /// キャッシュを無効化する。
+    /// Drops the cached figures so the next breakdown runs the full ladder.
+    ///
+    /// Needed where a change escapes the signature: switching models, or editing a tool's argument
+    /// schema without touching its name or description.
     public func invalidate() {
         signature = nil
         cachedMarginals = [:]
@@ -71,7 +93,10 @@ public actor BreakdownCache {
 
     // MARK: - Signature
 
-    /// (systemPrompt, toolGroups) の安定シグネチャ。tool は name+description+schema で識別。
+    /// Builds a stable signature of the system prompt and the tool groups.
+    ///
+    /// A tool is identified by its name and description only. Its argument schema is not hashed,
+    /// so editing a schema alone leaves the signature unchanged and the stale marginals in place.
     static func signature(systemPrompt: String?, toolGroups: [ToolGroup]) -> String {
         var hasher = SHA256()
         hasher.update(data: Data((systemPrompt ?? "").utf8))

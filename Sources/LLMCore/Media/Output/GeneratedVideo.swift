@@ -1,32 +1,36 @@
 // GeneratedVideo.swift
 // swift-llm-client
 //
-// 生成された動画コンテンツおよびジョブの定義
+// Video content produced by a model, and the job that produces it.
 
 import Foundation
 
 // MARK: - VideoGenerationStatus
 
-/// 動画生成ジョブのステータス
+/// Where a video generation job stands.
 ///
-/// 動画生成は非同期であり、ジョブのステータスを追跡する。
+/// Video generation runs far too long for one request, so providers hand back a job and the client
+/// polls this until it settles.
 public enum VideoGenerationStatus: String, Sendable, Codable, Equatable {
-    /// 生成がキューに入っている
+    /// Accepted by the provider but not started; no work is being billed yet.
     case queued
 
-    /// 生成中
+    /// Rendering. This is the state a poll loop waits out, typically for minutes.
     case processing
 
-    /// 生成完了
+    /// Finished successfully; the video is ready to fetch.
     case completed
 
-    /// 生成失敗
+    /// Rendering stopped with an error, which the job carries as a message.
     case failed
 
-    /// キャンセル済み
+    /// Stopped before completion, either by request or by the provider.
     case cancelled
 
-    /// ジョブが完了したかどうか（成功・失敗・キャンセルを含む）
+    /// Whether the job has settled and will not change again, however it ended.
+    ///
+    /// This is the condition to poll on: it covers failure and cancellation as well as success, so
+    /// a loop keyed to it cannot spin forever on a job that will never complete.
     public var isTerminal: Bool {
         switch self {
         case .queued, .processing:
@@ -36,7 +40,7 @@ public enum VideoGenerationStatus: String, Sendable, Codable, Equatable {
         }
     }
 
-    /// ジョブが成功したかどうか
+    /// Whether the job ended in a usable video, as opposed to any other settled outcome.
     public var isSuccessful: Bool {
         self == .completed
     }
@@ -44,77 +48,83 @@ public enum VideoGenerationStatus: String, Sendable, Codable, Equatable {
 
 // MARK: - VideoGenerationJob
 
-/// 動画生成ジョブ
+/// A long-running video generation request and everything known about it so far.
 ///
-/// 動画生成は時間がかかるため、非同期ジョブとして処理される。
-/// このジョブオブジェクトでステータスを確認し、完了後に動画を取得する。
+/// Rendering takes minutes, so the provider returns this immediately and the client polls for the
+/// status before fetching the video. Both OpenAI Sora and Gemini Veo work this way.
 ///
-/// ## プロバイダー別の特性
-/// - **OpenAI Sora**: ジョブベースの非同期生成
-/// - **Gemini Veo**: ジョブベースの非同期生成
+/// The value is a snapshot: polling returns a new job rather than mutating this one.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
-/// // 動画生成ジョブを開始
-/// let job = try await client.generateVideo(
-///     prompt: "A cat playing with a ball",
-///     model: .sora
+/// var job = try await client.startVideoGeneration(
+///     input: "A cat playing with a ball",
+///     model: .sora2
 /// )
 ///
-/// // ステータスをポーリング
 /// while !job.status.isTerminal {
-///     try await Task.sleep(nanoseconds: 5_000_000_000)  // 5秒待機
-///     job = try await client.checkVideoGenerationStatus(job)
+///     try await Task.sleep(nanoseconds: 5_000_000_000)
+///     job = try await client.checkVideoStatus(job)
 /// }
 ///
-/// // 動画を取得
-/// if let video = try await client.getGeneratedVideo(job) {
-///     try video.save(to: URL(fileURLWithPath: "output.mp4"))
-/// }
+/// let video = try await client.getGeneratedVideo(job)
+/// try video.save(to: URL(fileURLWithPath: "output.mp4"))
 /// ```
+///
+/// The convenience overload `generateVideo(input:model:...)` runs that loop for you, with its own
+/// polling interval and timeout.
 public struct VideoGenerationJob: Sendable, Codable, Equatable, Identifiable {
     // MARK: - Properties
 
-    /// ジョブ識別子
+    /// The provider's handle for the job, and the only thing needed to poll it.
     public let id: String
 
-    /// 現在のステータス
+    /// How far the job has got, as of the last poll.
     public var status: VideoGenerationStatus
 
-    /// 生成に使用されたプロンプト
+    /// The prompt the job was started with, kept so a result can be traced back to its request.
     public let prompt: String
 
-    /// 生成設定
+    /// The duration, resolution, frame rate, and aspect ratio the job was started with.
     public let configuration: VideoGenerationConfiguration?
 
-    /// 作成日時
+    /// When the job was created locally.
+    ///
+    /// It is set by this client, not read from the provider, and is what elapsed time is measured
+    /// against.
     public let createdAt: Date
 
-    /// 更新日時
+    /// When the job was last polled. Nil until the first status update.
     public var updatedAt: Date?
 
-    /// 完了日時
+    /// When the job settled, whether it succeeded, failed, or was cancelled.
     public var completedAt: Date?
 
-    /// 生成された動画の URL（完了時のみ）
+    /// Where the finished video lives on the provider's servers.
+    ///
+    /// Set only once the job completes. These URLs are usually short-lived, so download the bytes
+    /// rather than storing the link.
     public var videoURL: URL?
 
-    /// エラーメッセージ（失敗時のみ）
+    /// What went wrong, when the job failed.
     public var errorMessage: String?
 
-    /// 進捗率（0.0〜1.0、サポートされている場合）
+    /// How far along the render is, from 0 to 1, for providers that report it.
+    ///
+    /// Nil when the provider gives no progress signal, which is the common case; treat its absence
+    /// as no information rather than as no progress.
     public var progress: Double?
 
     // MARK: - Initializers
 
-    /// 初期化
+    /// Creates a job snapshot, normally from the response that started the render.
     ///
     /// - Parameters:
-    ///   - id: ジョブ識別子
-    ///   - status: ステータス
-    ///   - prompt: プロンプト
-    ///   - configuration: 生成設定
-    ///   - createdAt: 作成日時
+    ///   - id: The provider's handle for the job.
+    ///   - status: Where the job stands; a freshly accepted job is queued.
+    ///   - prompt: The prompt the job was started with.
+    ///   - configuration: The settings the job was started with.
+    ///   - createdAt: The local start time that elapsed time is measured against.
     public init(
         id: String,
         status: VideoGenerationStatus = .queued,
@@ -131,14 +141,18 @@ public struct VideoGenerationJob: Sendable, Codable, Equatable, Identifiable {
 
     // MARK: - Status Updates
 
-    /// ステータスを更新した新しいジョブを返す
+    /// Returns a copy of the job carrying a newer status.
+    ///
+    /// Omitted arguments keep the value already on the job rather than clearing it, so a poll that
+    /// reports only a status does not erase a URL or progress figure seen earlier. Nil is therefore
+    /// not a way to unset a field. The update stamps the poll time, and stamps the completion time
+    /// as well once the new status is settled.
     ///
     /// - Parameters:
-    ///   - status: 新しいステータス
-    ///   - videoURL: 動画URL（完了時）
-    ///   - errorMessage: エラーメッセージ（失敗時）
-    ///   - progress: 進捗率
-    /// - Returns: 更新されたジョブ
+    ///   - status: The status just observed.
+    ///   - videoURL: Where the finished video lives, once the provider reports it.
+    ///   - errorMessage: What went wrong, when the job failed.
+    ///   - progress: How far along the render is, from 0 to 1.
     public func updated(
         status: VideoGenerationStatus,
         videoURL: URL? = nil,
@@ -159,13 +173,20 @@ public struct VideoGenerationJob: Sendable, Codable, Equatable, Identifiable {
 
     // MARK: - Convenience
 
-    /// 経過時間（秒）
+    /// Seconds the job has been running, or ran for in total once it settled.
+    ///
+    /// While the job is in flight this keeps climbing with the clock, so reading it twice gives
+    /// two different answers. Use it to drive a timeout.
     public var elapsedTime: TimeInterval {
         let endTime = completedAt ?? Date()
         return endTime.timeIntervalSince(createdAt)
     }
 
-    /// 推定残り時間（秒、進捗率が利用可能な場合）
+    /// Seconds left, projected from elapsed time and reported progress.
+    ///
+    /// Nil unless the provider reports progress strictly between 0 and 1, which rules out both a
+    /// job that has not started moving and one that is already done. The projection assumes the
+    /// render proceeds at a constant rate, so it is a display hint, not a schedule.
     public var estimatedRemainingTime: TimeInterval? {
         guard let progress = progress, progress > 0, progress < 1 else {
             return nil
@@ -178,33 +199,35 @@ public struct VideoGenerationJob: Sendable, Codable, Equatable, Identifiable {
 
 // MARK: - VideoGenerationConfiguration
 
-/// 動画生成設定
+/// What to render, and how, when starting a video generation job.
 ///
-/// 動画生成時の各種パラメータを指定する。
+/// Every setting except the container format is optional; leaving one out defers to the provider's
+/// own default, and providers accept only a narrow set of values for each. Longer clips and higher
+/// resolutions cost proportionally more and take proportionally longer to render.
 public struct VideoGenerationConfiguration: Sendable, Codable, Equatable {
-    /// 動画の長さ（秒）
+    /// Length of the clip in whole seconds. Providers cap this tightly, often at a handful.
     public let duration: Int?
 
-    /// 解像度
+    /// Frame size to render at.
     public let resolution: VideoResolution?
 
-    /// フレームレート
+    /// Frames per second to render at.
     public let frameRate: Int?
 
-    /// アスペクト比
+    /// Shape of the frame, which providers may honor in place of an explicit resolution.
     public let aspectRatio: VideoAspectRatio?
 
-    /// 出力フォーマット
+    /// Container to deliver the video in. MP4 is the only format any provider currently returns.
     public let format: VideoOutputFormat
 
-    /// 初期化
+    /// Creates a configuration, leaving anything unspecified to the provider's default.
     ///
     /// - Parameters:
-    ///   - duration: 動画の長さ（秒）
-    ///   - resolution: 解像度
-    ///   - frameRate: フレームレート
-    ///   - aspectRatio: アスペクト比
-    ///   - format: 出力フォーマット
+    ///   - duration: Length of the clip in whole seconds.
+    ///   - resolution: Frame size to render at.
+    ///   - frameRate: Frames per second to render at.
+    ///   - aspectRatio: Shape of the frame.
+    ///   - format: Container to deliver the video in.
     public init(
         duration: Int? = nil,
         resolution: VideoResolution? = nil,
@@ -222,7 +245,10 @@ public struct VideoGenerationConfiguration: Sendable, Codable, Equatable {
 
 // MARK: - VideoResolution
 
-/// 動画解像度
+/// A frame size to render video at.
+///
+/// The raw values are the shorthand names providers use on the wire. Not every provider or model
+/// accepts every size, and the larger ones cost more.
 public enum VideoResolution: String, Sendable, Codable, CaseIterable, Equatable {
     /// 480p (854x480)
     case sd480p = "480p"
@@ -236,7 +262,7 @@ public enum VideoResolution: String, Sendable, Codable, CaseIterable, Equatable 
     /// 4K (3840x2160)
     case uhd4k = "4k"
 
-    /// 横幅（ピクセル）
+    /// Frame width in pixels, assuming a landscape frame.
     public var width: Int {
         switch self {
         case .sd480p: return 854
@@ -246,7 +272,7 @@ public enum VideoResolution: String, Sendable, Codable, CaseIterable, Equatable 
         }
     }
 
-    /// 縦幅（ピクセル）
+    /// Frame height in pixels, assuming a landscape frame.
     public var height: Int {
         switch self {
         case .sd480p: return 480
@@ -259,24 +285,27 @@ public enum VideoResolution: String, Sendable, Codable, CaseIterable, Equatable 
 
 // MARK: - VideoAspectRatio
 
-/// 動画アスペクト比
+/// The shape of a video frame.
+///
+/// The raw values are the ratio strings providers expect on the wire. Support varies by model;
+/// widescreen and vertical are the two most widely accepted.
 public enum VideoAspectRatio: String, Sendable, Codable, CaseIterable, Equatable {
-    /// 16:9（ワイドスクリーン、横長）
+    /// 16:9 widescreen, the usual landscape shape.
     case landscape16x9 = "16:9"
 
-    /// 9:16（縦長、スマートフォン向け）
+    /// 9:16 vertical, for phone-first playback.
     case portrait9x16 = "9:16"
 
-    /// 1:1（正方形）
+    /// 1:1 square.
     case square1x1 = "1:1"
 
-    /// 4:3（標準）
+    /// 4:3, the older standard shape.
     case standard4x3 = "4:3"
 
-    /// 21:9（シネマスコープ）
+    /// 21:9 cinemascope.
     case cinematic21x9 = "21:9"
 
-    /// 横幅の比率
+    /// The width term of the ratio.
     public var widthRatio: Int {
         switch self {
         case .landscape16x9: return 16
@@ -287,7 +316,7 @@ public enum VideoAspectRatio: String, Sendable, Codable, CaseIterable, Equatable
         }
     }
 
-    /// 縦幅の比率
+    /// The height term of the ratio.
     public var heightRatio: Int {
         switch self {
         case .landscape16x9: return 9
@@ -298,12 +327,12 @@ public enum VideoAspectRatio: String, Sendable, Codable, CaseIterable, Equatable
         }
     }
 
-    /// 横長かどうか
+    /// Whether the frame is wider than it is tall. A square frame is neither landscape nor portrait.
     public var isLandscape: Bool {
         widthRatio > heightRatio
     }
 
-    /// 縦長かどうか
+    /// Whether the frame is taller than it is wide. A square frame is neither portrait nor landscape.
     public var isPortrait: Bool {
         heightRatio > widthRatio
     }
@@ -311,20 +340,23 @@ public enum VideoAspectRatio: String, Sendable, Codable, CaseIterable, Equatable
 
 // MARK: - GeneratedVideo
 
-/// 生成された動画
+/// A finished video, held either as bytes or as a link to the provider's copy.
 ///
-/// LLM が生成した動画データを保持する。
-/// 動画生成ジョブが完了した後に取得できる。
+/// Fetched once a generation job completes. Unlike generated images and audio, this may carry no
+/// bytes at all — a value built from a URL alone has empty data until it is downloaded, and saving
+/// it in that state writes a zero-length file. Provider-hosted URLs are short-lived, so download
+/// the bytes rather than persisting the link.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
-/// // 動画を取得
 /// let video = try await client.getGeneratedVideo(job)
 ///
-/// // ファイルに保存
-/// try video.save(to: URL(fileURLWithPath: "output.mp4"))
+/// // Empty unless the bytes were downloaded.
+/// if video.hasLocalData {
+///     try video.save(to: URL(fileURLWithPath: "output.mp4"))
+/// }
 ///
-/// // URL から直接再生（AVPlayer で使用可能）
+/// // Streaming straight from the provider, while the URL is still valid.
 /// if let url = video.remoteURL {
 ///     let player = AVPlayer(url: url)
 ///     player.play()
@@ -333,53 +365,54 @@ public enum VideoAspectRatio: String, Sendable, Codable, CaseIterable, Equatable
 public struct GeneratedVideo: GeneratedMediaProtocol {
     // MARK: - Properties
 
-    /// 動画データ
+    /// The video bytes, or empty data when only the remote URL is known.
     ///
-    /// ローカルにダウンロード済みの場合は動画データが格納される。
-    /// リモート URL のみの場合は空のデータになる。
+    /// Check whether local data is present before saving; downloading fills this in on a copy.
     public let data: Data
 
-    /// 動画フォーマット
+    /// The container of the video, which fixes both the MIME type and the file extension.
     public let format: VideoOutputFormat
 
-    /// リモート URL
+    /// Where the video lives on the provider's servers.
     ///
-    /// 動画がサーバー上に保存されている場合の URL。
-    /// ストリーミング再生に使用できる。
+    /// Playable directly by a streaming player, and the source for downloading the bytes. These
+    /// links expire, so treat the URL as usable now rather than storable.
     public let remoteURL: URL?
 
-    /// 動画の長さ（秒）
+    /// Length of the clip in seconds, when the provider reports it.
+    ///
+    /// Copied from the response and never measured from the bytes.
     public let duration: TimeInterval?
 
-    /// 解像度
+    /// Frame size the video was rendered at, when the provider reports it.
     public let resolution: VideoResolution?
 
-    /// ジョブ ID
+    /// The generation job this video came out of, kept so a file can be traced back to its render.
     public let jobId: String?
 
-    /// 生成に使用されたプロンプト
+    /// The prompt the video was rendered from.
     public let prompt: String?
 
     // MARK: - GeneratedMediaProtocol
 
-    /// MIME タイプ文字列
+    /// The MIME type of the video, taken from the format.
     public var mimeType: String { format.mimeType }
 
-    /// ファイル拡張子
+    /// The file extension for the video, taken from the format.
     public var fileExtension: String { format.fileExtension }
 
     // MARK: - Initializers
 
-    /// 初期化（データから）
+    /// Creates a video that already holds its bytes.
     ///
     /// - Parameters:
-    ///   - data: 動画データ
-    ///   - format: 動画フォーマット
-    ///   - remoteURL: リモート URL（オプション）
-    ///   - duration: 動画の長さ（オプション）
-    ///   - resolution: 解像度（オプション）
-    ///   - jobId: ジョブ ID（オプション）
-    ///   - prompt: プロンプト（オプション）
+    ///   - data: The video bytes.
+    ///   - format: Container of the bytes. It is taken on trust and never verified against them.
+    ///   - remoteURL: Where the provider's copy lives, if it is still hosted.
+    ///   - duration: Length of the clip in seconds.
+    ///   - resolution: Frame size the video was rendered at.
+    ///   - jobId: The generation job this video came out of.
+    ///   - prompt: The prompt the video was rendered from.
     public init(
         data: Data,
         format: VideoOutputFormat = .mp4,
@@ -398,15 +431,18 @@ public struct GeneratedVideo: GeneratedMediaProtocol {
         self.prompt = prompt
     }
 
-    /// 初期化（URL から）
+    /// Creates a video that only points at the provider's copy.
+    ///
+    /// The data is left empty and no request is made here, so the value cannot be saved to a usable
+    /// file until the bytes are downloaded.
     ///
     /// - Parameters:
-    ///   - remoteURL: リモート URL
-    ///   - format: 動画フォーマット
-    ///   - duration: 動画の長さ（オプション）
-    ///   - resolution: 解像度（オプション）
-    ///   - jobId: ジョブ ID（オプション）
-    ///   - prompt: プロンプト（オプション）
+    ///   - remoteURL: Where the provider's copy lives.
+    ///   - format: Container the provider will serve.
+    ///   - duration: Length of the clip in seconds.
+    ///   - resolution: Frame size the video was rendered at.
+    ///   - jobId: The generation job this video came out of.
+    ///   - prompt: The prompt the video was rendered from.
     public init(
         remoteURL: URL,
         format: VideoOutputFormat = .mp4,
@@ -426,12 +462,14 @@ public struct GeneratedVideo: GeneratedMediaProtocol {
 
     // MARK: - Data Access
 
-    /// データサイズ（バイト）
+    /// Size of the held bytes, which is zero for a video known only by its URL.
     public var dataSize: Int {
         data.count
     }
 
-    /// ローカルデータが利用可能かどうか
+    /// Whether the bytes are in hand, as opposed to still sitting behind the remote URL.
+    ///
+    /// Check this before saving: a video without local data writes an empty file.
     public var hasLocalData: Bool {
         !data.isEmpty
     }

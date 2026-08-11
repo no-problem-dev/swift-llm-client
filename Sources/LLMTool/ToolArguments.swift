@@ -1,14 +1,14 @@
 import StructuredDataCore
 
-/// ツール引数の型エイリアス。
+/// The arguments handed to a dynamic tool's handler.
 ///
-/// `DynamicTool` のハンドラーで引数にアクセスする際に使用する。中立中間表現
-/// ``StructuredValue`` の型安全アクセサ(`string(_:)` / `int(_:)` / dynamicMemberLookup /
-/// 型付き subscript 等)で引数値を取得できる。
+/// An alias for the neutral `StructuredValue` representation, so a handler can read values
+/// through its type-safe accessors (`string(_:)`, `int(_:)`, dynamic member lookup, typed
+/// subscripts) without declaring a Swift type to decode into.
 ///
 /// ```swift
-/// let tool = DynamicTool("get_weather", description: "天気を取得") {
-///     JSONSchema.string(description: "都市名").named("city")
+/// let tool = DynamicTool("get_weather", description: "Returns the weather") {
+///     JSONSchema.string(description: "City name").named("city")
 /// } handler: { (args: ToolArguments) in
 ///     let city = args.string("city") ?? "unknown"
 ///     return .text("Weather in \(city): 25°C")

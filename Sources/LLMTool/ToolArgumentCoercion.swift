@@ -2,15 +2,25 @@ import Foundation
 import LLMClient
 
 extension JSONSchema {
-    /// ツール引数 JSON を、このスキーマに沿って型強制（coerce）する。
+    /// Rewrites loosely typed tool arguments into the types this schema declares.
     ///
-    /// 小型のローカル LLM は数値・真偽値を文字列で出すことがある
-    /// （例: `{"max_results": "10"}`）。厳格な `JSONDecoder` はこれを型不一致で
-    /// 失敗させるため、スキーマが `integer` / `number` / `boolean` を要求する
-    /// フィールドに限って、文字列を対応する型へ変換する。
+    /// Small local models routinely emit numbers and booleans as strings, such as
+    /// `{"max_results": "10"}`, and a strict `JSONDecoder` rejects that as a type mismatch. Only
+    /// fields the schema types as `integer`, `number` or `boolean` are touched, and only when the
+    /// incoming value is a string: surrounding whitespace is trimmed and the value is converted,
+    /// with `"true"` and `"false"` matched without regard to case. Objects and arrays are walked
+    /// recursively, so nested fields are repaired too, but a key the schema does not declare is
+    /// left alone, as are strings, nulls, and any string that fails to parse as the declared
+    /// type.
     ///
-    /// スキーマ非対象・変換不能・パース失敗の場合は元データをそのまま返す
-    /// （正常な引数を壊さない）。プロバイダー非依存で、全ツール実行経路で共有する。
+    /// Empty data, JSON that will not parse, and a result that will not re-serialize all return
+    /// the input untouched. A payload that does parse comes back re-serialized, so key order and
+    /// spacing can differ even where no value changed. The conversion is provider-independent and
+    /// every tool execution path shares it.
+    ///
+    /// - Parameter data: The raw JSON arguments carried by a tool call.
+    /// - Returns: The arguments with schema-typed strings converted, or the original data when
+    ///   there was nothing to do.
     public func coerceArguments(_ data: Data) -> Data {
         guard !data.isEmpty,
               let object = try? JSONSerialization.jsonObject(with: data),

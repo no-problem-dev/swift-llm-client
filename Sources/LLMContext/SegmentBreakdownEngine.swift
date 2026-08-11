@@ -4,29 +4,32 @@ import LLMTool
 
 // MARK: - SegmentBreakdownEngine
 
-/// `count_tokens` の **差分減算**でカテゴリ別内訳を算出する純ロジック。
+/// Attributes a context window to categories by differencing token counts.
 ///
-/// ## なぜ差分減算か（最重要）
-/// `count_tokens` は呼び出しごとに隠れた per-request system wrapper（数百トークン）を含む。
-/// 各セグメントを**単独で数えて合算**すると、この wrapper を N 重に計上してしまう
-/// （Claude Code `/context` が MCP ツールを約 3 倍過大計上していた実バグ）。
+/// ## Why differencing, and not counting each part
 ///
-/// 本エンジンは全ての計測段（rung）を**同一の実 messages** に対して行い、system/tools を
-/// トグルした superset の差分を取る。これにより wrapper は隣接段で相殺され、
-/// `systemPrompt` / 各 tool セグメントは wrapper を含まない clean marginal になる。
+/// Every token count carries the provider's own hidden per-request wrapper, a few hundred tokens
+/// that belong to no segment. Counting each segment on its own and adding the results charges that
+/// wrapper once per segment: the same mistake that had Claude Code's context view reporting MCP
+/// tools at roughly three times their real size.
+///
+/// So every measurement here is taken against the same real messages, toggling only the system
+/// prompt and the tools. Adjacent counts differ by exactly one segment, the wrapper cancels
+/// between them, and what is left for the system prompt and each tool group is a clean marginal
+/// cost.
 ///
 /// ```
-/// bare    = count(system: nil, tools: nil,        messages: msgs)  // wrapper と messages の合計（基底）
-/// sysOnly = count(system: sys, tools: nil,        messages: msgs)  // wrapper と sys と messages の合計
+/// bare    = count(system: nil, tools: nil,        messages: msgs)  // wrapper + messages (the baseline)
+/// sysOnly = count(system: sys, tools: nil,        messages: msgs)  // wrapper + system + messages
 /// rung_k  = count(system: sys, tools: tools[0..k], messages: msgs)
 ///
-/// systemPrompt        = sysOnly - bare            // wrapper, messages 相殺 → 純 system
-/// toolGroup_k         = rung_k  - rung_{k-1}      // 純 tool 群 k
-/// conversationHistory = bare                       // 不可避 wrapper を内包する基底
-/// totalMeasured       = rung_last                  // = 全部入り
+/// systemPrompt        = sysOnly - bare            // wrapper and messages cancel: the system prompt alone
+/// toolGroup_k         = rung_k  - rung_{k-1}      // tool group k alone
+/// conversationHistory = bare                       // the baseline, wrapper included
+/// totalMeasured       = rung_last                  // everything together
 /// ```
 ///
-/// 構成上 `Σ perSegment == totalMeasured` が厳密に成立する。
+/// By construction the segments sum exactly to the total.
 public struct SegmentBreakdownEngine: Sendable {
 
     public let counter: any TokenCounting
@@ -35,27 +38,36 @@ public struct SegmentBreakdownEngine: Sendable {
         self.counter = counter
     }
 
-    /// 差分減算でカテゴリ別内訳を算出する。
+    /// Measures the breakdown by differencing token counts.
+    ///
+    /// Sends one counting request per rung: one for the baseline, one more if there is a system
+    /// prompt, and one per non-empty tool group. Every rung is a round trip to the provider, so
+    /// call this when a breakdown is wanted, not on every turn.
     ///
     /// - Parameters:
-    ///   - model: 対象モデル（トークナイザ選択に使用）。
-    ///   - systemPrompt: システムプロンプト（nil/空ならその段はスキップ）。
-    ///   - messages: 会話メッセージ（全 rung で共通の実データ）。
-    ///   - toolGroups: セグメント付きツール群。先頭から累積的に差分計測される。
+    ///   - modelID: The model whose tokenizer applies. Counts from different models are not
+    ///     comparable, so a breakdown belongs to one model only.
+    ///   - systemPrompt: The system prompt. Nil or empty skips that rung, and the system segment
+    ///     is then absent from the result rather than present as zero.
+    ///   - messages: The conversation, held identical across every rung so that each difference
+    ///     isolates the one segment that changed.
+    ///   - toolGroups: Tool sets paired with the segment each is charged to. Measured cumulatively
+    ///     from the front, and empty groups are skipped. Two groups naming the same segment add
+    ///     together.
     public func breakdown(
         modelID: String,
         systemPrompt: String?,
         messages: [LLMMessage],
         toolGroups: [ToolGroup] = []
     ) async throws -> SegmentBreakdown {
-        // rung 0: bare（= wrapper + messages）。不可避 overhead を conversationHistory に内包。
+        // Rung 0: the baseline (wrapper + messages). The unavoidable overhead is charged here.
         let bare = try await counter.countInputTokens(
             modelID: modelID, systemPrompt: nil, messages: messages, tools: nil
         )
         var per: [ContextSegment: Int] = [.conversationHistory: bare]
         var prev = bare
 
-        // rung 1: + system（marginal, wrapper/messages 相殺）。
+        // Rung 1: add the system prompt. Wrapper and messages cancel, leaving its marginal cost.
         let hasSystem = (systemPrompt?.isEmpty == false)
         if hasSystem {
             let sysOnly = try await counter.countInputTokens(
@@ -65,7 +77,7 @@ public struct SegmentBreakdownEngine: Sendable {
             prev = sysOnly
         }
 
-        // rung 2..n: ツール群を累積追加（各 marginal）。
+        // Rungs 2..n: add the tool groups one after another, each measured as its own marginal.
         var accumulated: [any Tool] = []
         for group in toolGroups where !group.tools.isEmpty {
             accumulated += group.tools.tools

@@ -1,11 +1,13 @@
 import SwiftSyntax
 import SwiftSyntaxMacros
 
-/// `@Structured` マクロの実装
+/// Implements the `@Structured` macro.
 ///
-/// 構造体に対して以下を生成する：
-/// - `jsonSchema` 静的プロパティ
-/// - `StructuredProtocol`, `Codable`, `Sendable` への準拠
+/// On a struct it synthesizes a `jsonSchema` static property describing the stored properties,
+/// and conformance to `StructuredProtocol`, `Codable` and `Sendable`.
+///
+/// The member expansion is what reports misuse: it throws `onlyApplicableToStruct` on any other
+/// kind of declaration. The extension expansion stays silent and simply adds no conformance.
 public struct StructuredMacro: MemberMacro, ExtensionMacro {
 
     // MARK: - MemberMacro
@@ -16,18 +18,14 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        // 構造体のみサポート
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
             throw StructuredMacroError.onlyApplicableToStruct
         }
 
-        // 型の説明を取得
         let typeDescription = extractDescription(from: node)
 
-        // プロパティ情報を収集
         let properties = collectProperties(from: structDecl)
 
-        // jsonSchema プロパティを生成
         let jsonSchemaDecl = generateJSONSchemaProperty(
             typeDescription: typeDescription,
             properties: properties
@@ -45,7 +43,8 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [ExtensionDeclSyntax] {
-        // 構造体以外では extension を生成しない
+        // Misuse is reported by the member expansion; staying silent here avoids reporting it
+        // twice.
         guard declaration.is(StructDeclSyntax.self) else {
             return []
         }
@@ -63,7 +62,11 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
 
     // MARK: - Private Helpers
 
-    /// マクロ属性から description を抽出
+    /// Reads the first argument of the attribute as the description of the object.
+    ///
+    /// Only the first segment of the string literal is read, so a description assembled by
+    /// interpolation is truncated at the first `\(...)`, or dropped altogether when the
+    /// interpolation comes first.
     private static func extractDescription(from node: AttributeSyntax) -> String? {
         guard let arguments = node.arguments?.as(LabeledExprListSyntax.self),
               let firstArg = arguments.first,
@@ -74,7 +77,12 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         return segment.content.text
     }
 
-    /// 構造体からプロパティ情報を収集
+    /// Collects the stored properties the schema is built from, in declaration order.
+    ///
+    /// A property is dropped without a diagnostic when it carries no explicit type annotation,
+    /// because the annotation is the only thing the schema type is derived from: `var count = 0`
+    /// never reaches the model. Only the first binding of a declaration is read, so
+    /// `var a: Int, b: Int` contributes `a` alone.
     private static func collectProperties(from structDecl: StructDeclSyntax) -> [PropertyInfo] {
         var properties: [PropertyInfo] = []
 
@@ -86,7 +94,7 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
                 continue
             }
 
-            // 計算プロパティは除外
+            // A computed property has no storage to decode a model response into.
             if binding.accessorBlock != nil {
                 continue
             }
@@ -94,20 +102,19 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
             let propertyName = identifier.identifier.text
             let typeName = typeAnnotation.type.trimmedDescription
 
-            // @StructuredField 属性から情報を取得
             let fieldInfo = extractFieldInfo(from: varDecl.attributes)
 
-            // オプショナル型かどうかを判定
+            // Optionality is what decides whether the field is listed in "required".
             let isOptional = typeAnnotation.type.is(OptionalTypeSyntax.self)
                 || typeAnnotation.type.is(ImplicitlyUnwrappedOptionalTypeSyntax.self)
 
-            // 配列型かどうかを判定
             let isArray = isArrayType(typeAnnotation.type)
 
-            // 基本型を取得
             let baseType = extractBaseType(from: typeAnnotation.type)
 
-            // ネストされた型かどうかを判定（基本型でない場合）
+            // Anything that is not a primitive is emitted as a reference to its own jsonSchema,
+            // so it has to be @Structured or @StructuredEnum itself. Types such as Date, URL and
+            // UUID land here too and make the expansion fail to compile.
             let isNestedType = !isPrimitiveType(baseType)
 
             properties.append(PropertyInfo(
@@ -125,7 +132,10 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         return properties
     }
 
-    /// @StructuredField 属性から情報を抽出
+    /// Extracts the description and constraints written on `@StructuredField`.
+    ///
+    /// The first argument is taken as the description and everything after it as a constraint.
+    /// A property with no attribute gets neither, and appears in the schema as a bare type.
     private static func extractFieldInfo(from attributes: AttributeListSyntax) -> (description: String?, constraints: [ConstraintInfo]) {
         for attribute in attributes {
             guard let attr = attribute.as(AttributeSyntax.self),
@@ -140,13 +150,13 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
 
             for (index, arg) in arguments.enumerated() {
                 if index == 0 {
-                    // 最初の引数は description
+                    // The first argument is the description.
                     if let stringLiteral = arg.expression.as(StringLiteralExprSyntax.self),
                        let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self) {
                         description = segment.content.text
                     }
                 } else {
-                    // 残りは制約
+                    // Everything after it is a constraint.
                     if let constraint = parseConstraint(from: arg.expression) {
                         constraints.append(constraint)
                     }
@@ -159,9 +169,12 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         return (nil, [])
     }
 
-    /// 制約式をパース
+    /// Parses one constraint expression, such as `.minItems(3)` or `.enum(["a", "b"])`.
+    ///
+    /// Only the first call argument is read, and only when it is a literal or a member access.
+    /// A value reached through a constant or an expression yields nil, and the constraint
+    /// disappears from the schema without a diagnostic.
     private static func parseConstraint(from expr: ExprSyntax) -> ConstraintInfo? {
-        // .minItems(3) のような形式をパース
         guard let funcCall = expr.as(FunctionCallExprSyntax.self),
               let memberAccess = funcCall.calledExpression.as(MemberAccessExprSyntax.self) else {
             return nil
@@ -169,24 +182,21 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
 
         let constraintName = memberAccess.declName.baseName.text
 
-        // 引数を取得
         guard let firstArg = funcCall.arguments.first else {
             return nil
         }
 
-        // 整数値の場合
         if let intLiteral = firstArg.expression.as(IntegerLiteralExprSyntax.self) {
             let value = intLiteral.literal.text
             return ConstraintInfo(name: constraintName, intValue: Int(value) ?? 0)
         }
 
-        // 文字列値の場合
         if let stringLiteral = firstArg.expression.as(StringLiteralExprSyntax.self),
            let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self) {
             return ConstraintInfo(name: constraintName, stringValue: segment.content.text)
         }
 
-        // 配列の場合 (.enum(["a", "b"]))
+        // An array literal, as in .enum(["a", "b"]); non-string elements are skipped.
         if let arrayExpr = firstArg.expression.as(ArrayExprSyntax.self) {
             var values: [String] = []
             for element in arrayExpr.elements {
@@ -198,7 +208,7 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
             return ConstraintInfo(name: constraintName, arrayValue: values)
         }
 
-        // .format(.email) のようなメンバーアクセスの場合
+        // A member access, as in .format(.email); the case name is carried through verbatim.
         if let memberAccess = firstArg.expression.as(MemberAccessExprSyntax.self) {
             let formatValue = memberAccess.declName.baseName.text
             return ConstraintInfo(name: constraintName, stringValue: formatValue)
@@ -207,7 +217,10 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         return nil
     }
 
-    /// 配列型かどうかを判定
+    /// Indicates whether the type is an array, looking through optional wrappers.
+    ///
+    /// An implicitly unwrapped optional is not looked through, so `[String]!` is published as a
+    /// plain string rather than an array.
     private static func isArrayType(_ type: TypeSyntax) -> Bool {
         if type.is(ArrayTypeSyntax.self) {
             return true
@@ -218,7 +231,7 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         return false
     }
 
-    /// 基本型を抽出（オプショナルや配列を除去）
+    /// Strips optional and array wrappers down to the type the schema is built from.
     private static func extractBaseType(from type: TypeSyntax) -> String {
         if let optionalType = type.as(OptionalTypeSyntax.self) {
             return extractBaseType(from: optionalType.wrappedType)
@@ -232,7 +245,11 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         return type.trimmedDescription
     }
 
-    /// jsonSchema プロパティを生成
+    /// Builds the `jsonSchema` property from the collected properties.
+    ///
+    /// Field names are published in snake case, `additionalProperties` is always false, and
+    /// every non-optional property is listed in `required` — a Swift default value does not
+    /// make a field optional to the model, so only an optional type does.
     private static func generateJSONSchemaProperty(
         typeDescription: String?,
         properties: [PropertyInfo]
@@ -246,14 +263,14 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
             let schemaCode: String
 
             if property.isNestedType {
-                // ネストされた型の場合、その型の jsonSchema を参照
+                // Reference the nested type's own jsonSchema instead of inlining it, so nesting
+                // recurses through the type graph rather than through this macro.
                 if property.isArray {
-                    // 配列の場合
+                    // An array of nested objects keeps its description and its array constraints.
                     var args = ["type: .array", "items: \(property.baseType).jsonSchema"]
                     if let desc = property.description {
                         args.insert("description: \"\(desc)\"", at: 1)
                     }
-                    // 配列制約を追加
                     for constraint in property.constraints {
                         if let constraintCode = generateConstraintCode(constraint) {
                             args.append(constraintCode)
@@ -261,14 +278,14 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
                     }
                     schemaCode = "JSONSchema(\(args.joined(separator: ", ")))"
                 } else {
-                    // 単一オブジェクトの場合、そのまま参照
+                    // A single nested object is referenced as it stands, which silently drops
+                    // the description and any constraints written on the property.
                     schemaCode = "\(property.baseType).jsonSchema"
                 }
             } else {
-                // 基本型の場合
                 var schemaArgs: [String] = []
 
-                // 配列の場合は type: .array、それ以外は基本型
+                // An array is typed .array; its element type is carried by items below.
                 if property.isArray {
                     schemaArgs.append("type: .array")
                 } else {
@@ -281,13 +298,11 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
                     schemaArgs.append("description: \"\(desc)\"")
                 }
 
-                // 配列の場合、items を追加
                 if property.isArray {
                     let elementType = mapToSchemaType(property.baseType)
                     schemaArgs.append("items: JSONSchema(type: .\(elementType))")
                 }
 
-                // 制約を追加
                 for constraint in property.constraints {
                     if let constraintCode = generateConstraintCode(constraint) {
                         schemaArgs.append(constraintCode)
@@ -302,13 +317,13 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
 
             """
 
-            // オプショナルでないフィールドは required
+            // A non-optional property is required, whatever default value Swift gives it.
             if !property.isOptional {
                 requiredFields.append("\"\(snakeCaseName)\"")
             }
         }
 
-        // 末尾のカンマを削除
+        // Drop the trailing comma so the emitted dictionary literal parses.
         if propertiesCode.hasSuffix(",\n") {
             propertiesCode = String(propertiesCode.dropLast(2)) + "\n"
         }
@@ -316,7 +331,7 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         let descriptionArg = typeDescription.map { "description: \"\($0)\"," } ?? ""
         let requiredArg = requiredFields.isEmpty ? "" : "required: [\(requiredFields.joined(separator: ", "))],"
 
-        // 空の properties の場合は [:] を使用
+        // An empty dictionary has to be spelled [:] rather than [].
         let propertiesLiteral = properties.isEmpty ? "[:]" : "[\n\(propertiesCode)        ]"
 
         let code: DeclSyntax = """
@@ -334,7 +349,10 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         return code.cast(VariableDeclSyntax.self)
     }
 
-    /// Swift型をJSON Schema型にマッピング
+    /// Maps a Swift type name onto its JSON Schema type.
+    ///
+    /// Only the types `isPrimitiveType` accepts ever reach it, so the object fallback stands
+    /// unused: everything else is referenced through its own schema instead.
     private static func mapToSchemaType(_ swiftType: String) -> String {
         switch swiftType {
         case "String":
@@ -347,12 +365,15 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         case "Bool":
             return "boolean"
         default:
-            // カスタム型はobjectとして扱う
+            // Anything else is described as an object.
             return "object"
         }
     }
 
-    /// 基本型かどうかを判定
+    /// Indicates whether the type is one the schema can describe inline.
+    ///
+    /// This list is the whole rule: every other type is treated as nested and referenced
+    /// through its own `jsonSchema`.
     private static func isPrimitiveType(_ swiftType: String) -> Bool {
         switch swiftType {
         case "String", "Int", "Int8", "Int16", "Int32", "Int64",
@@ -364,7 +385,10 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         }
     }
 
-    /// 制約をコードに変換
+    /// Renders one constraint as an argument to the generated schema initializer.
+    ///
+    /// A constraint name outside the supported set, or one whose parsed value has the wrong
+    /// kind, is dropped from the schema without a diagnostic.
     private static func generateConstraintCode(_ constraint: ConstraintInfo) -> String? {
         switch constraint.name {
         case "minItems", "maxItems", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength":
@@ -392,7 +416,10 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
         }
     }
 
-    /// StringFormat enumの値をJSON Schema formatに変換
+    /// Converts a format case name to the spelling JSON Schema uses.
+    ///
+    /// Only `dateTime` differs; every other case name is already the JSON Schema name and
+    /// passes through unchanged.
     private static func formatToJSONSchemaFormat(_ format: String) -> String {
         switch format {
         case "dateTime":
@@ -405,19 +432,19 @@ public struct StructuredMacro: MemberMacro, ExtensionMacro {
 
 // MARK: - Supporting Types
 
-/// プロパティ情報
+/// One stored property, reduced to what the schema generator needs to know about it.
 struct PropertyInfo {
     let name: String
     let typeName: String
     let baseType: String
     let isOptional: Bool
     let isArray: Bool
-    let isNestedType: Bool  // ネストされた StructuredProtocol 型かどうか
+    let isNestedType: Bool  // whether this is a nested StructuredProtocol type
     let description: String?
     let constraints: [ConstraintInfo]
 }
 
-/// 制約情報
+/// One constraint parsed off a field attribute, paired with the value it carries.
 struct ConstraintInfo {
     let name: String
     let value: ConstraintValue
@@ -447,13 +474,17 @@ enum ConstraintValue {
 // MARK: - String Extension
 
 extension String {
-    /// camelCase を snake_case に変換
+    /// Converts camel case to snake case, the spelling used for schema fields and tool names.
+    ///
+    /// A run of capitals stays together, so `parseHTTPResponse` becomes `parse_http_response`.
+    /// Digits are not treated as word boundaries.
     func toSnakeCase() -> String {
         var result = ""
         for (index, character) in self.enumerated() {
             if character.isUppercase {
                 if index > 0 {
-                    // 前の文字が小文字、または次の文字が小文字の場合にアンダースコアを挿入
+                    // Break only at a word boundary: after a lowercase letter, or before the
+                    // last capital of a run.
                     let prevIndex = self.index(self.startIndex, offsetBy: index - 1)
                     let prevChar = self[prevIndex]
                     if prevChar.isLowercase {

@@ -1,13 +1,14 @@
 import Foundation
 
-/// ツール実行結果のコンテンツを表現する enum
+/// What running a tool produced: either its output or the reason it failed.
 ///
-/// ツール呼び出しの成功または失敗を型安全に表現する。
+/// Both cases carry a string, because a failed tool is still an answer the model reads and reacts
+/// to, not a transport error to throw away.
 public enum ToolResultContent: Sendable, Equatable, Codable {
-    /// 成功した実行結果
+    /// Output of a run that worked.
     case success(String)
 
-    /// 失敗した実行結果
+    /// Why the run failed, written for the model to read and work around.
     case failure(String)
 
     // MARK: - Codable
@@ -50,7 +51,7 @@ public enum ToolResultContent: Sendable, Equatable, Codable {
 
     // MARK: - Convenience
 
-    /// コンテンツの文字列値を取得
+    /// The string carried by either case, when only the payload matters.
     public var contentValue: String {
         switch self {
         case .success(let content), .failure(let content):
@@ -58,7 +59,6 @@ public enum ToolResultContent: Sendable, Equatable, Codable {
         }
     }
 
-    /// 失敗を示すかどうか
     public var isError: Bool {
         if case .failure = self {
             return true

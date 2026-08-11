@@ -2,30 +2,30 @@ import Foundation
 
 // MARK: - CurrencyProtocol
 
-/// 通貨プロトコル。
+/// A currency that a monetary amount can be denominated in.
 ///
-/// `Money<Currency>` のジェネリックパラメータとして使用。
-/// 通貨の異なる金額同士はコンパイル時に区別される。
+/// Used as the generic parameter of a money value, so amounts in different currencies are different
+/// types and cannot be mixed by accident.
 public protocol CurrencyProtocol: Sendable, Hashable {
-    /// ISO 4217 通貨コード（"USD", "JPY", "EUR" など）
+    /// ISO 4217 code of the currency, such as "USD", "JPY" or "EUR".
     static var code: String { get }
-    /// 表示記号（"$", "¥", "€" など）
+    /// Symbol used when formatting an amount, such as "$", "¥" or "€".
     static var symbol: String { get }
-    /// 1 メジャー = いくつのマイナー単位か（USD: 100, JPY: 1）
+    /// How many minor units make one major unit: 100 for dollars, 1 for yen.
     static var minorUnitsPerMajor: Int { get }
-    /// 表示時のデフォルト小数桁数
+    /// Fraction digits used when formatting, unless the caller asks for others.
     static var defaultFractionDigits: Int { get }
 }
 
 // MARK: - Money
 
-/// 通貨単位付きの金額。
+/// An amount of money carrying its currency in the type.
 ///
-/// `swift-physical-units` の `Measurement` 設計に倣い、
-/// `@frozen` + `@inlinable` + 内部 Double 保持で実装。
+/// Follows the `Measurement` design of `swift-physical-units`: frozen, inlinable, and backed by a
+/// `Double`.
 ///
-/// LLM コスト計算は $0.0001 オーダーの超低額が頻出するため、
-/// 整数 minor unit ではなく Double 表現を使う。表示時のみ通貨慣習で丸める。
+/// LLM costs are routinely on the order of $0.0001, so the amount is kept as a floating-point value
+/// rather than whole minor units, and rounded to the currency's convention only for display.
 @frozen
 public struct Money<Currency: CurrencyProtocol>: Sendable, Hashable {
     @usableFromInline
@@ -36,11 +36,13 @@ public struct Money<Currency: CurrencyProtocol>: Sendable, Hashable {
         self.amount = amount
     }
 
-    /// 通貨の主要単位での値（USD ならドル、JPY なら円）。
+    /// The amount in the currency's major unit: dollars for USD, yen for JPY.
     @inlinable
     public var value: Double { amount }
 
-    /// 最小通貨単位（cent / 銭）に変換した整数値。表示や DB 保存用。
+    /// The amount rounded to whole minor units, such as cents, for display or storage.
+    ///
+    /// Sub-cent LLM costs round to 0 here, so do not total a run from this.
     @inlinable
     public var minorUnits: Int {
         Int((amount * Double(Currency.minorUnitsPerMajor)).rounded())
@@ -80,7 +82,7 @@ extension Money: Codable {
 // MARK: - Formatting
 
 extension Money {
-    /// 表示用文字列（"$1.2345" / "¥150"）。
+    /// Returns the amount as a display string, such as "$1.2345" or "¥150".
     public func formatted(
         minimumFractionDigits: Int = Currency.defaultFractionDigits,
         maximumFractionDigits: Int = Currency.defaultFractionDigits
@@ -102,7 +104,7 @@ public enum USD: CurrencyProtocol {
     public static let code = "USD"
     public static let symbol = "$"
     public static let minorUnitsPerMajor = 100
-    public static let defaultFractionDigits = 4  // LLM コストは $0.0001 単位
+    public static let defaultFractionDigits = 4  // LLM costs are counted in units of $0.0001
 }
 
 public enum JPY: CurrencyProtocol {

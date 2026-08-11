@@ -1,41 +1,41 @@
 // OutputMediaFormat.swift
 // swift-llm-client
 //
-// 出力メディアフォーマットの定義
+// Formats a model can return media in.
 
 import Foundation
 
 // MARK: - OutputMediaFormat Protocol
 
-/// 出力メディアフォーマット共通プロトコル
+/// An encoding a model can deliver generated media in.
 ///
-/// 生成メディア（画像・音声・動画）のフォーマットを表現する。
-/// 入力側の `MediaType` プロトコルに対応する出力側のプロトコル。
+/// The output-side counterpart of `MediaType`, which describes media sent *to* a model. Every
+/// conforming type stores the MIME type as its raw value, so a case round-trips through the wire
+/// format unchanged. Which cases a given provider will actually produce is narrower than the enum;
+/// `MediaCompatibility` holds that matrix.
 ///
-/// ## 準拠する型
-/// - `ImageOutputFormat` - 画像出力フォーマット
-/// - `AudioOutputFormat` - 音声出力フォーマット
-/// - `VideoOutputFormat` - 動画出力フォーマット
+/// ## Conforming Types
+/// - `ImageOutputFormat`
+/// - `AudioOutputFormat`
+/// - `VideoOutputFormat`
 public protocol OutputMediaFormat: RawRepresentable, Sendable, Codable, CaseIterable, Hashable
     where RawValue == String {
-    /// ファイル拡張子
+    /// The file extension for this format, with no leading dot.
     var fileExtension: String { get }
 
-    /// MIME タイプ文字列
+    /// The MIME type for this format.
     var mimeType: String { get }
 }
 
 // MARK: - ImageOutputFormat
 
-/// 画像出力フォーマット
+/// An encoding a model can return a generated image in.
 ///
-/// LLM が生成する画像のフォーマットを定義する。
+/// ## Provider Support
+/// - **OpenAI (DALL·E / GPT-Image)**: PNG, JPEG, WebP; PNG by default.
+/// - **Gemini**: PNG only.
 ///
-/// ## プロバイダー別対応状況
-/// - **OpenAI (DALL-E/GPT-Image)**: PNG (デフォルト), JPEG, WebP
-/// - **Gemini**: PNG (デフォルト)
-///
-/// ## 使用例
+/// ## Example
 /// ```swift
 /// let format: ImageOutputFormat = .png
 /// print(format.mimeType)       // "image/png"
@@ -48,7 +48,7 @@ public enum ImageOutputFormat: String, OutputMediaFormat {
 
     // MARK: - Properties
 
-    /// ファイル拡張子
+    /// The file extension for this format, with no leading dot. JPEG shortens to `jpg`.
     public var fileExtension: String {
         switch self {
         case .png: return "png"
@@ -57,15 +57,17 @@ public enum ImageOutputFormat: String, OutputMediaFormat {
         }
     }
 
-    /// MIME タイプ文字列
+    /// The MIME type for this format, which is also the raw value.
     public var mimeType: String { rawValue }
 
     // MARK: - Inference
 
-    /// ファイル拡張子からフォーマットを推論
+    /// Maps a file extension to the format it names.
     ///
-    /// - Parameter fileExtension: ファイル拡張子（ドットなし）
-    /// - Returns: 対応するフォーマット、見つからない場合は nil
+    /// Case-insensitive, and both `jpg` and `jpeg` resolve to JPEG.
+    ///
+    /// - Parameter fileExtension: Extension without a leading dot.
+    /// - Returns: The matching format, or nil if the extension names none of them.
     public static func from(fileExtension: String) -> ImageOutputFormat? {
         let ext = fileExtension.lowercased()
         switch ext {
@@ -79,15 +81,16 @@ public enum ImageOutputFormat: String, OutputMediaFormat {
 
 // MARK: - AudioOutputFormat
 
-/// 音声出力フォーマット
+/// An encoding a model can return generated audio in.
 ///
-/// LLM が生成する音声のフォーマットを定義する。
+/// PCM is the odd one out: it is raw samples with no container and no header, so a player cannot
+/// infer the sample rate from the bytes.
 ///
-/// ## プロバイダー別対応状況
-/// - **OpenAI TTS**: MP3, Opus, AAC, FLAC, WAV, PCM
-/// - **Gemini TTS**: PCM (Linear16, 24kHz)
+/// ## Provider Support
+/// - **OpenAI TTS**: MP3, Opus, AAC, FLAC, WAV, PCM.
+/// - **Gemini TTS**: PCM only — Linear16 at 24 kHz.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
 /// let format: AudioOutputFormat = .mp3
 /// print(format.mimeType)       // "audio/mp3"
@@ -103,7 +106,7 @@ public enum AudioOutputFormat: String, OutputMediaFormat {
 
     // MARK: - Properties
 
-    /// ファイル拡張子
+    /// The file extension for this format, with no leading dot.
     public var fileExtension: String {
         switch self {
         case .mp3: return "mp3"
@@ -115,12 +118,18 @@ public enum AudioOutputFormat: String, OutputMediaFormat {
         }
     }
 
-    /// MIME タイプ文字列
+    /// The MIME type for this format, which is also the raw value.
     public var mimeType: String { rawValue }
 
     // MARK: - Inference
 
-    /// ファイル拡張子からフォーマットを推論
+    /// Maps a file extension to the format it names.
+    ///
+    /// Case-insensitive. It also accepts extensions no case produces: `m4a` resolves to AAC and
+    /// `raw` to PCM.
+    ///
+    /// - Parameter fileExtension: Extension without a leading dot.
+    /// - Returns: The matching format, or nil if the extension names none of them.
     public static func from(fileExtension: String) -> AudioOutputFormat? {
         let ext = fileExtension.lowercased()
         switch ext {
@@ -137,15 +146,12 @@ public enum AudioOutputFormat: String, OutputMediaFormat {
 
 // MARK: - VideoOutputFormat
 
-/// 動画出力フォーマット
+/// A container a model can return generated video in.
 ///
-/// LLM が生成する動画のフォーマットを定義する。
+/// MP4 is the only case, because it is all any supported provider returns — OpenAI Sora and Gemini
+/// Veo alike. The enum exists so callers do not have to hard-code that.
 ///
-/// ## プロバイダー別対応状況
-/// - **OpenAI Sora**: MP4
-/// - **Gemini Veo**: MP4
-///
-/// ## 使用例
+/// ## Example
 /// ```swift
 /// let format: VideoOutputFormat = .mp4
 /// print(format.mimeType)       // "video/mp4"
@@ -156,19 +162,24 @@ public enum VideoOutputFormat: String, OutputMediaFormat {
 
     // MARK: - Properties
 
-    /// ファイル拡張子
+    /// The file extension for this format, with no leading dot.
     public var fileExtension: String {
         switch self {
         case .mp4: return "mp4"
         }
     }
 
-    /// MIME タイプ文字列
+    /// The MIME type for this format, which is also the raw value.
     public var mimeType: String { rawValue }
 
     // MARK: - Inference
 
-    /// ファイル拡張子からフォーマットを推論
+    /// Maps a file extension to the format it names.
+    ///
+    /// Case-insensitive, and `m4v` resolves to MP4 as well.
+    ///
+    /// - Parameter fileExtension: Extension without a leading dot.
+    /// - Returns: The matching format, or nil if the extension names none of them.
     public static func from(fileExtension: String) -> VideoOutputFormat? {
         let ext = fileExtension.lowercased()
         switch ext {

@@ -2,47 +2,48 @@ import Foundation
 
 // MARK: - ToolAnnotations
 
-/// ツールの動作特性を示すアノテーション
+/// Hints about how a tool behaves, following the MCP tool annotation vocabulary.
 ///
-/// MCP 仕様の Tool Annotations に準拠した構造体。
-/// クライアントがツールの特性を理解するためのヒントを提供する。
+/// They describe intent — whether a call only reads, may destroy something, is safe to repeat,
+/// or reaches outside the host — so a client can decide what to confirm with a person before
+/// running it. None of it reaches the model: tool definitions carry the name, description and
+/// schema only, so annotations stay on this side of the wire and cost no tokens.
 ///
-/// - Note: これらはすべて「ヒント」であり、
-///         信頼できないサーバーからの値は検証せずに信用しない。
+/// - Note: Every field is a hint, not a guarantee. Values that came from an untrusted server must
+///         not be believed without verification.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let annotations = ToolAnnotations(
-///     title: "ファイル読み取り",
+///     title: "Read file",
 ///     readOnlyHint: true
 /// )
 /// ```
 public struct ToolAnnotations: Sendable, Equatable {
-    /// 人間可読なツールタイトル
+    /// A human-readable title, for showing the tool rather than for calling it.
     public var title: String?
 
-    /// trueの場合、ツールは環境を変更しない
+    /// Whether the tool leaves its environment unchanged.
     ///
-    /// デフォルト: false（未指定時）
+    /// Assumed `false` when unset.
     public var readOnlyHint: Bool?
 
-    /// trueの場合、ツールは破壊的な更新を行う可能性がある
+    /// Whether the tool may make destructive updates.
     ///
-    /// `readOnlyHint == false` の場合のみ意味を持つ。
-    /// デフォルト: true（未指定時）
+    /// Meaningful only when the tool is not read-only. Assumed `true` when unset, so an
+    /// unannotated write is treated as the dangerous kind.
     public var destructiveHint: Bool?
 
-    /// trueの場合、同じ引数での繰り返し呼び出しは追加の効果を持たない
+    /// Whether repeating a call with the same arguments has no further effect.
     ///
-    /// `readOnlyHint == false` の場合のみ意味を持つ。
-    /// デフォルト: false（未指定時）
+    /// Meaningful only when the tool is not read-only. It is what tells a caller whether a
+    /// timed-out call can simply be retried. Assumed `false` when unset.
     public var idempotentHint: Bool?
 
-    /// trueの場合、ツールは外部エンティティと対話する可能性がある
+    /// Whether the tool may reach entities outside the host.
     ///
-    /// 例: Web検索ツールはopen world、メモリツールはclosed world
-    /// デフォルト: true（未指定時）
+    /// A web search is open world; a memory store is closed world. Assumed `true` when unset.
     public var openWorldHint: Bool?
 
     public init(
@@ -59,22 +60,22 @@ public struct ToolAnnotations: Sendable, Equatable {
         self.openWorldHint = openWorldHint
     }
 
-    /// 読み取り専用ツール用のプリセット
+    /// Annotations for a tool that only reads.
     public static let readOnly = ToolAnnotations(readOnlyHint: true)
 
-    /// 破壊的な書き込みツール用のプリセット
+    /// Annotations for a tool that writes and may destroy what was there.
     public static let destructive = ToolAnnotations(
         readOnlyHint: false,
         destructiveHint: true
     )
 
-    /// 冪等な書き込みツール用のプリセット
+    /// Annotations for a destructive write that is safe to repeat with the same arguments.
     public static let idempotentWrite = ToolAnnotations(
         readOnlyHint: false,
         destructiveHint: true,
         idempotentHint: true
     )
 
-    /// クローズドワールドツール用のプリセット（メモリ等）
+    /// Annotations for a tool confined to the host, such as a memory store.
     public static let closedWorld = ToolAnnotations(openWorldHint: false)
 }

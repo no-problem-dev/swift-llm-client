@@ -1,21 +1,18 @@
 # Getting Started with LLMTool
 
-`@Tool` マクロを使って型安全なツール（Function Calling）を定義し、エージェントループと連携する方法を説明する。
+Define a tool with the `@Tool` macro, let a model choose it, and run it safely.
 
-## Installation
-
-Swift Package Manager で追加する。
+## Add the dependency
 
 ```swift
 // Package.swift
 dependencies: [
     .package(
         url: "https://github.com/no-problem-dev/swift-llm-client.git",
-        from: "3.9.0"
+        from: "3.0.0"
     )
 ]
 
-// ターゲット依存
 .target(
     name: "MyApp",
     dependencies: [
@@ -24,38 +21,41 @@ dependencies: [
 )
 ```
 
-## Basic Usage
+## 1. Define a tool
 
-### 1. ツールを定義する
-
-`@Tool` マクロをクラスまたは構造体に付与する。
-`@ToolArgument` で LLM に渡す引数を宣言し、`call()` メソッドに実装を書く。
+Apply `@Tool` to a struct or class, mark the model-visible inputs with `@ToolArgument`, and put
+the work in `call()`.
 
 ```swift
 import LLMTool
 
-@Tool("指定した都市の現在の天気を返します")
+@Tool("Return the current weather for a given city")
 struct GetWeather {
-    // 設定プロパティ（@ToolArgument なし）はツール引数にならない
+    // Not annotated, so it is configuration: the model neither sees nor supplies it.
     var apiKey: String
 
-    @ToolArgument("都市名（日本語または英語）")
+    @ToolArgument("City name, in English or Japanese")
     var city: String
 
-    @ToolArgument("温度単位", .enum(["celsius", "fahrenheit"]))
+    @ToolArgument("Temperature unit", .enum(["celsius", "fahrenheit"]))
     var unit: String?
 
     func call() async throws -> String {
-        // 実際の API 呼び出し
-        return "\(city): 晴れ、25°C"
+        "\(city): sunny, 25°C"
     }
 }
 ```
 
-引数のない場合は何も宣言しなくていい。`EmptyArguments` が自動的に使用される。
+The macro description and each argument description are sent to the model verbatim. They decide
+whether the tool gets picked at all, so write them as instructions rather than as labels.
+
+An optional argument tells the model it may omit the value. A non-optional one does not — it is
+emitted as required, and the model will invent something rather than leave it out.
+
+A tool with no inputs declares nothing; ``EmptyArguments`` is used automatically.
 
 ```swift
-@Tool("現在の日時を ISO 8601 形式で返します")
+@Tool("Return the current date and time in ISO 8601")
 struct GetCurrentTime {
     func call() async throws -> String {
         ISO8601DateFormatter().string(from: Date())
@@ -63,9 +63,9 @@ struct GetCurrentTime {
 }
 ```
 
-### 2. ToolSet を組み立てる
+## 2. Build a tool set
 
-Result Builder 構文でツールをまとめる。条件分岐やループも使える。
+``ToolSet`` is a result builder, so conditionals and loops work.
 
 ```swift
 let tools = ToolSet {
@@ -82,81 +82,88 @@ let tools = ToolSet {
 }
 ```
 
-### 3. ツール呼び出しを計画・実行する
+Every tool definition you include is serialised into the request and charged as input tokens on
+every turn, so the set is a context-window cost, not a free list. Gate large tools behind
+conditionals rather than shipping them all.
 
-`ToolCallableClient` の `planToolCalls(prompt:model:tools:)` を使い、LLM にツール選択を
-させる。このメソッドは実際のツール実行は行わず、計画（`ToolCallResponse`）のみを返す。
+## 3. Plan, then execute
+
+``ToolCallableClient`` asks the model which tools to call with which arguments. `planToolCalls`
+does not run anything — running is a separate, explicit step.
 
 ```swift
 let plan = try await client.planToolCalls(
-    prompt: "東京と大阪の天気を比較して教えて",
+    prompt: "Compare the weather in Tokyo and Osaka.",
     model: .claude(.sonnet),
     tools: tools
 )
 
-// LLM が選んだツールを順番に実行する
 for call in plan.toolCalls {
-    print("呼び出し: \(call.name)")
-
     let result = try await tools.execute(toolNamed: call.name, with: call.arguments)
-    print("結果: \(result.stringValue)")
+    print("\(call.name) → \(result.stringValue)")
 }
 ```
 
-### 4. 引数を型安全にデコードする
+A model may return several calls in one response. Treat them as a set to be satisfied, not as a
+sequence with meaning: unless a provider documents otherwise, the order carries no dependency
+information, and running them concurrently is usually fine.
 
-`ToolCall.decodeArguments(as:)` で引数を任意の `Decodable` 型にデコードできる。
+## 4. Decode arguments
+
+``ToolCall/decodeArguments(as:)`` decodes into any `Decodable` type.
 
 ```swift
+struct WeatherArgs: Decodable {
+    let city: String
+    let unit: String?
+}
+
 for call in plan.toolCalls where call.name == "get_weather" {
-    // @ToolArgument で定義した引数が自動生成された構造体としてデコードされる
-    struct WeatherArgs: Decodable {
-        let city: String
-        let unit: String?
-    }
     let args = try call.decodeArguments(as: WeatherArgs.self)
-    print("都市: \(args.city)")
+    print(args.city)
 }
 ```
 
-`StructuredValue` を使ったキーアクセスも可能。
+Key-path access works too, when a whole type is more than you need.
 
 ```swift
 let args = try call.argumentsJSON()
 if let city = args.string("city") {
-    print("都市: \(city)")
+    print(city)
 }
 ```
 
-### 5. 会話履歴付きのツール呼び出し
+## 5. Feed the results back
 
-会話が続くケースでは `planToolCalls(messages:model:tools:)` を使う。
+To continue the conversation, the history must contain both the assistant's tool calls and the
+matching results. Each result is matched to its call by `toolCallId`; drop one, or reuse an id,
+and providers reject the request.
 
 ```swift
 var messages: [LLMMessage] = [
-    .user("今の東京の気温は？"),
+    .user("What's the temperature in Tokyo right now?"),
 ]
 
-// ターン 1: LLM がツールを計画
 let plan = try await client.planToolCalls(
     messages: messages,
     model: .claude(.sonnet),
     tools: tools
 )
 
-// ツール結果を収集し、履歴に追加
 var toolResults: [(toolCallId: String, name: String, content: ToolResultContent)] = []
 for call in plan.toolCalls {
     let result = try await tools.execute(toolNamed: call.name, with: call.arguments)
     toolResults.append((toolCallId: call.id, name: call.name, content: .success(result.stringValue)))
 }
 
-// アシスタントのツール計画 + ツール実行結果を履歴に追加し、次ターンへ
 messages.append(.toolUses(plan.toolCalls.map { (id: $0.id, name: $0.name, input: $0.arguments) }))
 messages.append(.toolResults(toolResults))
 ```
 
-## Next Steps
+When a tool fails, send `.failure` back rather than throwing out of the loop. The model can
+usually recover — retry with different arguments, or explain the failure to the user — and
+throwing discards a turn you have already paid for.
 
-エージェントループ（自動的にツール実行→LLM 応答をループする）には
-`LLMAgentStep` モジュールの `AgentCapableClient` を参照のこと。
+## Next steps
+
+`LLMAgentStep` drives the plan-execute-continue cycle a step at a time, with streaming events.

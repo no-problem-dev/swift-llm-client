@@ -3,24 +3,24 @@ import LLMClient
 
 // MARK: - ConversationHistory
 
-/// 会話履歴を管理する Actor
+/// An actor holding the messages and the running token total of one conversation.
 ///
-/// `ConversationHistoryProtocol` のデフォルト実装。
-/// メッセージ履歴とトークン使用量を Actor で保護された状態として管理し、
-/// イベントストリームを通じて変更を通知する。
+/// The ready-made implementation of the history protocol. Being an actor, it takes appends from
+/// several tasks without tearing the array — a background turn and a UI action can both write. The
+/// price is that every read is an `await`: the array `getMessages()` hands back is a copy taken at
+/// that instant, and another task may append to the history before the request built from that
+/// copy is even sent.
 ///
-/// ## 概要
+/// It holds messages, not provider state, so the same history can be continued against a different
+/// provider or model partway through.
 ///
-/// Actor はモデルやクライアントから独立しているため、
-/// 同じ履歴を異なるプロバイダー・モデルで継続できる。
-///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
-/// // 履歴を作成
+/// // Create a history.
 /// let history = ConversationHistory()
 ///
-/// // イベントを購読（オプション）
+/// // Subscribe to the events, if you want them.
 /// Task {
 ///     for await event in history.eventStream {
 ///         switch event {
@@ -28,6 +28,10 @@ import LLMClient
 ///             print("User: \(msg.content)")
 ///         case .assistantMessage(let msg):
 ///             print("Assistant: \(msg.content)")
+///         case .toolCallMessage(let msg):
+///             print("Tool call: \(msg.content)")
+///         case .toolResultMessage(let msg):
+///             print("Tool result: \(msg.content)")
 ///         case .usageUpdated(let usage):
 ///             print("Total tokens: \(usage.totalTokens)")
 ///         case .cleared:
@@ -38,51 +42,53 @@ import LLMClient
 ///     }
 /// }
 ///
-/// // 会話を実行
+/// // Run a turn.
 /// let result: CityInfo = try await client.chat(
-///     "日本の首都は？",
+///     "What is the capital of Japan?",
 ///     history: history,
 ///     model: .sonnet
 /// )
 ///
-/// // 状態を確認
+/// // Inspect the state.
 /// print(await history.turnCount)  // 1
-/// print(await history.getTotalUsage().totalTokens)  // 使用トークン数
+/// print(await history.getTotalUsage().totalTokens)  // Tokens used so far
 /// ```
 ///
-/// ## 既存の履歴から初期化
+/// ## Starting from an existing history
 ///
 /// ```swift
 /// let existingMessages: [LLMMessage] = [
-///     .user("こんにちは"),
-///     .assistant("こんにちは！何かお手伝いできることはありますか？")
+///     .user("Hello"),
+///     .assistant("Hello! How can I help?")
 /// ]
 /// let history = ConversationHistory(messages: existingMessages)
 /// ```
 public actor ConversationHistory: ConversationHistoryProtocol {
     // MARK: - Properties
 
-    /// メッセージ履歴
     private var messages: [LLMMessage]
 
-    /// 累計トークン使用量
+    /// Running total, carrying input and output counts only.
     private var totalUsage: TokenUsage
 
-    /// ターン数（ツール結果を除くユーザーメッセージの数）
+    /// User messages that were not tool results.
     private var userTurnCount: Int
 
-    /// sanitize が必要かどうか（ツール関連メッセージ追加後に true）
+    /// Set when a tool call or tool result is appended, and cleared by the next read.
     private var needsSanitization: Bool = false
 
-    /// イベントストリーム
+    /// The change feed for this history, with one consumer and no buffer limit.
+    ///
+    /// A subscriber that starts late still receives everything emitted before it, and a history
+    /// nobody subscribes to keeps every event it has ever emitted. The stream is closed when the
+    /// history is deallocated.
     public nonisolated let eventStream: AsyncStream<ConversationEvent>
 
-    /// イベントストリームの継続
     private let continuation: AsyncStream<ConversationEvent>.Continuation
 
     // MARK: - Initialization
 
-    /// 空の会話履歴を作成
+    /// Creates an empty conversation history.
     public init() {
         self.messages = []
         self.totalUsage = TokenUsage(inputTokens: 0, outputTokens: 0)
@@ -90,32 +96,42 @@ public actor ConversationHistory: ConversationHistoryProtocol {
         (self.eventStream, self.continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
     }
 
-    /// 既存のメッセージから会話履歴を作成
+    /// Resumes a conversation from messages that were saved or built elsewhere.
     ///
-    /// - Parameter messages: 初期メッセージ履歴
+    /// The turn count is recomputed from the messages, but the running token total starts at zero:
+    /// what the restored turns cost is not recoverable from the messages themselves. Use the
+    /// initializer that also takes a usage to keep a cost display continuous across a restore.
+    ///
+    /// - Parameter messages: The conversation to start from, oldest first.
     public init(messages: [LLMMessage]) {
         self.messages = messages
         self.totalUsage = TokenUsage(inputTokens: 0, outputTokens: 0)
-        // 初期化時に既存メッセージからターン数を計算
+        // Derive the turn count from the messages handed in.
         self.userTurnCount = messages.filter { !$0.hasToolResult && $0.role == .user }.count
         (self.eventStream, self.continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
     }
 
-    /// 既存のメッセージとトークン使用量から会話履歴を作成
+    /// Resumes a conversation along with what it has already cost.
     ///
     /// - Parameters:
-    ///   - messages: 初期メッセージ履歴
-    ///   - totalUsage: 初期トークン使用量
+    ///   - messages: The conversation to start from, oldest first.
+    ///   - totalUsage: The tokens the restored turns already consumed.
     public init(messages: [LLMMessage], totalUsage: TokenUsage) {
         self.messages = messages
         self.totalUsage = totalUsage
-        // 初期化時に既存メッセージからターン数を計算
+        // Derive the turn count from the messages handed in.
         self.userTurnCount = messages.filter { !$0.hasToolResult && $0.role == .user }.count
         (self.eventStream, self.continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
     }
 
     // MARK: - ConversationHistoryProtocol
 
+    /// Returns the conversation, repairing unanswered tool calls on the way out.
+    ///
+    /// Reading is not purely a read: when a tool call or tool result has been appended since the
+    /// last read, the stored array is first passed through `sanitizeOrphanedToolUses()`, which
+    /// answers any unanswered call with a synthetic failure result so that providers do not reject
+    /// the request. That rewrite is kept, so the model sees it on every later turn as well.
     public func getMessages() -> [LLMMessage] {
         if needsSanitization {
             messages.sanitizeOrphanedToolUses()
@@ -135,7 +151,7 @@ public actor ConversationHistory: ConversationHistoryProtocol {
     public func append(_ message: LLMMessage) {
         messages.append(message)
 
-        // イベントを発行し、ユーザーターンをカウント
+        // Emit the matching event, and count the user turns.
         let event: ConversationEvent
         if message.hasToolResult {
             event = .toolResultMessage(message)
@@ -152,6 +168,13 @@ public actor ConversationHistory: ConversationHistoryProtocol {
         emit(event)
     }
 
+    /// Adds a turn's usage to the running total, keeping the input and output counts only.
+    ///
+    /// The reasoning, cache-read, cache-creation and cache-tier figures of the usage handed in are
+    /// dropped, so the total can say how many tokens a conversation moved but not how they were
+    /// billed. A cost display driven from the total therefore prices cached input at full rate and
+    /// cannot separate reasoning tokens from visible output; keep the per-turn usage from each
+    /// `ChatResponse` where that matters.
     public func addUsage(_ usage: TokenUsage) {
         totalUsage = TokenUsage(
             inputTokens: totalUsage.inputTokens + usage.inputTokens,
@@ -160,6 +183,11 @@ public actor ConversationHistory: ConversationHistoryProtocol {
         emit(.usageUpdated(totalUsage))
     }
 
+    /// Empties the messages and the running token total.
+    ///
+    /// The turn count is not reset, so it keeps climbing across a clear and describes the life of
+    /// the object rather than the conversation now in it. Start a new history instead where the
+    /// count has to match what the messages show.
     public func clear() {
         messages = []
         totalUsage = TokenUsage(inputTokens: 0, outputTokens: 0)
@@ -178,7 +206,7 @@ public actor ConversationHistory: ConversationHistoryProtocol {
 
     // MARK: - Private Methods
 
-    /// イベントを発行
+    /// Publishes an event, which is never dropped for want of a consumer.
     private func emit(_ event: ConversationEvent) {
         continuation.yield(event)
     }

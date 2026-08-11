@@ -3,53 +3,60 @@ import LLMClient
 
 // MARK: - ToolResult
 
-/// ツール実行の結果
+/// What a tool produced, on its way back to the model.
 ///
-/// ツールの `call()` メソッドから返される結果を表す。
-/// テキスト、構造化データ（JSON）、またはエラーを表現できる。
+/// Whatever a tool's `call()` method returns ends up here, as text, as JSON, as an error, or as
+/// text with images attached. Everything in it is read by the model and billed as input tokens,
+/// so returning the whole of an API payload when three fields would do is what quietly makes a
+/// tool-using conversation expensive.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
-/// // テキスト結果
-/// return .text("東京: 晴れ、25°C")
+/// // Text
+/// return .text("Tokyo: sunny, 25°C")
 ///
-/// // 構造化データ
+/// // Structured data
 /// let data = WeatherData(temp: 25, condition: "sunny")
 /// return try ToolResult.encoded(data)
 ///
-/// // エラー
+/// // Error
 /// return .error("API rate limit exceeded")
 ///
-/// // テキスト + メディア（画像など）
+/// // Text with images attached
 /// return .textWithMedia("Image loaded", media: [imageContent])
 /// ```
 public enum ToolResult: Sendable, Equatable {
-    /// テキスト形式の結果
+    /// Plain text.
     case text(String)
 
-    /// JSON エンコードされた構造化データ
+    /// Structured data, already encoded as JSON.
     case json(Data)
 
-    /// エラーメッセージ
+    /// A failure the model should know about, such as a failed API call or a lookup that found
+    /// nothing.
     ///
-    /// ツール実行は成功したが処理内でエラーが発生した場合に使用する。
-    /// 例: API 呼び出しの失敗、データが見つからない、など
+    /// This is how a tool reports trouble without throwing: the message goes back as content
+    /// the model reads, so write it for the model — say what failed and what it could try
+    /// instead. Throwing out of `call()` instead propagates to your own code and leaves the
+    /// call unanswered.
     case error(String)
 
-    /// テキスト + メディアコンテンツ付き結果
+    /// Text plus images handed to the model as content in their own right.
     ///
-    /// 画像などのメディアを LLM に直接渡す場合に使用する。
-    /// テキスト部分は LLM へのツール結果として、メディアは追加コンテンツとして注入される。
+    /// The text becomes the tool result and the images are injected alongside it, which is how
+    /// a tool returns something the model has to actually look at. Images are billed as image
+    /// input and need a model that accepts them.
     case textWithMedia(String, media: [ImageContent])
 
     // MARK: - Factory Methods
 
-    /// Encodable な値から JSON 結果を作成
+    /// Encodes a value as a JSON result.
     ///
-    /// - Parameter value: JSON エンコード可能な値
-    /// - Returns: JSON エンコードされた ToolResult
-    /// - Throws: エンコードエラー
+    /// Keys come out sorted, so the same value always produces the same bytes. That keeps a
+    /// replayed conversation byte-identical and lets a cached prefix keep matching.
+    ///
+    /// - Parameter value: The value to encode.
     ///
     /// ```swift
     /// let weather = WeatherData(temp: 25, condition: "sunny")
@@ -64,11 +71,12 @@ public enum ToolResult: Sendable, Equatable {
 
     // MARK: - Conversion
 
-    /// 結果を文字列として取得
+    /// The result rendered as the text the model will read.
     ///
-    /// - `text`: そのまま返す
-    /// - `json`: UTF-8 文字列としてデコード
-    /// - `error`: エラーメッセージを返す
+    /// - `text`: returned unchanged
+    /// - `json`: decoded as UTF-8, or empty if the bytes are not valid UTF-8
+    /// - `error`: the message prefixed with `Error: `
+    /// - `textWithMedia`: the text part only, without the images
     public var stringValue: String {
         switch self {
         case .text(let string):
@@ -82,7 +90,7 @@ public enum ToolResult: Sendable, Equatable {
         }
     }
 
-    /// エラーかどうか
+    /// Whether the tool reported a failure.
     public var isError: Bool {
         if case .error = self {
             return true
@@ -90,7 +98,7 @@ public enum ToolResult: Sendable, Equatable {
         return false
     }
 
-    /// メディアコンテンツ（存在する場合）
+    /// The attached images, empty for every case but the one that carries media.
     public var mediaContents: [ImageContent] {
         if case .textWithMedia(_, let media) = self {
             return media
@@ -101,12 +109,14 @@ public enum ToolResult: Sendable, Equatable {
 
 // MARK: - ToolResultConvertible
 
-/// ToolResult に変換可能な型が準拠するプロトコル
+/// A type a tool can return directly.
 ///
-/// このプロトコルに準拠することでツールの戻り値として使用できる。
-/// 標準的な型（`String`、`Int`、`Bool` など）は自動的に準拠している。
+/// Conform your own type to it to return it straight from `call()`. The standard types a tool
+/// is likely to produce — strings, numbers, booleans, arrays, and dictionaries — already
+/// conform. Since the conversion decides what the model actually reads, this is the place to
+/// trim a payload down to the fields worth spending tokens on.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// struct WeatherInfo: ToolResultConvertible, Encodable {
@@ -119,10 +129,7 @@ public enum ToolResult: Sendable, Equatable {
 /// }
 /// ```
 public protocol ToolResultConvertible {
-    /// ToolResult に変換
-    ///
-    /// - Returns: 変換された ToolResult
-    /// - Throws: 変換中のエラー
+    /// Converts the value into the result the model receives.
     func asToolResult() throws -> ToolResult
 }
 
@@ -174,9 +181,9 @@ extension ToolResult: ToolResultConvertible {
 
 // MARK: - Codable Types
 
-/// Encodable な型に ToolResultConvertible 準拠を提供するラッパー
+/// Returns any encodable value as a JSON tool result.
 ///
-/// 任意の `Encodable` な型を `ToolResult` に変換する際に使用する。
+/// Use it for a type you cannot conform yourself, such as one from another module.
 ///
 /// ```swift
 /// let weather = WeatherData(temp: 25)

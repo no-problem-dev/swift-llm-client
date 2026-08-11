@@ -7,56 +7,66 @@ import Foundation
 
 // MARK: - Media Source
 
-/// メディアデータのソース
+/// Where the bytes of a piece of media come from.
 ///
-/// メディアコンテンツは以下の 3 つの方法で提供できる：
-/// - Base64エンコードされたバイナリデータ
-/// - アクセス可能なURL
-/// - プロバイダーのFile API経由のファイル参照
+/// Only the inline case actually holds bytes in this process. The other two are promises the
+/// provider redeems on its own side, which is why size checks here cannot see them and why
+/// providers differ on which cases they accept at all.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
-/// // Base64データから
+/// // Inline bytes
 /// let imageData = try Data(contentsOf: imageFileURL)
 /// let source = MediaSource.base64(imageData)
 ///
-/// // URLから
+/// // Fetched by the provider
 /// let source = MediaSource.url(URL(string: "https://example.com/image.jpg")!)
 ///
-/// // ファイル参照から（Gemini File API など）
+/// // Already uploaded through a file API, such as Gemini's
 /// let source = MediaSource.fileReference(id: "files/abc123")
 /// ```
 public enum MediaSource: Sendable, Equatable {
-    /// Base64エンコードされたバイナリデータ
+    /// Raw bytes carried inline in the request body.
+    ///
+    /// The associated value is undecoded data, not a Base64 string. Encoding happens when the
+    /// source is read, and it grows the payload by roughly a third on the wire.
     case base64(Data)
 
-    /// アクセス可能なURL（HTTP/HTTPS）
+    /// An HTTP or HTTPS URL the provider fetches for itself.
+    ///
+    /// Nothing here downloads it, so it has to be reachable from the provider's network rather
+    /// than only from this process.
     case url(URL)
 
-    /// ファイルAPI参照（Gemini File API, OpenAI Files API）
+    /// A handle to a file already uploaded through a provider's file API.
+    ///
+    /// Identifiers are provider-scoped: a Gemini `files/...` name means nothing to OpenAI.
     case fileReference(id: String)
 
     // MARK: - Convenience Accessors
 
-    /// Base64文字列を取得
+    /// The Base64 encoding of the inline bytes, or nil for the two remote cases.
+    ///
+    /// The string is built fresh on every access, so read it once and keep it rather than
+    /// touching it repeatedly for a large payload.
     public var base64String: String? {
         guard case .base64(let data) = self else { return nil }
         return data.base64EncodedString()
     }
 
-    /// URLを取得
+    /// The URL to be fetched by the provider, or nil for any other case.
     public var urlValue: URL? {
         guard case .url(let url) = self else { return nil }
         return url
     }
 
-    /// ファイル参照IDを取得
+    /// The provider-scoped file identifier, or nil for any other case.
     public var fileReferenceId: String? {
         guard case .fileReference(let id) = self else { return nil }
         return id
     }
 
-    /// 生のDataを取得（base64の場合のみ）
+    /// The undecoded inline bytes, or nil when the media lives on the provider's side.
     public var data: Data? {
         guard case .base64(let data) = self else { return nil }
         return data
@@ -64,25 +74,35 @@ public enum MediaSource: Sendable, Equatable {
 
     // MARK: - Validation
 
-    /// データサイズを取得（base64の場合のみ）
+    /// The undecoded byte count of inline data, or nil when the size is not knowable here.
+    ///
+    /// The Base64 form sent on the wire is about a third larger than this figure.
     public var dataSize: Int? {
         guard case .base64(let data) = self else { return nil }
         return data.count
     }
 
-    /// 指定サイズ以下かチェック
+    /// Reports whether inline data fits a byte budget, counting anything remote as fitting.
     ///
-    /// - Parameter maxBytes: 最大バイト数
-    /// - Returns: 制限内の場合は true、それ以外（非base64含む）は true
+    /// URL and file-reference sources answer `true` because their size is unknown here, so a
+    /// `true` result is not evidence that the provider will accept the media — only that
+    /// nothing this process holds is over budget.
+    ///
+    /// - Parameter maxBytes: The budget, compared against the undecoded byte count rather than
+    ///   the longer Base64 form that actually travels in the request.
     public func isWithinSizeLimit(_ maxBytes: Int) -> Bool {
         guard let size = dataSize else { return true }
         return size <= maxBytes
     }
 
-    /// サイズバリデーションを実行
+    /// Throws when inline data is over a byte budget, and does nothing for remote sources.
     ///
-    /// - Parameter maxBytes: 最大バイト数
-    /// - Throws: `MediaError.sizeLimitExceeded` サイズ超過時
+    /// A URL or file-reference source passes unconditionally, so this cannot stand in for the
+    /// provider's own size check.
+    ///
+    /// - Parameter maxBytes: The budget, compared against the undecoded byte count rather than
+    ///   the longer Base64 form that actually travels in the request.
+    /// - Throws: `MediaError.sizeLimitExceeded`, carrying both the measured and allowed sizes.
     public func validateSize(maxBytes: Int) throws {
         guard let size = dataSize else { return }
         if size > maxBytes {
@@ -92,7 +112,9 @@ public enum MediaSource: Sendable, Equatable {
 
     // MARK: - Source Type Info
 
-    /// ソースタイプを表す文字列
+    /// A stable tag for the case, matching the discriminator written by the coding conformance.
+    ///
+    /// Safe for logs and diagnostics, since it never includes the payload.
     public var sourceType: String {
         switch self {
         case .base64: return "base64"
@@ -101,19 +123,24 @@ public enum MediaSource: Sendable, Equatable {
         }
     }
 
-    /// Base64ソースかどうか
+    /// Whether the bytes travel inline rather than being fetched by the provider.
+    ///
+    /// Provider gating branches on this: OpenAI refuses audio input that is not inline.
     public var isBase64: Bool {
         if case .base64 = self { return true }
         return false
     }
 
-    /// URLソースかどうか
+    /// Whether the provider is expected to fetch the media itself.
     public var isURL: Bool {
         if case .url = self { return true }
         return false
     }
 
-    /// ファイル参照ソースかどうか
+    /// Whether the media is a handle to a file already uploaded to a provider.
+    ///
+    /// Anthropic rejects file-reference image sources, so this is worth checking before a
+    /// message is routed there.
     public var isFileReference: Bool {
         if case .fileReference = self { return true }
         return false
@@ -173,21 +200,26 @@ extension MediaSource: Codable {
 // MARK: - Convenience Initializers
 
 extension MediaSource {
-    /// ローカルファイルからBase64ソースを作成
+    /// Reads a local file into an inline source.
     ///
-    /// - Parameter filePath: ファイルパス
-    /// - Returns: Base64エンコードされたデータソース
-    /// - Throws: ファイル読み込みエラー
+    /// The whole file is loaded into memory at once, so this is a poor fit for anything large
+    /// enough to belong in a provider's file API instead.
+    ///
+    /// - Parameter filePath: A local filesystem path.
+    /// - Throws: `MediaError.fileReadError`, wrapping the underlying read failure.
     public static func fromFile(at filePath: String) throws -> MediaSource {
         let url = URL(fileURLWithPath: filePath)
         return try fromFile(at: url)
     }
 
-    /// ローカルファイルからBase64ソースを作成
+    /// Reads a file URL into an inline source.
     ///
-    /// - Parameter url: ファイルURL
-    /// - Returns: Base64エンコードされたデータソース
-    /// - Throws: ファイル読み込みエラー
+    /// The URL is handed straight to `Data(contentsOf:)`, which is not restricted to file URLs:
+    /// passing an HTTP URL here downloads it synchronously on the calling thread instead of
+    /// producing the URL case. Use the URL case directly when the provider should do the fetch.
+    ///
+    /// - Parameter url: A file URL.
+    /// - Throws: `MediaError.fileReadError`, wrapping the underlying read failure.
     public static func fromFile(at url: URL) throws -> MediaSource {
         do {
             let data = try Data(contentsOf: url)
@@ -197,11 +229,15 @@ extension MediaSource {
         }
     }
 
-    /// Base64文字列からソースを作成
+    /// Decodes a Base64 string into an inline source.
     ///
-    /// - Parameter base64String: Base64エンコードされた文字列
-    /// - Returns: デコードされたデータソース
-    /// - Throws: `MediaError.invalidMediaData` デコード失敗時
+    /// Use this when the bytes arrive already encoded, such as from another API's response. The
+    /// source stores the decoded data and re-encodes on demand, so nothing is gained by keeping
+    /// the string around.
+    ///
+    /// - Parameter base64String: Plain Base64, with no data-URI prefix — a `data:image/png;base64,`
+    ///   header makes decoding fail.
+    /// - Throws: `MediaError.invalidMediaData` when the string is not valid Base64.
     public static func fromBase64String(_ base64String: String) throws -> MediaSource {
         guard let data = Data(base64Encoded: base64String) else {
             throw MediaError.invalidMediaData("Invalid Base64 string")
@@ -213,6 +249,10 @@ extension MediaSource {
 // MARK: - CustomStringConvertible
 
 extension MediaSource: CustomStringConvertible {
+    /// A one-line summary that reports the byte count instead of the payload.
+    ///
+    /// Safe to log: inline media never appears in the output, so a multi-megabyte image cannot
+    /// be spilled into a log line by interpolating the source.
     public var description: String {
         switch self {
         case .base64(let data):

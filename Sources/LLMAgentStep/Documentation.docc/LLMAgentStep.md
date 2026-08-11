@@ -1,26 +1,34 @@
 # ``LLMAgentStep``
 
-エージェントループのステップ実行プロトコルとストリーミングイベント定義。
+One step of an agent loop — the request, the response and the stream between them. The loop itself is yours.
 
 ## Overview
 
-`LLMAgentStep` は `LLMTool` の `ToolCallableClient` を拡張し、エージェントループの
-1 ステップを実行・ストリーミングするためのプロトコル `AgentCapableClient` を定義する。
+An agent loop is a small amount of policy wrapped around a lot of transport. `LLMAgentStep`
+takes the transport half: given messages, tools and a model, it performs a single
+request/response step and reports what came back. Loop control, tool dispatch and history
+management stay outside, in an agent runtime.
 
-**AgentCapableClient**: このプロトコルを採用したプロバイダー実装は `executeAgentStep` と
-`streamAgentStep` を通じてエージェントループの単一ステップを実行する。
-ループ制御・ツール実行・履歴管理はエージェントランタイム（`swift-llm-agent` 等）が担い、
-このモジュールは純粋なステップ実行レイヤーに留まる。
+Keeping the step separate is what lets a runtime pause for confirmation, run tools in a sandbox,
+enforce a step budget, or replay a turn — none of which is possible if the loop is buried in the
+client.
 
-**StreamingAgentEvent**: ストリーミング実行では `AsyncThrowingStream<StreamingAgentEvent, Error>` が
-返される。`.delta(StreamDelta)` で thinking やテキストの差分をリアルタイムに受け取り、
-`.completed(LLMResponse)` でステップ完了時の完全なレスポンスを受け取る。
+**AgentCapableClient** defines `executeAgentStep` and `streamAgentStep`. A provider that
+implements only the former still conforms: `streamAgentStep` has a default implementation that
+calls `executeAgentStep` and emits its result as a single `.completed` event. That shim is
+convenient, but it means a stream from such a provider yields no `.delta` events at all — the
+call looks streaming and behaves as a blocking request. Check the provider before you build UI
+that depends on incremental output.
+
+**StreamingAgentEvent** is what a stream yields. `.delta(StreamDelta)` carries incremental text
+and reasoning output as it arrives; `.completed(LLMResponse)` carries the finished response,
+including any tool calls and the usage figures for the step. Only `.completed` has the whole
+picture — accumulate deltas for display, but drive loop decisions from the completed response.
 
 ```swift
 import LLMAgentStep
 import LLMTool
 
-// ストリーミングエージェントステップの実行例
 let stream = client.streamAgentStep(
     messages: messages,
     model: .claude(.sonnet),
@@ -37,22 +45,18 @@ let stream = client.streamAgentStep(
 for try await event in stream {
     switch event {
     case .delta(let delta):
-        // thinking / テキスト差分をリアルタイムに表示
+        // Show reasoning and text as they arrive.
         if case .textDelta(let text) = delta { print(text) }
     case .completed(let response):
-        // ステップ完了 — ツール呼び出しの有無を確認してループを継続するか判断
+        // Step finished. Tool calls here decide whether the loop continues.
         handleResponse(response)
     }
 }
 ```
 
-デフォルト実装として、`streamAgentStep` は `executeAgentStep` を内部で呼び出す
-シム実装が提供される。ストリーミングをネイティブに対応していないプロバイダーは
-このデフォルトをそのまま使用できる。
-
 ## Topics
 
-### エージェントステップ
+### Agent steps
 
 - ``AgentCapableClient``
 - ``StreamingAgentEvent``

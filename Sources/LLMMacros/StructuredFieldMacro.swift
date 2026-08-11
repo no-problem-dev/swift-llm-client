@@ -1,23 +1,24 @@
 import SwiftSyntax
 import SwiftSyntaxMacros
 
-/// `@StructuredField` マクロの実装
+/// Implements the `@StructuredField` marker macro.
 ///
-/// プロパティに JSON Schema メタデータを付与する peer マクロ。
-/// 実際の処理は `@Structured` マクロがプロパティを解析する際に行われる。
+/// It synthesizes nothing of its own. The description and constraints written on the attribute
+/// are read by `@Structured` while it walks the stored properties and builds `jsonSchema`.
+///
+/// Attached to anything other than a variable declaration, it throws
+/// `onlyApplicableToProperty`.
 public struct StructuredFieldMacro: PeerMacro {
     public static func expansion(
         of node: AttributeSyntax,
         providingPeersOf declaration: some DeclSyntaxProtocol,
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        // @StructuredField は変数宣言にのみ適用可能
         guard declaration.is(VariableDeclSyntax.self) else {
             throw StructuredFieldMacroError.onlyApplicableToProperty
         }
 
-        // このマクロ自体は何も生成しない
-        // メタデータは @Structured マクロが読み取る
+        // Nothing to emit: the metadata is read by @Structured.
         return []
     }
 }

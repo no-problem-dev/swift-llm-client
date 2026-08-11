@@ -2,88 +2,118 @@ import Foundation
 
 // MARK: - ProviderSchemaAdapter
 
-/// JSON Schema をプロバイダー固有の形式に適合させるプロトコル
+/// Reduces a schema to the subset one provider's endpoint will accept, and says what it took out.
 ///
-/// 各 LLM プロバイダー（Anthropic, OpenAI, Gemini）は JSON Schema の
-/// サポート範囲が異なる。このプロトコルを実装することで、
-/// 汎用的な JSON Schema をプロバイダー固有の制約に適合させることができる。
+/// No provider honours all of JSON Schema, and most reject the whole request when an unsupported
+/// keyword appears rather than ignoring it. A conformance carries one provider's rules, so the
+/// caller can declare the schema it actually wants and have it trimmed at the edge of the
+/// request. What gets trimmed is not lost: ``adaptWithConstraints(_:fieldPath:)`` returns each
+/// dropped keyword as a ``RemovedConstraint``, which turns into prompt text so the requirement
+/// still reaches the model — as an instruction it may disregard, rather than a rule the decoder
+/// enforces.
 ///
-/// ## 使用例
+/// ## What the shipped adapters keep
+///
+/// - Anthropic keeps `pattern`, every `format`, `additionalProperties` as written, and a
+///   `minItems` of 0 or 1. It drops the numeric bounds, the string lengths, `maxItems`, and any
+///   larger `minItems`.
+/// - OpenAI strict mode, and the OpenAI-compatible vendors on the same engine, keep none of the
+///   validation keywords. Every object is forced to `additionalProperties: false` and every
+///   property is listed in `required`, with the ones the caller left out marked nullable instead.
+/// - Gemini keeps `minItems`, `maxItems`, `minimum`, and `maximum`, and the `date-time`, `date`,
+///   and `time` formats. It drops the exclusive bounds, the string lengths, `pattern`, other
+///   formats, and `additionalProperties` outright.
+/// - `enum` survives everywhere, which is what makes it the sturdiest constraint to reach for.
+///
+/// ## Usage
 ///
 /// ```swift
-/// let schema = JSONSchema.object(
-///     properties: [
-///         "name": .string(minLength: 1, maxLength: 100),
-///         "age": .integer(minimum: 0, maximum: 150)
-///     ],
-///     required: ["name", "age"]
-/// )
-///
-/// // Anthropic 用に適合（制約情報付き）
-/// let anthropicAdapter = AnthropicSchemaAdapter()
-/// let result = anthropicAdapter.adaptWithConstraints(schema)
-/// let anthropicSchema = result.schema
-/// // 除去された制約を SystemPrompt に変換（RemovedConstraint+Prompt.swift）
-/// if let constraintPrompt = result.toConstraintSystemPrompt() {
-///     let finalSystemPrompt = systemPrompt + constraintPrompt
+/// func prepare(
+///     _ schema: JSONSchema,
+///     for adapter: some ProviderSchemaAdapter,
+///     systemPrompt: SystemPrompt
+/// ) -> (schema: JSONSchema, systemPrompt: SystemPrompt) {
+///     let result = adapter.adaptWithConstraints(schema)
+///     guard let constraints = result.toConstraintSystemPrompt() else {
+///         return (result.schema, systemPrompt)
+///     }
+///     return (result.schema, systemPrompt + constraints)
 /// }
-///
-/// // OpenAI 用に適合
-/// let openAIAdapter = OpenAISchemaAdapter()
-/// let openAIResult = openAIAdapter.adaptWithConstraints(schema)
 /// ```
 ///
-/// ## カスタム Adapter の実装
+/// ## Writing a conformance
 ///
 /// ```swift
 /// struct CustomProviderAdapter: ProviderSchemaAdapter {
 ///     func adapt(_ schema: JSONSchema) -> JSONSchema {
-///         // カスタム変換ロジック
+///         adaptWithConstraints(schema).schema
 ///     }
 ///
 ///     func adaptWithConstraints(_ schema: JSONSchema, fieldPath: String) -> SchemaAdaptationResult {
-///         // 制約追跡付きの変換ロジック
+///         // Strip what this provider rejects, recurse into properties and items, and return
+///         // the surviving schema alongside a RemovedConstraint for each keyword dropped.
 ///     }
 /// }
 /// ```
 public protocol ProviderSchemaAdapter: Sendable {
-    /// スキーマをプロバイダー固有の形式に適合させる
+    /// Reduces a schema to what the provider accepts, discarding the record of what was removed.
     ///
-    /// - Parameter schema: 元の JSON Schema
-    /// - Returns: プロバイダーに適合した JSON Schema
+    /// The caller gets a schema that will be accepted, and no way to learn what it no longer
+    /// says — a `pattern` or a `maximum` can vanish here without ever reaching the model in any
+    /// form. Prefer ``adaptWithConstraints(_:fieldPath:)`` whenever the removed constraints can
+    /// still be restated in the prompt. Converting a tool set to a provider's format goes through
+    /// this method, so constraints on tool parameters are the ones most likely to be lost.
+    ///
+    /// - Parameter schema: The schema as the caller declared it.
     func adapt(_ schema: JSONSchema) -> JSONSchema
 
-    /// スキーマをプロバイダー固有の形式に適合させ、除去された制約を追跡
+    /// Reduces a schema to what the provider accepts and reports every keyword it had to drop.
+    ///
+    /// The removals come back tagged with a dotted path to the field they applied to, so they can
+    /// be restated as sentences the model can act on. Callers normally use the no-argument
+    /// overload; the path argument is for recursing into a nested schema.
     ///
     /// - Parameters:
-    ///   - schema: 元の JSON Schema
-    ///   - fieldPath: 現在のフィールドパス（再帰呼び出し用）
-    /// - Returns: 適合結果（スキーマと除去された制約）
+    ///   - schema: The schema as the caller declared it.
+    ///   - fieldPath: The path prefix reported on removed constraints. Nested calls extend it
+    ///     with `.property` for a property and `[]` for an array element.
     func adaptWithConstraints(_ schema: JSONSchema, fieldPath: String) -> SchemaAdaptationResult
 }
 
 // MARK: - Default Implementation
 
 extension ProviderSchemaAdapter {
-    /// 制約追跡付き適合のデフォルト実装（ルートから開始）
+    /// Reduces a schema starting from the root, where reported paths are relative to the whole
+    /// response.
+    ///
+    /// A constraint removed at the root itself carries an empty path, which reads as "response"
+    /// once turned into prompt text.
+    ///
+    /// - Parameter schema: The schema as the caller declared it.
     public func adaptWithConstraints(_ schema: JSONSchema) -> SchemaAdaptationResult {
         adaptWithConstraints(schema, fieldPath: "")
     }
 
-    /// プロパティを再帰的に適合させる
+    /// Adapts each property of an object, for a conformance that handles one node at a time.
     ///
-    /// - Parameter properties: プロパティのディクショナリ
-    /// - Returns: 適合されたプロパティのディクショナリ
+    /// Constraints removed from the properties are discarded along with everything else
+    /// ``adapt(_:)`` drops; use ``adaptPropertiesWithConstraints(_:parentPath:)`` to keep them.
+    ///
+    /// - Parameter properties: The properties to adapt, or nil for a node that has none.
     public func adaptProperties(_ properties: [String: JSONSchema]?) -> [String: JSONSchema]? {
         properties?.mapValues { adapt($0) }
     }
 
-    /// プロパティを再帰的に適合させ、除去された制約を収集
+    /// Adapts each property of an object and gathers the constraints removed anywhere beneath it.
+    ///
+    /// Paths are built as the walk descends, so a bound removed from the elements of a nested
+    /// array is reported as `user.tags[]` rather than as a bare keyword name.
     ///
     /// - Parameters:
-    ///   - properties: プロパティのディクショナリ
-    ///   - parentPath: 親フィールドのパス
-    /// - Returns: 適合されたプロパティと除去された制約
+    ///   - properties: The properties to adapt, or nil for a node that has none.
+    ///   - parentPath: The path of the object these properties belong to. Pass an empty string at
+    ///     the root.
+    /// - Returns: The adapted properties, and every constraint removed from them.
     public func adaptPropertiesWithConstraints(
         _ properties: [String: JSONSchema]?,
         parentPath: String
@@ -103,20 +133,25 @@ extension ProviderSchemaAdapter {
         return (adaptedProperties, allConstraints)
     }
 
-    /// items を再帰的に適合させる
+    /// Adapts the element schema of an array, unwrapping the box it is stored in.
     ///
-    /// - Parameter items: 配列要素のスキーマ（Box でラップされている）
-    /// - Returns: 適合された配列要素のスキーマ
+    /// Constraints removed from the element type are discarded; use
+    /// ``adaptItemsWithConstraints(_:parentPath:)`` to keep them.
+    ///
+    /// - Parameter items: The boxed element schema, or nil for a node that is not an array.
     public func adaptItems(_ items: Box<JSONSchema>?) -> JSONSchema? {
         items.map { adapt($0.value) }
     }
 
-    /// items を再帰的に適合させ、除去された制約を収集
+    /// Adapts the element schema of an array and gathers the constraints removed from it.
+    ///
+    /// The element type has no name of its own, so its removals are reported under the array's
+    /// path with `[]` appended.
     ///
     /// - Parameters:
-    ///   - items: 配列要素のスキーマ（Box でラップされている）
-    ///   - parentPath: 親フィールドのパス
-    /// - Returns: 適合されたスキーマと除去された制約
+    ///   - items: The boxed element schema, or nil for a node that is not an array.
+    ///   - parentPath: The path of the array itself.
+    /// - Returns: The adapted element schema, and every constraint removed from it.
     public func adaptItemsWithConstraints(
         _ items: Box<JSONSchema>?,
         parentPath: String

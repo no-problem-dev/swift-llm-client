@@ -3,30 +3,31 @@ import LLMClient
 
 // MARK: - ChatResponse
 
-/// 会話レスポンス（構造化出力 + 会話継続に必要な情報）
+/// One turn's result: the decoded value plus everything the turn after it needs.
 ///
-/// このレスポンス型は、構造化出力のデコード結果に加えて、
-/// 会話を継続するために必要なメタ情報を提供する。
+/// The decoded value is only half of what a conversation needs. The other half is
+/// `assistantMessage`, which has to reach the history before the next request goes out; forget it
+/// and later turns are answered as though the model had never replied.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let client = AnthropicClient(apiKey: "...")
 /// var history: [LLMMessage] = []
 ///
-/// // 最初の質問
-/// history.append(.user("日本の首都はどこですか？"))
+/// // First question.
+/// history.append(.user("What is the capital of Japan?"))
 /// let response1: ChatResponse<CityInfo> = try await client.chat(
 ///     messages: history,
 ///     model: .sonnet
 /// )
-/// print(response1.result.name)  // "東京"
+/// print(response1.result.name)  // "Tokyo"
 ///
-/// // アシスタント応答を履歴に追加
+/// // Append the assistant reply to the history.
 /// history.append(response1.assistantMessage)
 ///
-/// // 続けて質問
-/// history.append(.user("その都市の人口は？"))
+/// // Follow-up question.
+/// history.append(.user("What is that city's population?"))
 /// let response2: ChatResponse<PopulationInfo> = try await client.chat(
 ///     messages: history,
 ///     model: .sonnet
@@ -34,51 +35,53 @@ import LLMClient
 /// print(response2.result.population)  // 13960000
 /// ```
 public struct ChatResponse<T: StructuredProtocol>: Sendable {
-    /// デコード済み構造化出力
-    ///
-    /// リクエストで指定した `StructuredProtocol` 準拠の型にデコードされた結果。
+    /// The model's JSON parsed into the result type the call named.
     public let result: T
 
-    /// アシスタントの応答メッセージ
+    /// The model's reply as a message, ready to be appended to the conversation history.
     ///
-    /// 会話履歴に追加するためのメッセージ。
-    /// `messages` 配列に直接追加して次のリクエストで使用できる。
+    /// Appending it is what makes the next turn a continuation rather than a fresh start. Nothing
+    /// checks that it was appended, so an omission shows up only as a model that has forgotten
+    /// what it just said.
     public let assistantMessage: LLMMessage
 
-    /// トークン使用量
+    /// What this one request consumed, not a running total across the conversation.
     ///
-    /// このリクエストで消費された入力/出力トークン数。
-    /// 複数ターンの会話全体でのコスト管理に使用できる。
+    /// The input count covers the whole history that was resent, cached tokens included, so it
+    /// climbs from turn to turn even when the new question is short. Add these up yourself, or let
+    /// a conversation history do it, to cost a whole conversation.
     public let usage: TokenUsage
 
-    /// 停止理由
+    /// Why the model stopped generating, or nil when the provider did not say.
     ///
-    /// モデルが生成を停止した理由。
-    /// 通常は `.endTurn`（正常終了）または `.maxTokens`（トークン上限到達）。
+    /// `.maxTokens` means the output was cut off at the ceiling. Truncated JSON usually fails to
+    /// decode before this value is ever seen, so treat it as the explanation for a decoding
+    /// failure rather than as a check to run on a successful result.
     public let stopReason: LLMResponse.StopReason?
 
-    /// 使用されたモデルID
+    /// The model identifier the provider actually served.
     ///
-    /// 実際に使用されたモデルの識別子。
+    /// A provider may resolve an alias to a dated build, so this can differ from the model that
+    /// was asked for. It is the identifier to record when attributing cost.
     public let model: String
 
-    /// 生のJSONテキスト
+    /// The raw JSON text the model returned, before decoding.
     ///
-    /// モデルから返された構造化出力の生のJSON文字列。
-    /// デバッグやログ記録に使用できる。
+    /// Worth logging when a decode fails or a field arrives empty, since it is the only view of
+    /// what the model actually produced.
     public let rawText: String
 
     // MARK: - Initializer
 
-    /// ChatResponse を初期化
+    /// Creates a chat response.
     ///
     /// - Parameters:
-    ///   - result: デコード済み構造化出力
-    ///   - assistantMessage: アシスタントの応答メッセージ
-    ///   - usage: トークン使用量
-    ///   - stopReason: 停止理由
-    ///   - model: 使用されたモデルID
-    ///   - rawText: 生のJSONテキスト
+    ///   - result: The decoded value.
+    ///   - assistantMessage: The model's reply as a message for the history.
+    ///   - usage: What this one request consumed.
+    ///   - stopReason: Why the model stopped, or nil when the provider did not say.
+    ///   - model: The model identifier the provider actually served.
+    ///   - rawText: The raw JSON text the model returned.
     public init(
         result: T,
         assistantMessage: LLMMessage,

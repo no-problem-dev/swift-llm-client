@@ -2,27 +2,33 @@ import Foundation
 
 // MARK: - Pricing
 
-/// モデルのコスト構造（USD 建て / 1M tokens）。
+/// What a model charges, in US dollars per million tokens.
 ///
-/// 通貨型は `Money<USD>` を使用し、料金単価そのものは Double で保持。
-/// 計算結果のみ `Money<USD>` でラップして上位レイヤに渡す。
+/// The rates themselves are plain doubles; only a computed amount is wrapped in a currency type
+/// before it goes up to the layers above.
 public struct Pricing: Sendable, Hashable, Codable {
-    /// 入力サイズに応じた価格 tier（小→大の順）。
-    /// 通常は 1 要素。Gemini 2.5/3.1 Pro のような context-tiered モデルで複数要素。
+    /// Price tiers ordered from the smallest input size upward.
+    ///
+    /// Usually a single entry. Context-tiered models such as Gemini 2.5 and 3.1 Pro have several,
+    /// and get more expensive once the prompt passes a threshold.
     public let tiers: [PricingTier]
 
-    /// キャッシュ読み出し（hit）の単価。`nil` の場合はキャッシュ非対応モデル。
+    /// Rate for input tokens served from the prompt cache. Nil when the model has no prompt caching.
     public let cacheReadPerMTok: Double?
 
-    /// 短期 TTL キャッシュ書込み単価。
-    /// Anthropic = 5m write、OpenAI / Gemini は明示的な書込課金がないため通常 `nil`。
+    /// Rate for writing into the short-lifetime cache.
+    ///
+    /// Anthropic charges this for a 5-minute write. OpenAI and Gemini bill no separate write, so it
+    /// is usually nil for them.
     public let cacheWriteShortPerMTok: Double?
 
-    /// 長期 TTL キャッシュ書込み単価（Anthropic 1h のみ）。
+    /// Rate for writing into the long-lifetime cache, which only Anthropic's 1-hour cache uses.
     public let cacheWriteLongPerMTok: Double?
 
-    /// reasoning トークンの単価。
-    /// `nil` の場合は output と同じ単価で課金（OpenAI o-series, Gemini Flash thinking など）。
+    /// Rate for reasoning tokens.
+    ///
+    /// Nil where reasoning is billed at the plain output rate, as with OpenAI's o-series and Gemini
+    /// Flash thinking.
     public let reasoningPerMTok: Double?
 
     public init(
@@ -44,7 +50,7 @@ public struct Pricing: Sendable, Hashable, Codable {
         self.reasoningPerMTok = reasoningPerMTok
     }
 
-    /// 単一 tier モデル用の便利初期化子。
+    /// Creates a price sheet for a model that charges one rate whatever the prompt size.
     public static func flat(
         inputPerMTok: Double,
         outputPerMTok: Double,
@@ -64,7 +70,11 @@ public struct Pricing: Sendable, Hashable, Codable {
         )
     }
 
-    /// 与えられた入力トークン数に該当する tier を返す。
+    /// Returns the tier that applies to a prompt of the given size.
+    ///
+    /// The first tier whose cap covers the count wins; the last tier answers everything above them.
+    ///
+    /// - Parameter tokens: Total input tokens of the request, cached tokens included.
     @inlinable
     public func tier(forInputTokens tokens: Int) -> PricingTier {
         for tier in tiers {
@@ -81,7 +91,9 @@ public struct Pricing: Sendable, Hashable, Codable {
 // MARK: - PricingTier
 
 public struct PricingTier: Sendable, Hashable, Codable {
-    /// この tier が適用される入力トークン数の上限（含む）。`nil` = 上限なし。
+    /// Largest input size this tier covers, inclusive.
+    ///
+    /// Nil makes the tier unbounded, which only the last tier of a price sheet is allowed to be.
     public let upToInputTokens: Int?
     public let inputPerMTok: Double
     public let outputPerMTok: Double

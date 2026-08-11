@@ -2,34 +2,32 @@ import Foundation
 
 // MARK: - NamedSchema
 
-/// 名前付きスキーマ
+/// A schema together with the property name it is bound to and whether the model has to fill it in.
 ///
-/// `JSONSchema` に名前と必須情報を付加した型。
-/// `DynamicStructured` のフィールド定義や `DynamicTool` のパラメータ定義として使用する。
-///
-/// ## 使用例
+/// It is the unit the ``SchemaFieldBuilder`` DSL collects: a list of these becomes an object
+/// schema through `JSONSchema.object(fields:)`, which is how a dynamic tool declares the
+/// parameters it accepts.
 ///
 /// ```swift
-/// let field = JSONSchema.string(description: "ユーザー名")
+/// let field = JSONSchema.string(description: "Display name")
 ///     .named("name")
-///     .required()
 /// ```
 public struct NamedSchema: Sendable {
-    /// フィールド名
+    /// The property name the model sees.
     public let name: String
 
-    /// JSON Schema 定義
+    /// What the value has to look like.
     public let schema: JSONSchema
 
-    /// 必須フィールドかどうか
+    /// Whether the name goes into the object's required list.
     public let isRequired: Bool
 
-    /// 初期化
+    /// Creates a named field.
     ///
     /// - Parameters:
-    ///   - name: フィールド名
-    ///   - schema: JSON Schema 定義
-    ///   - isRequired: 必須フィールドかどうか（デフォルト: true）
+    ///   - name: The property name the model sees.
+    ///   - schema: What the value has to look like.
+    ///   - isRequired: Whether the name goes into the object's required list.
     public init(name: String, schema: JSONSchema, isRequired: Bool = true) {
         self.name = name
         self.schema = schema
@@ -40,16 +38,18 @@ public struct NamedSchema: Sendable {
 // MARK: - Modifiers
 
 extension NamedSchema {
-    /// 必須フィールドとしてマーク
+    /// Returns the field marked as one the model has to fill in.
     ///
-    /// - Returns: 必須フィールドとしてマークされた NamedSchema
+    /// Fields are already required by default, so this only undoes an earlier `optional()`.
     public func required() -> NamedSchema {
         NamedSchema(name: name, schema: schema, isRequired: true)
     }
 
-    /// オプショナルフィールドとしてマーク
+    /// Returns the field marked as one the model may leave out.
     ///
-    /// - Returns: オプショナルフィールドとしてマークされた NamedSchema
+    /// The name is kept out of the object's required list. Under a provider whose strict mode
+    /// admits no optional property, the adapter puts the name back into the list and makes the
+    /// value nullable instead, so what the model may omit becomes a value it may return as null.
     public func optional() -> NamedSchema {
         NamedSchema(name: name, schema: schema, isRequired: false)
     }
@@ -57,9 +57,9 @@ extension NamedSchema {
 
 // MARK: - SchemaFieldBuilder Support
 
-/// `SchemaFieldBuilder` で使用可能な型のプロトコル
+/// Anything the schema field DSL can accept as one of its statements.
 public protocol NamedSchemaConvertible: Sendable {
-    /// NamedSchema に変換
+    /// Returns the field this value stands for.
     func asNamedSchema() -> NamedSchema
 }
 

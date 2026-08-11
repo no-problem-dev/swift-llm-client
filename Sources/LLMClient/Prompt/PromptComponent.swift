@@ -2,216 +2,211 @@ import Foundation
 
 // MARK: - PromptComponent
 
-/// プロンプトを構成する要素
+/// One tagged section of a system prompt.
 ///
-/// DSL を使用して、様々なプロンプトエンジニアリング技法を
-/// 自由に組み合わせてプロンプトを構築できる。
+/// The DSL exists so that established prompt-engineering techniques can be mixed freely instead of
+/// being spelled out as one long string. Each case renders as an XML-style element whose tag name
+/// is fixed by the case, and the model sees those tags verbatim.
 ///
-/// ## 使用例
+/// Two things reach the model that a caller might mistake for formatting. The tag name is one; the
+/// order the cases are written in is the other. Reordering a prompt is a behavior change, not a
+/// cosmetic one. Repeating a case emits a separate element each time — nothing merges or dedupes.
+///
+/// ## Example
 ///
 /// ```swift
 /// let prompt = SystemPrompt {
-///     PromptComponent.role("データ分析の専門家")
-///     PromptComponent.objective("テキストから情報を抽出する")
-///     PromptComponent.instruction("名前は敬称を除いて抽出")
-///     PromptComponent.constraint("推測はしない")
+///     PromptComponent.role("Data analysis expert")
+///     PromptComponent.objective("Extract information from text")
+///     PromptComponent.instruction("Strip honorifics from names")
+///     PromptComponent.constraint("Never guess")
 /// }
 /// ```
 ///
-/// ## カテゴリ
+/// ## Categories
 ///
-/// - **ペルソナ系**: `role`, `expertise`, `behavior`
-/// - **タスク定義系**: `objective`, `context`, `instruction`, `constraint`
-/// - **思考誘導系 (Chain-of-Thought)**: `thinkingStep`, `reasoning`
-/// - **例示系 (Few-shot)**: `example`
-/// - **メタ指示系**: `important`, `note`
+/// - **Persona**: `role`, `expertise`, `behavior`
+/// - **Task definition**: `objective`, `context`, `instruction`, `constraint`
+/// - **Chain-of-thought**: `thinkingStep`, `reasoning`
+/// - **Few-shot**: `example`
+/// - **Meta**: `important`, `note`
 public enum PromptComponent: Sendable, Equatable, Codable {
 
-    // MARK: - ペルソナ系
+    // MARK: - Persona
 
-    /// 役割を定義
+    /// The role the model answers from.
     ///
-    /// LLM に特定の役割を与えることで、その視点からの回答を促す。
+    /// A role makes the model answer from that perspective. Use it for the identity only; the
+    /// domain knowledge belongs in `expertise` and the tone in `behavior`.
     ///
-    /// - Parameter value: 役割の説明
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.role("経験豊富な Swift エンジニア")
+    /// PromptComponent.role("Seasoned Swift engineer")
     /// ```
     case role(String)
 
-    /// 専門性を定義
+    /// The specialist knowledge that comes with the role.
     ///
-    /// 役割に付随する専門知識やスキルを指定する。
+    /// Write one element per area rather than a single sentence listing them; each call emits its
+    /// own tag, which the model reads as separate claims.
     ///
-    /// - Parameter value: 専門性の説明
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.expertise("iOS アプリ開発")
-    /// PromptComponent.expertise("パフォーマンス最適化")
+    /// PromptComponent.expertise("iOS app development")
+    /// PromptComponent.expertise("Performance tuning")
     /// ```
     case expertise(String)
 
-    /// 振る舞いを定義
+    /// The manner the answers should take.
     ///
-    /// 回答のスタイルや態度を指定する。
+    /// Style and attitude, not content. Use it when the answer is right but reads wrong.
     ///
-    /// - Parameter value: 振る舞いの説明
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.behavior("簡潔かつ実用的なアドバイスを提供する")
+    /// PromptComponent.behavior("Give concise, practical advice")
     /// ```
     case behavior(String)
 
-    // MARK: - タスク定義系
+    // MARK: - Task definition
 
-    /// タスクの目的を定義
+    /// The goal the prompt is aiming at.
     ///
-    /// プロンプトの主要な目的やゴールを明示する。
+    /// State the outcome rather than the steps; the steps belong in `instruction`.
     ///
-    /// - Parameter value: 目的の説明
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.objective("ユーザー情報をJSON形式で抽出する")
+    /// PromptComponent.objective("Extract user information as JSON")
     /// ```
     case objective(String)
 
-    /// コンテキストを提供
+    /// The background the task sits in.
     ///
-    /// タスクに関連する背景情報や状況を説明する。
+    /// Describes the situation and the shape of the input. This is also the case a bare string
+    /// literal turns into, so a prompt written as a plain string arrives at the model wrapped in a
+    /// context element.
     ///
-    /// - Parameter value: コンテキストの説明
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.context("入力は日本語のSNS投稿文です")
+    /// PromptComponent.context("The input is a social media post written in Japanese")
     /// ```
     case context(String)
 
-    /// 具体的な指示を追加
+    /// A concrete step for carrying the task out.
     ///
-    /// タスクを遂行するための具体的な手順や方法を指定する。
+    /// One action per element. Instructions say what to do; `constraint` says what not to do, and
+    /// models follow the two more reliably when they are kept apart.
     ///
-    /// - Parameter value: 指示の内容
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.instruction("名前は敬称（さん、様など）を除いて抽出する")
-    /// PromptComponent.instruction("年齢は数値のみ抽出する")
+    /// PromptComponent.instruction("Strip honorifics such as Mr. or Ms. from names")
+    /// PromptComponent.instruction("Extract ages as bare numbers")
     /// ```
     case instruction(String)
 
-    /// 制約条件を追加
+    /// A limit or prohibition on the answer.
     ///
-    /// 回答に対する制限や禁止事項を指定する。
+    /// Business rules, not schema rules — a numeric range or an array length belongs in
+    /// `outputConstraint`, which the schema layer generates.
     ///
-    /// - Parameter value: 制約の内容
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.constraint("推測はしない")
-    /// PromptComponent.constraint("明示的に記載された情報のみ使用する")
+    /// PromptComponent.constraint("Never guess")
+    /// PromptComponent.constraint("Use only information stated explicitly")
     /// ```
     case constraint(String)
 
-    // MARK: - 思考誘導系 (Chain-of-Thought)
+    // MARK: - Chain-of-thought
 
-    /// 思考ステップを定義
+    /// A step in the reasoning the model should follow.
     ///
-    /// Chain-of-Thought プロンプティングで、
-    /// LLM に特定の思考プロセスを促す。
+    /// Chain-of-thought prompting: naming the steps shapes how the model reaches its answer. It
+    /// shapes the process, not the output — under structured output there is nowhere for a visible
+    /// trace to go, and with a model that already produces its own reasoning tokens this mostly
+    /// adds input tokens for little gain.
     ///
-    /// - Parameter value: 思考ステップの説明
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.thinkingStep("まずテキスト内の人名を特定する")
-    /// PromptComponent.thinkingStep("次に年齢に関する記述を探す")
+    /// PromptComponent.thinkingStep("First identify the personal names in the text")
+    /// PromptComponent.thinkingStep("Then look for any mention of age")
     /// ```
     case thinkingStep(String)
 
-    /// 推論の根拠を説明
+    /// Why the task is done the way it is.
     ///
-    /// なぜそのような処理をするのかの理由を説明する。
-    /// LLM の汎化能力を向上させる。
+    /// Stating the reason behind a rule helps the model generalize it to inputs the instructions
+    /// never covered, instead of applying it literally.
     ///
-    /// - Parameter value: 推論の説明
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.reasoning("敬称を除くのは、データベースの正規化のためです")
+    /// PromptComponent.reasoning("Honorifics are stripped so the values normalize in the database")
     /// ```
     case reasoning(String)
 
-    // MARK: - 例示系 (Few-shot)
+    // MARK: - Few-shot
 
-    /// 入出力の例を提供
+    /// A worked input and the output expected for it.
     ///
-    /// Few-shot プロンプティングで、
-    /// 期待する入出力パターンを例示する。
+    /// Few-shot prompting, and usually the fastest fix for output that is nearly right. Examples
+    /// are rendered inline into the system prompt, so they are charged as input tokens on every
+    /// request: a fixed set is worth caching, while examples rebuilt per request keep the provider
+    /// from reusing a cached prefix.
     ///
     /// - Parameters:
-    ///   - input: 入力例
-    ///   - output: 期待する出力例
+    ///   - input: The sample input.
+    ///   - output: The output the model should produce for it.
     ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// PromptComponent.example(
-    ///     input: "佐藤花子さん（28）は東京在住",
-    ///     output: #"{"name": "佐藤花子", "age": 28}"#
+    ///     input: "Hanako Sato (28) lives in Tokyo",
+    ///     output: #"{"name": "Hanako Sato", "age": 28}"#
     /// )
     /// ```
     case example(input: String, output: String)
 
-    // MARK: - メタ指示系
+    // MARK: - Meta
 
-    /// 重要事項を強調
+    /// A point to be weighted above the rest.
     ///
-    /// 特に重要な指示や注意点を強調する。
+    /// Reserve it for the one or two rules that must not be missed; emphasizing everything
+    /// emphasizes nothing.
     ///
-    /// - Parameter value: 重要事項の内容
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.important("不明な情報は必ず null を返してください")
+    /// PromptComponent.important("Always return null for information you do not have")
     /// ```
     case important(String)
 
-    /// 補足情報を追加
+    /// A supplementary hint.
     ///
-    /// 補足的な情報やヒントを提供する。
+    /// Edge cases and quirks of the input that are worth knowing but do not change the task.
     ///
-    /// - Parameter value: 補足の内容
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
-    /// PromptComponent.note("西暦と和暦が混在している場合があります")
+    /// PromptComponent.note("Dates may be written in either the Western or the Japanese era")
     /// ```
     case note(String)
 
-    // MARK: - 出力制約系
+    // MARK: - Output constraints
 
-    /// 出力値の制約（スキーマ由来）
+    /// A schema rule restated for the model in words.
     ///
-    /// JSON Schema でサポートされていない制約を自然言語で指定する。
-    /// 主に内部で自動生成するが、手動で追加することもできる。
+    /// Providers accept different subsets of JSON Schema, and a schema adapter strips the keywords
+    /// its provider rejects. This case is where those dropped keywords land, so it is usually
+    /// generated rather than written by hand — see `RemovedConstraint.toPromptComponent()`. Nothing
+    /// validates against it: once the keyword is out of the schema, the sentence is the only thing
+    /// left asking for it.
     ///
-    /// - Parameter value: 制約の説明
-    ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// PromptComponent.outputConstraint("The 'age' field must be at least 0.")
     /// PromptComponent.outputConstraint("The 'tags' array must have at most 5 item(s).")
     /// ```
     ///
-    /// ## ユーザー定義の constraint との違い
+    /// ## How it differs from a constraint
     ///
-    /// - `constraint`: ビジネスロジック的な制約（「推測はしない」など）
-    /// - `outputConstraint`: 出力値の技術的な制約（数値範囲、配列長など）
+    /// - `constraint`: a business rule, such as never guessing
+    /// - `outputConstraint`: a technical bound on the value, such as a numeric range or array length
     case outputConstraint(String)
 }
 
@@ -219,7 +214,12 @@ public enum PromptComponent: Sendable, Equatable, Codable {
 
 extension PromptComponent {
 
-    /// XML タグ名を取得
+    /// The XML tag this case renders as.
+    ///
+    /// Part of the prompt contract, not a display detail: the model is trained on what these tags
+    /// delimit, so a different name is a different prompt. Two names are not derivable from the
+    /// case — `thinkingStep` renders as `thinking_step` and `outputConstraint` as
+    /// `output_constraint`. Those are the strings to pass to `SystemPrompt.components(withTag:)`.
     public var tagName: String {
         switch self {
         case .role: return "role"
@@ -238,7 +238,10 @@ extension PromptComponent {
         }
     }
 
-    /// コンテンツのプレビュー（UI表示用）
+    /// The text without its tags, for showing in a UI.
+    ///
+    /// Not what the model receives. An example collapses onto one line joined by an arrow here,
+    /// whereas rendering puts the input and the output on separate lines.
     public var contentPreview: String {
         switch self {
         case .role(let value),
@@ -260,10 +263,11 @@ extension PromptComponent {
         }
     }
 
-    /// プロンプトコンポーネントを疑似 XML タグでレンダリングする。
+    /// Renders the component as a pseudo-XML element.
     ///
-    /// プロンプトのタグは構文ではなく区切り記法のため、内容は一切エスケープしない。
-    /// プリレンダ済みのタグ・JSON・コード片をそのまま埋め込める。
+    /// Prompt tags are a delimiting convention rather than real syntax, so the content is never
+    /// escaped. Pre-rendered tags, JSON, and code fragments can be embedded as they are — and by
+    /// the same token, a value that happens to contain a closing tag will break the delimiting.
     public func render() -> String {
         switch self {
         case .role(let value),

@@ -3,16 +3,21 @@ import LLMClient
 
 // MARK: - ContextReport
 
-/// 1 エージェント（host または各サブエージェント A2）のコンテキストウィンドウ状況。
+/// How full one agent's context window is, and optionally what is filling it.
 ///
-/// - `occupancy`: `usage` から正確・無料・即時に出るライブ占有（常時表示）。
-/// - `breakdown`: `count_tokens` 差分減算によるカテゴリ別内訳（オンデマンド・キャッシュ）。
+/// The two figures come from different places and are not interchangeable. Occupancy is exact and
+/// free, taken from usage the provider already reported. The breakdown is measured on demand and
+/// is an approximation, so treat it as an explanation of the occupancy rather than a second
+/// opinion on it: the two need not agree to the token.
 public struct ContextReport: Sendable {
 
-    /// ライブ占有メーター（(i) 正確・即時）。
+    /// How much of the window is in use, always available and exact.
     public let occupancy: ContextOccupancy
 
-    /// カテゴリ別内訳（(ii) オンデマンド）。未取得なら `nil`。
+    /// What the window is filled with, or nil until a breakdown has been measured.
+    ///
+    /// Measuring costs token-counting requests, so it stays nil until someone asks for it, and
+    /// once measured it ages: the occupancy beside it moves every turn while this does not.
     public var breakdown: SegmentBreakdown?
 
     public init(occupancy: ContextOccupancy, breakdown: SegmentBreakdown? = nil) {

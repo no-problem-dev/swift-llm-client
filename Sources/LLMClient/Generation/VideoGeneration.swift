@@ -1,51 +1,52 @@
 // VideoGeneration.swift
 // swift-llm-client
 //
-// 動画生成機能のプロトコルと関連型
+// Protocols and supporting types for video generation.
 
 import Foundation
 
 // MARK: - VideoGenerationCapable Protocol
 
-/// 動画生成機能を持つクライアントのプロトコル
+/// A client that can generate video from a prompt.
 ///
-/// 動画生成は非同期ジョブとして処理される。
-/// ジョブを開始し、ステータスをポーリングして完了を待つ。
+/// Rendering takes minutes, so it runs as a job rather than a single request: start it, poll the
+/// status until it settles, then fetch the video. The `generateVideo(input:model:...)` convenience
+/// runs that loop for you.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
-/// // 動画生成ジョブを開始
+/// // Start the render.
 /// let job = try await client.startVideoGeneration(
 ///     input: "A cat playing with a ball in slow motion",
 ///     model: .sora2
 /// )
 ///
-/// // ステータスをポーリング
+/// // Poll until the job settles.
 /// var currentJob = job
 /// while !currentJob.status.isTerminal {
-///     try await Task.sleep(nanoseconds: 5_000_000_000)  // 5秒
+///     try await Task.sleep(nanoseconds: 5_000_000_000)  // 5 seconds
 ///     currentJob = try await client.checkVideoStatus(currentJob)
 /// }
 ///
-/// // 動画を取得
+/// // Fetch the video.
 /// if currentJob.status.isSuccessful {
 ///     let video = try await client.getGeneratedVideo(currentJob)
 ///     try video.save(to: URL(fileURLWithPath: "output.mp4"))
 /// }
 /// ```
 public protocol VideoGenerationCapable<VideoModel>: Sendable {
-    /// 動画生成で使用可能なモデル型
+    /// The catalog of video models this client accepts.
     associatedtype VideoModel: Sendable
 
-    /// 動画生成ジョブを開始
+    /// Starts a render and returns straight away, without waiting for it.
     ///
     /// - Parameters:
-    ///   - input: LLM 入力（プロンプトテキスト）
-    ///   - model: 使用する動画生成モデル
-    ///   - duration: 動画の長さ（秒）
-    ///   - aspectRatio: アスペクト比
-    ///   - resolution: 解像度
-    /// - Returns: 生成ジョブ
+    ///   - input: The prompt to render.
+    ///   - model: The video model to call.
+    ///   - duration: Clip length in seconds. Only the lengths in the model's supported list work.
+    ///   - aspectRatio: Frame shape. Nil leaves the choice to the provider's default.
+    ///   - resolution: Output resolution, which the model may cap.
+    /// - Returns: A job to poll. No video is available yet.
     func startVideoGeneration(
         input: LLMInput,
         model: VideoModel,
@@ -54,25 +55,29 @@ public protocol VideoGenerationCapable<VideoModel>: Sendable {
         resolution: VideoResolution?
     ) async throws -> VideoGenerationJob
 
-    /// 動画生成ジョブのステータスを確認
+    /// Polls the provider for a job's current status.
     ///
-    /// - Parameter job: 確認するジョブ
-    /// - Returns: 更新されたジョブ
+    /// - Parameter job: The job to poll.
+    /// - Returns: A fresh snapshot. The value passed in is left untouched.
     func checkVideoStatus(_ job: VideoGenerationJob) async throws -> VideoGenerationJob
 
-    /// 生成された動画を取得
+    /// Downloads the finished video.
     ///
-    /// ジョブが完了（`status == .completed`）している場合のみ動画を取得できる。
+    /// Only a job whose status is `completed` has a video to fetch. Asking earlier is the case
+    /// `VideoGenerationError.jobNotCompleted` reports.
     ///
-    /// - Parameter job: 完了したジョブ
-    /// - Returns: 生成された動画
+    /// - Parameter job: A job that has finished successfully.
+    /// - Returns: The generated video.
     func getGeneratedVideo(_ job: VideoGenerationJob) async throws -> GeneratedVideo
 }
 
 // MARK: - Default Implementations
 
 extension VideoGenerationCapable {
-    /// 動画生成ジョブを開始（デフォルト引数付き）
+    /// Starts a render, filling in defaults for the duration, aspect ratio, and resolution.
+    ///
+    /// It exists only to supply those defaults and forwards to the conforming type's own
+    /// implementation.
     public func startVideoGeneration(
         input: LLMInput,
         model: VideoModel,
@@ -89,17 +94,21 @@ extension VideoGenerationCapable {
         )
     }
 
-    /// 動画生成を実行し完了まで待機
+    /// Starts a render and waits for it, polling until the job settles.
+    ///
+    /// Every settled outcome that is not a finished video throws: a failed render, a cancelled one,
+    /// and the timeout elapsing. Giving up on the timeout only stops the polling — the render
+    /// carries on at the provider.
     ///
     /// - Parameters:
-    ///   - input: LLM 入力（プロンプトテキスト）
-    ///   - model: 使用する動画生成モデル
-    ///   - duration: 動画の長さ（秒）
-    ///   - aspectRatio: アスペクト比
-    ///   - resolution: 解像度
-    ///   - pollingInterval: ポーリング間隔（秒、デフォルト: 5）
-    ///   - timeout: タイムアウト（秒、デフォルト: 600）
-    /// - Returns: 生成された動画
+    ///   - input: The prompt to render.
+    ///   - model: The video model to call.
+    ///   - duration: Clip length in seconds. Only the lengths in the model's supported list work.
+    ///   - aspectRatio: Frame shape. Nil leaves the choice to the provider's default.
+    ///   - resolution: Output resolution, which the model may cap.
+    ///   - pollingInterval: Seconds to wait between status checks.
+    ///   - timeout: Seconds to keep polling before throwing.
+    /// - Returns: The generated video.
     public func generateVideo(
         input: LLMInput,
         model: VideoModel,
@@ -143,27 +152,25 @@ extension VideoGenerationCapable {
 
 // MARK: - OpenAI Video Models
 
-/// OpenAI 動画生成モデル（Sora 2）
+/// The OpenAI video generation models.
 ///
-/// Sora 2 は OpenAI の第2世代動画生成モデル。
-/// 2025年9月リリース。API 経由で利用可能。
+/// Sora 2 is OpenAI's second-generation video model, released in September 2025 and reachable
+/// through the API.
 public enum OpenAIVideoModel: String, Sendable, Codable, CaseIterable, Equatable {
-    /// Sora 2（標準版・高速）
+    /// Sora 2, the faster standard tier.
     ///
-    /// 高速な生成が可能で、プロトタイプやソーシャルメディア向けに最適。
-    /// 解像度: 720p (1280x720)
+    /// Suited to prototypes and social media. It renders at 720p (1280x720) and nothing higher.
     case sora2 = "sora-2"
 
-    /// Sora 2 Pro（高品質版）
+    /// Sora 2 Pro, the higher-quality tier.
     ///
-    /// より高品質な出力を生成。本番環境やマーケティング向けに最適。
-    /// 解像度: 1080p (1792x1024)
+    /// Suited to production and marketing work. It renders at 720p or 1080p (1792x1024) and
+    /// defaults to 1080p.
     case sora2Pro = "sora-2-pro"
 
-    /// モデル ID
+    /// The identifier sent to the API.
     public var id: String { rawValue }
 
-    /// 表示名
     public var displayName: String {
         switch self {
         case .sora2: return "Sora 2"
@@ -171,20 +178,20 @@ public enum OpenAIVideoModel: String, Sendable, Codable, CaseIterable, Equatable
         }
     }
 
-    /// サポートされる動画長オプション（秒）
+    /// The clip lengths in seconds the model accepts. Nothing in between them works.
     public var supportedDurations: [Int] {
         [4, 8, 12]
     }
 
-    /// サポートされる最大動画長（秒）
+    /// The longest clip the model renders, in seconds.
     public var maxDuration: Int { 12 }
 
-    /// サポートされるアスペクト比
+    /// The aspect ratios the model accepts, which are 16:9 and its portrait counterpart only.
     public var supportedAspectRatios: [VideoAspectRatio] {
         [.landscape16x9, .portrait9x16]
     }
 
-    /// サポートされる解像度
+    /// The resolutions the model accepts. 1080p is a Pro-only option.
     public var supportedResolutions: [VideoResolution] {
         switch self {
         case .sora2:
@@ -194,7 +201,7 @@ public enum OpenAIVideoModel: String, Sendable, Codable, CaseIterable, Equatable
         }
     }
 
-    /// デフォルト解像度
+    /// The resolution to fall back on when the caller names none.
     public var defaultResolution: VideoResolution {
         switch self {
         case .sora2: return .hd720p
@@ -205,23 +212,22 @@ public enum OpenAIVideoModel: String, Sendable, Codable, CaseIterable, Equatable
 
 // MARK: - Gemini Video Models
 
-/// Gemini 動画生成モデル（Veo）
+/// The Gemini video generation models, the Veo family.
 public enum GeminiVideoModel: String, Sendable, Codable, CaseIterable, Equatable {
-    /// Veo 3.1（最新・高品質）
+    /// Veo 3.1, the newest and highest quality, served from a preview endpoint.
     case veo31 = "veo-3.1-generate-preview"
-    /// Veo 3.1 Fast（高速版）
+    /// Veo 3.1 Fast, which trades quality for speed. Also a preview endpoint.
     case veo31Fast = "veo-3.1-fast-generate-preview"
-    /// Veo 3.0（安定版）
+    /// Veo 3.0, the stable release.
     case veo30 = "veo-3.0-generate-001"
-    /// Veo 3.0 Fast（高速版）
+    /// Veo 3.0 Fast, the faster stable variant.
     case veo30Fast = "veo-3.0-fast-generate-001"
-    /// Veo 2.0
+    /// Veo 2.0, the previous generation. It renders at 720p only and has no four-second clip.
     case veo20 = "veo-2.0-generate-001"
 
-    /// モデル ID
+    /// The identifier sent to the API.
     public var id: String { rawValue }
 
-    /// 表示名
     public var displayName: String {
         switch self {
         case .veo31: return "Veo 3.1"
@@ -232,29 +238,29 @@ public enum GeminiVideoModel: String, Sendable, Codable, CaseIterable, Equatable
         }
     }
 
-    /// サポートされる最大動画長（秒）
+    /// The longest clip any Veo model renders, in seconds.
     public var maxDuration: Int { 8 }
 
-    /// サポートされる動画長オプション
+    /// The clip lengths in seconds the model accepts. Nothing in between them works.
     public var supportedDurations: [Int] {
         switch self {
         case .veo31, .veo31Fast, .veo30, .veo30Fast:
             return [4, 6, 8]
         case .veo20:
-            return [5, 6, 8]  // Veo 2.0 は 5-8 秒のみサポート
+            return [5, 6, 8]  // Veo 2.0 supports 5-8 seconds only.
         }
     }
 
-    /// サポートされるアスペクト比
+    /// The aspect ratios the model accepts, which are 16:9 and its portrait counterpart only.
     public var supportedAspectRatios: [VideoAspectRatio] {
         [.landscape16x9, .portrait9x16]
     }
 
-    /// サポートされる解像度
+    /// The resolutions the model accepts. Veo 2.0 renders at 720p and nothing higher.
     public var supportedResolutions: [VideoResolution] {
         switch self {
         case .veo31, .veo31Fast, .veo30, .veo30Fast:
-            return [.hd720p, .fhd1080p]  // 1080pは8秒のみ
+            return [.hd720p, .fhd1080p]  // 1080p only at 8 seconds.
         case .veo20:
             return [.hd720p]
         }
@@ -263,25 +269,25 @@ public enum GeminiVideoModel: String, Sendable, Codable, CaseIterable, Equatable
 
 // MARK: - VideoGenerationError
 
-/// 動画生成固有のエラー
+/// Failures specific to video generation, as opposed to transport or decoding errors.
 public enum VideoGenerationError: Error, Sendable, LocalizedError {
-    /// プロンプトが安全性ポリシーに違反
+    /// The prompt was refused by the provider's safety policy, with the reason it gave.
     case contentPolicyViolation(String?)
-    /// 動画の長さが上限を超えている
+    /// A longer clip was asked for than the model renders.
     case durationExceedsLimit(requested: Int, maximum: Int)
-    /// アスペクト比がサポートされていない
+    /// The requested aspect ratio is not one the model accepts.
     case unsupportedAspectRatio(VideoAspectRatio, model: String)
-    /// 解像度がサポートされていない
+    /// The requested resolution is not one the model accepts.
     case unsupportedResolution(VideoResolution, model: String)
-    /// 生成に失敗
+    /// The provider reported the render as failed, with the message it gave.
     case generationFailed(String)
-    /// タイムアウト
+    /// Polling gave up before the job settled. The render carries on at the provider.
     case timeout(elapsed: TimeInterval)
-    /// キャンセルされた
+    /// The job stopped before finishing, either by request or by the provider.
     case cancelled
-    /// ジョブが完了していない
+    /// The video was asked for while the job was still unfinished.
     case jobNotCompleted(status: VideoGenerationStatus)
-    /// 動画生成がこのプロバイダーでサポートされていない
+    /// The provider generates no video at all.
     case notSupportedByProvider(String)
 
     public var errorDescription: String? {

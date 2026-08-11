@@ -7,18 +7,16 @@ import Foundation
 
 // MARK: - Media Error
 
-/// メディア関連エラー
+/// A failure raised while a piece of media is being built or checked locally.
 ///
-/// メディアコンテンツの処理中に発生するエラー。
+/// Everything here happens before a request leaves the process. Rejection by a provider is a
+/// separate concern, reported by `ProviderCompatibilityError` in `LLMProviderCompat`, so
+/// catching only these cases still leaves provider refusals to handle.
 ///
-/// ## エラーカテゴリ
-/// - **フォーマット関連**: サポートされていない形式
-/// - **サイズ関連**: 制限超過
-/// - **プロバイダー関連**: 機能非対応
-/// - **ファイル関連**: 読み込みエラー
-/// - **データ関連**: 無効なデータ
+/// Three cases — mismatch, missing parameter and invalid URL — are declared for callers and
+/// adapters to raise; nothing in this package throws them.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
 /// do {
 ///     let image = try ImageContent.file(at: "/path/to/image.xyz")
@@ -29,25 +27,41 @@ import Foundation
 /// }
 /// ```
 public enum MediaError: Error, Sendable, Equatable {
-    /// サポートされていないフォーマット
+    /// A file extension that none of the media format enumerations recognize.
+    ///
+    /// The payload is the offending extension, not a MIME type. This says nothing about any
+    /// provider: it is raised purely because the extension was not in this package's tables.
     case unsupportedFormat(String)
 
-    /// サイズ制限超過
+    /// Inline data larger than the byte budget it was checked against.
+    ///
+    /// The budget is whatever the caller passed in, not a limit read from a provider, and both
+    /// figures count undecoded bytes rather than the longer Base64 form.
     case sizeLimitExceeded(size: Int, maxSize: Int)
 
-    /// ファイル読み込みエラー
+    /// A local file could not be read, wrapping the underlying failure.
+    ///
+    /// Equality compares the wrapped error only by its localized description, so two unrelated
+    /// failures that print the same message compare equal.
     case fileReadError(any Error & Sendable)
 
-    /// 無効なメディアデータ
+    /// Bytes that could not be interpreted, such as a string that is not valid Base64.
     case invalidMediaData(String)
 
-    /// メディアタイプ不一致
+    /// A declared media type that disagrees with the content it describes.
+    ///
+    /// Nothing in this package raises it, because no format sniffing happens here. It exists
+    /// for code that does verify content to report the disagreement in the same currency.
     case mediaTypeMismatch(expected: String, actual: String)
 
-    /// 必須パラメータの欠如
+    /// A required value was absent.
+    ///
+    /// Raised by callers and provider adapters rather than by this package.
     case missingRequiredParameter(String)
 
-    /// 無効なURL
+    /// A string that could not be parsed as a URL.
+    ///
+    /// Raised by callers and provider adapters rather than by this package.
     case invalidURL(String)
 
     // MARK: - Equatable
@@ -180,12 +194,15 @@ extension MediaError: CustomNSError {
 // MARK: - Convenience
 
 extension MediaError {
-    /// プロバイダーのサイズ制限に対してバリデーション
+    /// Throws when a measured size exceeds a budget the caller supplies.
+    ///
+    /// It knows nothing about provider limits: both figures come from the caller, so the budget
+    /// has to be looked up elsewhere and passed in.
     ///
     /// - Parameters:
-    ///   - size: 実際のサイズ
-    ///   - maxSize: 最大許容サイズ
-    /// - Throws: `MediaError.sizeLimitExceeded` サイズ超過時
+    ///   - size: The measured size in bytes.
+    ///   - maxSize: The budget in bytes.
+    /// - Throws: `MediaError.sizeLimitExceeded`, carrying both figures.
     public static func validateSize(_ size: Int, maxSize: Int) throws {
         if size > maxSize {
             throw MediaError.sizeLimitExceeded(size: size, maxSize: maxSize)

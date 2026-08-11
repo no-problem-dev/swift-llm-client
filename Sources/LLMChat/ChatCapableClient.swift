@@ -3,55 +3,55 @@ import LLMClient
 
 // MARK: - ChatCapableClient Protocol
 
-/// 会話継続機能を持つ LLM クライアントのプロトコル
+/// A client that returns, alongside the decoded value, what the next turn of a conversation needs.
 ///
-/// `StructuredLLMClient` を拡張し、会話継続に必要なメタ情報を
-/// 含むレスポンスを返す機能を追加する。
-/// 各プロバイダー（Anthropic, OpenAI, Gemini）はこのプロトコルに適合することで
-/// 会話継続機能を利用できる。
+/// Extends `StructuredLLMClient`. Where `generate` hands back the decoded value and nothing else,
+/// `chat` also hands back the assistant message to append to the history, the token usage of the
+/// turn, and the stop reason. The history is an array the caller owns rather than server-side
+/// state, so a conversation started against one provider can be continued against another.
 ///
-/// ## 基本的な LLM 動作との違い
+/// The whole history goes out on every call, so input tokens grow with the conversation.
 ///
-/// - `generate`: 単発のデータ取得（結果のみを返す）
-/// - `chat`: 会話の継続性を提供（結果 + 履歴に追加するメッセージを返す）
-///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let client = AnthropicClient(apiKey: "...")
 /// var history: [LLMMessage] = []
 ///
-/// // 最初の質問
-/// history.append(.user("日本の首都は？"))
+/// // First question.
+/// history.append(.user("What is the capital of Japan?"))
 /// let response1: ChatResponse<CityInfo> = try await client.chat(
 ///     messages: history,
 ///     model: .sonnet
 /// )
-/// print(response1.result.name)  // "東京"
+/// print(response1.result.name)  // "Tokyo"
 ///
-/// // アシスタント応答を履歴に追加
+/// // Append the assistant reply to the history.
 /// history.append(response1.assistantMessage)
 ///
-/// // 続けて質問
-/// history.append(.user("その都市の人口は？"))
+/// // Follow-up question.
+/// history.append(.user("What is that city's population?"))
 /// let response2: ChatResponse<PopulationInfo> = try await client.chat(
 ///     messages: history,
 ///     model: .sonnet
 /// )
 /// ```
 public protocol ChatCapableClient: StructuredLLMClient {
-    /// 会話を継続し、構造化出力と会話履歴情報を取得
+    /// Continues a conversation, returning the decoded value together with what the next turn needs.
     ///
-    /// `generate` と異なり、構造化出力に加えて
-    /// 会話継続に必要なメタ情報を `ChatResponse` として返す。
+    /// Appending the response's `assistantMessage` to the history before the next call is the
+    /// caller's job. Skip it and the model never sees its own previous reply: the next turn is
+    /// answered as if it had not spoken, and nothing raises an error to say so.
     ///
     /// - Parameters:
-    ///   - messages: メッセージ履歴
-    ///   - model: 使用するモデル
-    ///   - systemPrompt: システムプロンプト（オプション）
-    ///   - temperature: 温度パラメータ（オプション）
-    ///   - maxTokens: 最大トークン数（オプション）
-    /// - Returns: 構造化出力と会話継続情報を含む `ChatResponse`
+    ///   - messages: The conversation so far, oldest first.
+    ///   - model: The model to serve the request.
+    ///   - systemPrompt: Instructions applied ahead of the history. Keeping it byte-identical
+    ///     across turns is what lets a provider cache the prefix.
+    ///   - temperature: Sampling temperature. Passed through unvalidated; the accepted range
+    ///     differs by provider.
+    ///   - maxTokens: Ceiling on output tokens. A ceiling low enough to cut the JSON short leaves
+    ///     the response undecodable, so leave headroom above the expected result size.
     func chat<T: StructuredProtocol>(
         messages: [LLMMessage],
         model: Model,
@@ -64,7 +64,14 @@ public protocol ChatCapableClient: StructuredLLMClient {
 // MARK: - Default Implementations
 
 extension ChatCapableClient {
-    /// 会話を継続（デフォルト引数付き）
+    /// Continues a conversation, letting the optional arguments default.
+    ///
+    /// This exists only to supply default values, which a protocol requirement cannot declare. It
+    /// forwards straight back through the protocol.
+    ///
+    /// - Warning: Its signature matches the requirement, so it can also stand in as the witness
+    ///   for it. A conformance that omits `chat` therefore compiles and then recurses here forever
+    ///   instead of failing to build.
     public func chat<T: StructuredProtocol>(
         messages: [LLMMessage],
         model: Model,
@@ -81,19 +88,19 @@ extension ChatCapableClient {
         )
     }
 
-    /// LLMInput から会話を開始
+    /// Opens a conversation from a single input, with no prior history.
     ///
-    /// 会話履歴なしで新しい会話を開始する便利メソッド。
-    /// テキストとマルチモーダルコンテンツ（画像、音声、動画）を
-    /// 含む入力をサポートする。
+    /// The input becomes the one and only message sent, so nothing said earlier is in context.
+    /// Keep the returned `assistantMessage`, along with the message built from this input, to carry
+    /// the conversation into a second turn.
     ///
     /// - Parameters:
-    ///   - input: LLM 入力
-    ///   - model: 使用するモデル
-    ///   - systemPrompt: システムプロンプト（オプション）
-    ///   - temperature: 温度パラメータ（オプション）
-    ///   - maxTokens: 最大トークン数（オプション）
-    /// - Returns: 構造化出力と会話継続情報を含む `ChatResponse`
+    ///   - input: The prompt, optionally carrying images, audio, or video.
+    ///   - model: The model to serve the request.
+    ///   - systemPrompt: Instructions applied ahead of the input.
+    ///   - temperature: Sampling temperature. Passed through unvalidated; the accepted range
+    ///     differs by provider.
+    ///   - maxTokens: Ceiling on output tokens.
     public func chat<T: StructuredProtocol>(
         input: LLMInput,
         model: Model,
@@ -110,15 +117,18 @@ extension ChatCapableClient {
         )
     }
 
-    /// 構造化システムプロンプトを使用して会話を開始
+    /// Opens a conversation from a single input, taking the system prompt as a composed value.
+    ///
+    /// Renders the prompt and forwards to the string form. Two prompts that render to the same
+    /// bytes produce the same cacheable prefix, whatever metadata they carry.
     ///
     /// - Parameters:
-    ///   - input: LLM 入力
-    ///   - model: 使用するモデル
-    ///   - systemPrompt: 構造化システムプロンプト
-    ///   - temperature: 温度パラメータ（オプション）
-    ///   - maxTokens: 最大トークン数（オプション）
-    /// - Returns: 構造化出力と会話継続情報を含む `ChatResponse`
+    ///   - input: The prompt, optionally carrying images, audio, or video.
+    ///   - model: The model to serve the request.
+    ///   - systemPrompt: Instructions applied ahead of the input, rendered before they are sent.
+    ///   - temperature: Sampling temperature. Passed through unvalidated; the accepted range
+    ///     differs by provider.
+    ///   - maxTokens: Ceiling on output tokens.
     public func chat<T: StructuredProtocol>(
         input: LLMInput,
         model: Model,

@@ -1,44 +1,46 @@
 // AudioGeneration.swift
 // swift-llm-client
 //
-// 音声生成（TTS）機能のプロトコルと関連型
+// Protocols and supporting types for speech generation (TTS).
 
 import Foundation
 
 // MARK: - SpeechGenerationCapable Protocol
 
-/// 音声生成（TTS）機能を持つクライアントのプロトコル
+/// A client that can synthesize speech from text.
 ///
-/// このプロトコルを実装するクライアントは、テキストから音声を生成できる。
+/// The samples travel with the result rather than living on the provider's servers, so the audio
+/// outlives any identifier stamped on it. Which encodings and voices are available differs by
+/// provider.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
-/// // OpenAI クライアントで音声生成
+/// // Generating speech with the OpenAI client.
 /// let client = OpenAIClient(apiKey: "sk-...")
 /// let audio = try await client.generateSpeech(
-///     input: "こんにちは、世界！",
+///     input: "Hello, world!",
 ///     model: .tts1,
 ///     voice: .alloy
 /// )
 /// try audio.save(to: URL(fileURLWithPath: "greeting.mp3"))
 /// ```
 public protocol SpeechGenerationCapable<SpeechModel>: Sendable {
-    /// 音声生成で使用可能なモデル型
+    /// The catalog of speech models this client accepts.
     associatedtype SpeechModel: Sendable
 
-    /// 音声で使用可能な声の型
+    /// The set of voices those models can speak in.
     associatedtype Voice: Sendable
 
-    /// 入力から音声を生成
+    /// Synthesizes speech and returns the audio.
     ///
     /// - Parameters:
-    ///   - input: LLM 入力（音声化するテキスト）
-    ///   - model: 使用する音声生成モデル
-    ///   - voice: 使用する声
-    ///   - speed: 再生速度（0.25〜4.0、デフォルト: 1.0）
-    ///   - format: 出力フォーマット
-    /// - Returns: 生成された音声
-    /// - Throws: `LLMError` または `SpeechGenerationError`
+    ///   - input: The text to speak.
+    ///   - model: The speech model to call.
+    ///   - voice: The voice to speak in.
+    ///   - speed: Playback rate, from 0.25 to 4.0. Anything outside that range is rejected.
+    ///   - format: Encoding of the returned bytes. Nil leaves the choice to the provider.
+    /// - Returns: The generated audio.
+    /// - Throws: `LLMError` or `SpeechGenerationError`.
     func generateSpeech(
         input: LLMInput,
         model: SpeechModel,
@@ -51,7 +53,10 @@ public protocol SpeechGenerationCapable<SpeechModel>: Sendable {
 // MARK: - Default Implementations
 
 extension SpeechGenerationCapable {
-    /// 入力から音声を生成（デフォルト引数付き）
+    /// Synthesizes speech, filling in defaults for the playback rate and the output encoding.
+    ///
+    /// It exists only to supply those defaults and forwards to the conforming type's own
+    /// implementation.
     public func generateSpeech(
         input: LLMInput,
         model: SpeechModel,
@@ -71,17 +76,16 @@ extension SpeechGenerationCapable {
 
 // MARK: - OpenAI TTS Models
 
-/// OpenAI TTS モデル
+/// The OpenAI text-to-speech models.
 public enum OpenAITTSModel: String, Sendable, Codable, CaseIterable, Equatable {
-    /// TTS-1（標準品質、低レイテンシー）
+    /// TTS-1. Standard quality, and the lower-latency choice.
     case tts1 = "tts-1"
-    /// TTS-1 HD（高品質）
+    /// TTS-1 HD. Higher quality, at the cost of latency.
     case tts1HD = "tts-1-hd"
 
-    /// モデル ID
+    /// The identifier sent to the API.
     public var id: String { rawValue }
 
-    /// 表示名
     public var displayName: String {
         switch self {
         case .tts1: return "TTS-1"
@@ -89,7 +93,7 @@ public enum OpenAITTSModel: String, Sendable, Codable, CaseIterable, Equatable {
         }
     }
 
-    /// サポートされる出力フォーマット
+    /// The encodings OpenAI returns speech in: MP3, Opus, AAC, FLAC, WAV, and PCM.
     public var supportedFormats: [AudioOutputFormat] {
         MediaCompatibility.audioOutputFormats(for: .openai)
     }
@@ -97,25 +101,24 @@ public enum OpenAITTSModel: String, Sendable, Codable, CaseIterable, Equatable {
 
 // MARK: - OpenAI TTS Voices
 
-/// OpenAI TTS 音声
+/// The voices OpenAI's text-to-speech models can speak in.
 public enum OpenAIVoice: String, Sendable, Codable, CaseIterable, Equatable {
-    /// Alloy - 中性的な声
+    /// Alloy, a neutral voice.
     case alloy
-    /// Echo - 男性的な声
+    /// Echo, a masculine voice.
     case echo
-    /// Fable - 男性的な声（British）
+    /// Fable, a masculine voice with a British accent.
     case fable
-    /// Onyx - 深い男性の声
+    /// Onyx, a deep masculine voice.
     case onyx
-    /// Nova - 女性的な声
+    /// Nova, a feminine voice.
     case nova
-    /// Shimmer - 女性的な声（柔らかい）
+    /// Shimmer, a soft feminine voice.
     case shimmer
 
-    /// 音声 ID
+    /// The identifier sent to the API.
     public var id: String { rawValue }
 
-    /// 表示名
     public var displayName: String {
         rawValue.capitalized
     }
@@ -123,20 +126,19 @@ public enum OpenAIVoice: String, Sendable, Codable, CaseIterable, Equatable {
 
 // MARK: - Gemini TTS Models
 
-/// Gemini TTS モデル（将来対応予定）
+/// The Gemini text-to-speech models.
 public enum GeminiTTSModel: String, Sendable, Codable, CaseIterable, Equatable {
-    /// Gemini TTS（プレビュー）
+    /// Gemini TTS, which is served from a preview endpoint.
     case geminiTTS = "gemini-tts-preview"
 
-    /// モデル ID
+    /// The identifier sent to the API.
     public var id: String { rawValue }
 
-    /// 表示名
     public var displayName: String {
         "Gemini TTS"
     }
 
-    /// サポートされる出力フォーマット
+    /// The encodings Gemini returns speech in, which is raw PCM and nothing else.
     public var supportedFormats: [AudioOutputFormat] {
         MediaCompatibility.audioOutputFormats(for: .gemini)
     }
@@ -144,17 +146,17 @@ public enum GeminiTTSModel: String, Sendable, Codable, CaseIterable, Equatable {
 
 // MARK: - SpeechGenerationError
 
-/// 音声生成固有のエラー
+/// Failures specific to speech generation, as opposed to transport or decoding errors.
 public enum SpeechGenerationError: Error, Sendable, LocalizedError {
-    /// テキストが長すぎる
+    /// The text is longer than the model will speak in one call.
     case textTooLong(length: Int, maximum: Int)
-    /// テキストが空
+    /// There was nothing to speak.
     case emptyText
-    /// 速度が範囲外
+    /// The playback rate falls outside the accepted range of 0.25 to 4.0.
     case invalidSpeed(Double)
-    /// フォーマットがモデルでサポートされていない
+    /// The requested output encoding is not one the model returns.
     case unsupportedFormat(AudioOutputFormat, model: String)
-    /// 音声生成がこのプロバイダーでサポートされていない
+    /// The provider generates no speech at all.
     case notSupportedByProvider(String)
 
     public var errorDescription: String? {

@@ -2,71 +2,75 @@ import Foundation
 
 // MARK: - GenerationResult
 
-/// 構造化出力の生成結果（メタデータ付き）
+/// A decoded structured result together with what the call cost and how it ended.
 ///
-/// LLM から返された構造化出力と、トークン使用量などのメタデータを含む。
-/// コスト計算や使用量トラッキングに使用できる。
+/// Returned by `generateWithUsage`. The plain `generate` methods return only the decoded value,
+/// so this is the only form that lets a caller attribute cost, detect a truncated response, or
+/// inspect the JSON the model actually produced.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let client = GeminiClient(apiKey: "...")
 ///
-/// @Structured("ユーザー情報")
+/// @Structured("User information")
 /// struct UserInfo {
-///     @StructuredField("ユーザー名") var name: String
-///     @StructuredField("年齢") var age: Int
+///     @StructuredField("User name") var name: String
+///     @StructuredField("Age") var age: Int
 /// }
 ///
 /// let result: GenerationResult<UserInfo> = try await client.generateWithUsage(
-///     input: "山田太郎さんは35歳です。",
+///     input: "Taro Yamada is 35 years old.",
 ///     model: .flash3
 /// )
 ///
-/// print(result.result.name)           // "山田太郎"
-/// print(result.usage.inputTokens)     // 入力トークン数
-/// print(result.usage.outputTokens)    // 出力トークン数
-/// print(result.usage.totalTokens)     // 合計トークン数
+/// print(result.result.name)           // "Taro Yamada"
+/// print(result.usage.inputTokens)     // input tokens, cache included
+/// print(result.usage.outputTokens)    // output tokens, reasoning included
+/// print(result.usage.totalTokens)     // input + output
 /// ```
 public struct GenerationResult<T: StructuredProtocol>: Sendable {
-    /// デコード済み構造化出力
-    ///
-    /// リクエストで指定した `StructuredProtocol` 準拠の型にデコードされた結果。
+    /// The decoded value.
     public let result: T
 
-    /// トークン使用量
+    /// What the call consumed, for cost attribution.
     ///
-    /// このリクエストで消費された入力/出力トークン数。
-    /// コスト計算に使用できる。
+    /// Cached and reasoning tokens are folded into `inputTokens` and `outputTokens` rather than
+    /// reported alongside them; see `TokenUsage` for the exact subset relationships before
+    /// multiplying anything by a price.
     public let usage: TokenUsage
 
-    /// 使用されたモデルID
+    /// The model identifier the provider reports having served.
     ///
-    /// 実際に使用されたモデルの識別子。
+    /// Worth reading rather than assuming: providers commonly resolve an alias to a dated
+    /// snapshot, so this can differ from the model that was requested — which matters when
+    /// per-model pricing is applied to `usage`.
     public let model: String
 
-    /// 生のJSONテキスト
+    /// The raw JSON the model returned, before decoding.
     ///
-    /// モデルから返された構造化出力の生のJSON文字列。
-    /// デバッグやログ記録に使用できる。
+    /// The only way to see what the model actually produced once decoding has succeeded. Useful
+    /// when the decoded values are wrong rather than absent, and when logging a call for replay.
     public let rawText: String
 
-    /// 停止理由
+    /// Why the model stopped generating.
     ///
-    /// モデルが生成を停止した理由。
-    /// 通常は `.endTurn`（正常終了）または `.maxTokens`（トークン上限到達）。
+    /// `.endTurn` is a normal finish. `.maxTokens` means the output ceiling was reached, which for
+    /// structured output usually means the JSON was cut off — treat a decoded value that arrives
+    /// alongside it as suspect, and raise `maxTokens`.
     public let stopReason: LLMResponse.StopReason?
 
     // MARK: - Initializer
 
-    /// GenerationResult を初期化
+    /// Creates a result. Called by provider clients after decoding; callers receive these rather
+    /// than build them.
     ///
     /// - Parameters:
-    ///   - result: デコード済み構造化出力
-    ///   - usage: トークン使用量
-    ///   - model: 使用されたモデルID
-    ///   - rawText: 生のJSONテキスト
-    ///   - stopReason: 停止理由
+    ///   - result: The decoded value.
+    ///   - usage: Tokens consumed by the call.
+    ///   - model: The model identifier the provider served.
+    ///   - rawText: The raw JSON returned by the model.
+    ///   - stopReason: Why generation stopped.
     public init(
         result: T,
         usage: TokenUsage,
@@ -85,10 +89,13 @@ public struct GenerationResult<T: StructuredProtocol>: Sendable {
 // MARK: - Convenience Extensions
 
 extension GenerationResult {
-    /// 結果を別の型にマップ
+    /// Returns a result carrying a transformed value and the original call metadata.
     ///
-    /// - Parameter transform: 変換関数
-    /// - Returns: 変換後の GenerationResult
+    /// Usage, model, raw JSON, and stop reason are copied across untouched, so mapping never
+    /// invents a second call and the same tokens are never counted twice.
+    ///
+    /// - Parameter transform: Converts the decoded value; its failures propagate to the caller.
+    /// - Returns: A result of the new type carrying the same call metadata.
     public func map<U: StructuredProtocol>(_ transform: (T) throws -> U) rethrows -> GenerationResult<U> {
         GenerationResult<U>(
             result: try transform(result),

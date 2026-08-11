@@ -4,51 +4,56 @@ import JSONParsing
 
 // MARK: - ToolCall
 
-/// ツール呼び出し要求
+/// A single tool invocation the model asked for.
 ///
-/// LLM がツールを呼び出すことを決定した際の情報を保持する。
-/// 呼び出し ID、ツール名、引数データを含み、対応する `ToolResponse` と
-/// ID で紐付けられる。
+/// Carries the call id, the tool name, and the argument JSON. Nothing is executed by holding
+/// one: you run the tool and send back a `ToolResponse` carrying the same id.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
-/// // ToolCallResponse から取得
-/// let plan = try await client.planToolCalls(prompt: "天気を調べて", ...)
+/// // From a planned response
+/// let plan = try await client.planToolCalls(prompt: "Look up the weather", ...)
 /// for call in plan.toolCalls {
-///     print("ツール: \(call.name)")
+///     print("Tool: \(call.name)")
 ///     let args: MyArgs = try call.decodeArguments(as: MyArgs.self)
-///     // ツールを実行...
+///     // Run the tool...
 /// }
 ///
-/// // AgentStep から取得
+/// // From an agent run
 /// for try await step in client.runAgent(...) {
 ///     if case .toolCall(let call) = step {
-///         print("呼び出し: \(call.name)")
+///         print("Call: \(call.name)")
 ///     }
 /// }
 /// ```
 public struct ToolCall: Sendable, Equatable {
-    /// 呼び出し ID
+    /// Identifies this call when the result is sent back.
     ///
-    /// ツール実行結果を返す際に、どの呼び出しに対する応答かを
-    /// 識別するために使用する。
+    /// Echo it verbatim on the matching tool result. Providers pair calls with results by this
+    /// value and reject a conversation where any call is left unanswered, and some providers
+    /// have no id of their own, so the value is generated locally and encodes state the next
+    /// request needs. Never rewrite, shorten, or regenerate it.
     public let id: String
 
-    /// ツール名
+    /// The name of the tool to run, matching the name published in the tool set.
     public let name: String
 
-    /// 引数データ（JSON 形式）
+    /// The argument JSON exactly as the model produced it.
+    ///
+    /// Not validated against the tool's schema. Running the call through
+    /// `ToolSet.execute(toolNamed:with:)` first coerces values that small models tend to
+    /// stringify, such as `{"max_results": "10"}`; decoding this payload directly does not.
     public let arguments: Data
 
     // MARK: - Initializer
 
-    /// ToolCall を初期化
+    /// Creates a tool call.
     ///
     /// - Parameters:
-    ///   - id: 呼び出し ID
-    ///   - name: ツール名
-    ///   - arguments: 引数データ（JSON 形式）
+    ///   - id: Identifies the call when its result is sent back.
+    ///   - name: The name of the tool to run.
+    ///   - arguments: The argument JSON.
     public init(id: String, name: String, arguments: Data) {
         self.id = id
         self.name = name
@@ -57,11 +62,13 @@ public struct ToolCall: Sendable, Equatable {
 
     // MARK: - Decoding
 
-    /// 引数を指定された型にデコード
+    /// Decodes the arguments into a type of your own.
     ///
-    /// - Parameter type: デコード先の型
-    /// - Returns: デコードされた引数
-    /// - Throws: デコードエラー
+    /// Decoding converts from snake case, so the `sort_by` the model sends lands in a `sortBy`
+    /// property. The model is free to omit or mistype fields, so a decoding failure is an
+    /// ordinary outcome worth reporting back as a tool error rather than a programming defect.
+    ///
+    /// - Parameter type: The type to decode the arguments into.
     ///
     /// ```swift
     /// struct WeatherArgs: Decodable {
@@ -75,7 +82,11 @@ public struct ToolCall: Sendable, Equatable {
         return try decoder.decode(type, from: arguments)
     }
 
-    /// 引数を中立表現 ``StructuredValue`` として取得（型安全アクセサ経由で値を読む）。
+    /// Parses the arguments into a neutral representation with type-safe accessors.
+    ///
+    /// Use it instead of `decodeArguments(as:)` when there is no argument type to decode into,
+    /// as with a tool whose schema was assembled at runtime. The resulting `StructuredValue`
+    /// reads the keys exactly as the model sent them, with no snake-case conversion.
     ///
     /// ```swift
     /// let args = try call.argumentsJSON()

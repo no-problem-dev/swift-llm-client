@@ -1,19 +1,21 @@
 // ImageGeneration.swift
 // swift-llm-client
 //
-// 画像生成機能のプロトコルと関連型
+// Protocols and supporting types for image generation.
 
 import Foundation
 
 // MARK: - ImageGenerationCapable Protocol
 
-/// 画像生成機能を持つクライアントのプロトコル
+/// A client that can generate images from a prompt.
 ///
-/// このプロトコルを実装するクライアントは、テキストから画像を生成できる。
+/// The bytes travel with the result, so nothing here names a hosted asset that expires. Sizes,
+/// formats, and how many images a single call may produce all vary by model — read the model's own
+/// `supportedSizes` and `maxImages` first, because the provider rejects anything outside them.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
-/// // OpenAI クライアントで画像生成
+/// // Generating an image with the OpenAI client.
 /// let client = OpenAIClient(apiKey: "sk-...")
 /// let image = try await client.generateImage(
 ///     input: "A cat sitting on a windowsill at sunset",
@@ -23,20 +25,20 @@ import Foundation
 /// try image.save(to: URL(fileURLWithPath: "cat.png"))
 /// ```
 public protocol ImageGenerationCapable<ImageModel>: Sendable {
-    /// 画像生成で使用可能なモデル型
+    /// The catalog of image models this client accepts.
     associatedtype ImageModel: Sendable
 
-    /// 入力から画像を生成
+    /// Generates a single image.
     ///
     /// - Parameters:
-    ///   - input: LLM 入力（プロンプトテキスト）
-    ///   - model: 使用する画像生成モデル
-    ///   - size: 出力画像のサイズ
-    ///   - quality: 画像品質（サポートされる場合）
-    ///   - format: 出力フォーマット
-    ///   - n: 生成する画像の数（デフォルト: 1）
-    /// - Returns: 生成された画像
-    /// - Throws: `LLMError` または `ImageGenerationError`
+    ///   - input: The prompt to render.
+    ///   - model: The image model to call.
+    ///   - size: Output size. Nil leaves the choice to the provider's default.
+    ///   - quality: Rendering quality, for the models that offer the choice.
+    ///   - format: Encoding of the returned bytes.
+    ///   - n: How many images to ask the provider for.
+    /// - Returns: The generated image.
+    /// - Throws: `LLMError` or `ImageGenerationError`.
     func generateImage(
         input: LLMInput,
         model: ImageModel,
@@ -46,16 +48,16 @@ public protocol ImageGenerationCapable<ImageModel>: Sendable {
         n: Int
     ) async throws -> GeneratedImage
 
-    /// 複数の画像を生成
+    /// Generates a batch of images in one call.
     ///
     /// - Parameters:
-    ///   - input: LLM 入力（プロンプトテキスト）
-    ///   - model: 使用する画像生成モデル
-    ///   - size: 出力画像のサイズ
-    ///   - quality: 画像品質
-    ///   - format: 出力フォーマット
-    ///   - n: 生成する画像の数
-    /// - Returns: 生成された画像の配列
+    ///   - input: The prompt to render.
+    ///   - model: The image model to call.
+    ///   - size: Output size. Nil leaves the choice to the provider's default.
+    ///   - quality: Rendering quality, for the models that offer the choice.
+    ///   - format: Encoding of the returned bytes.
+    ///   - n: How many images to generate. It must not exceed the model's maximum.
+    /// - Returns: The generated images, in the order the provider returned them.
     func generateImages(
         input: LLMInput,
         model: ImageModel,
@@ -69,7 +71,10 @@ public protocol ImageGenerationCapable<ImageModel>: Sendable {
 // MARK: - Default Implementations
 
 extension ImageGenerationCapable {
-    /// 単一の画像を生成（デフォルト引数付き）
+    /// Generates a single image, filling in defaults for everything but the prompt and the model.
+    ///
+    /// It exists only to supply those defaults and forwards to the conforming type's own
+    /// implementation.
     public func generateImage(
         input: LLMInput,
         model: ImageModel,
@@ -88,7 +93,10 @@ extension ImageGenerationCapable {
         )
     }
 
-    /// 複数の画像を生成（デフォルト引数付き）
+    /// Generates a batch of images, filling in defaults for everything but the prompt and the model.
+    ///
+    /// It exists only to supply those defaults and forwards to the conforming type's own
+    /// implementation.
     public func generateImages(
         input: LLMInput,
         model: ImageModel,
@@ -110,41 +118,41 @@ extension ImageGenerationCapable {
 
 // MARK: - ImageSize
 
-/// 画像サイズ
+/// A pixel size for a generated image.
 ///
-/// 生成する画像のサイズを指定する。
-/// 利用可能なサイズはモデルによって異なる。
+/// No model accepts every case. The per-model lists live on each model's `supportedSizes`, and
+/// asking for a size outside them gets the request rejected.
 public enum ImageSize: String, Sendable, Codable, CaseIterable, Equatable {
     // MARK: - Square Sizes
 
-    /// 256x256 ピクセル
+    /// 256x256 pixels. Accepted by DALL-E 2 and GPT-Image only.
     case square256 = "256x256"
 
-    /// 512x512 ピクセル
+    /// 512x512 pixels. Accepted by DALL-E 2 and GPT-Image only.
     case square512 = "512x512"
 
-    /// 1024x1024 ピクセル（標準）
+    /// 1024x1024 pixels, the one size every image model in this file accepts.
     case square1024 = "1024x1024"
 
     // MARK: - Landscape Sizes
 
-    /// 1792x1024 ピクセル（横長）
+    /// 1792x1024 pixels, landscape. Accepted by DALL-E 3 only.
     case landscape1792x1024 = "1792x1024"
 
-    /// 1536x1024 ピクセル（横長）
+    /// 1536x1024 pixels, landscape. Accepted by GPT-Image and the Imagen models.
     case landscape1536x1024 = "1536x1024"
 
     // MARK: - Portrait Sizes
 
-    /// 1024x1792 ピクセル（縦長）
+    /// 1024x1792 pixels, portrait. Accepted by DALL-E 3 only.
     case portrait1024x1792 = "1024x1792"
 
-    /// 1024x1536 ピクセル（縦長）
+    /// 1024x1536 pixels, portrait. Accepted by GPT-Image and the Imagen models.
     case portrait1024x1536 = "1024x1536"
 
     // MARK: - Properties
 
-    /// 幅（ピクセル）
+    /// The width in pixels.
     public var width: Int {
         switch self {
         case .square256: return 256
@@ -157,7 +165,7 @@ public enum ImageSize: String, Sendable, Codable, CaseIterable, Equatable {
         }
     }
 
-    /// 高さ（ピクセル）
+    /// The height in pixels.
     public var height: Int {
         switch self {
         case .square256: return 256
@@ -170,28 +178,27 @@ public enum ImageSize: String, Sendable, Codable, CaseIterable, Equatable {
         }
     }
 
-    /// 正方形かどうか
     public var isSquare: Bool { width == height }
 
-    /// 横長かどうか
     public var isLandscape: Bool { width > height }
 
-    /// 縦長かどうか
     public var isPortrait: Bool { height > width }
 
     // MARK: - Provider Compatibility
 
-    /// OpenAI DALL-E 3 でサポートされるサイズ
+    /// The three sizes DALL-E 3 accepts: one square, one landscape, one portrait.
     public static var dalle3Sizes: [ImageSize] {
         [.square1024, .landscape1792x1024, .portrait1024x1792]
     }
 
-    /// OpenAI GPT-Image でサポートされるサイズ
+    /// The five sizes GPT-Image accepts, including the two small squares carried over from DALL-E 2.
     public static var gptImageSizes: [ImageSize] {
         [.square1024, .landscape1536x1024, .portrait1024x1536, .square256, .square512]
     }
 
-    /// Gemini Imagen でサポートされるサイズ（Imagen 3/4 共通）
+    /// The three sizes the Imagen models accept.
+    ///
+    /// Despite the name, Imagen 3 and Imagen 4 share this list, and the Imagen 4 cases return it.
     public static var imagen3Sizes: [ImageSize] {
         [.square1024, .landscape1536x1024, .portrait1024x1536]
     }
@@ -199,39 +206,38 @@ public enum ImageSize: String, Sendable, Codable, CaseIterable, Equatable {
 
 // MARK: - ImageQuality
 
-/// 画像品質
+/// How much rendering effort to ask a model for.
 public enum ImageQuality: String, Sendable, Codable, CaseIterable, Equatable {
-    /// 標準品質（高速）
+    /// Standard quality, and the faster of the two.
     case standard
-    /// 高品質（HD）
+    /// High definition, at the cost of speed.
     case hd
 }
 
 // MARK: - ImageStyle
 
-/// 画像スタイル（OpenAI DALL-E 3 専用）
+/// A rendering style, accepted by DALL-E 3 alone.
 public enum ImageStyle: String, Sendable, Codable, CaseIterable, Equatable {
-    /// 写実的なスタイル
+    /// A photorealistic look.
     case vivid
-    /// より自然なスタイル
+    /// A more natural, less stylized look.
     case natural
 }
 
 // MARK: - OpenAI Image Models
 
-/// OpenAI 画像生成モデル
+/// The OpenAI image generation models.
 public enum OpenAIImageModel: String, Sendable, Codable, CaseIterable, Equatable {
-    /// DALL-E 3（高品質画像生成）
+    /// DALL-E 3. The higher-quality choice, but one image per request.
     case dalle3 = "dall-e-3"
-    /// DALL-E 2（従来モデル）
+    /// DALL-E 2, the previous generation. Up to ten images per request, all of them square.
     case dalle2 = "dall-e-2"
-    /// GPT-Image（GPT-4oベースの画像生成）
+    /// GPT-Image, built on GPT-4o. Up to four images per request.
     case gptImage = "gpt-image-1"
 
-    /// モデル ID
+    /// The identifier sent to the API.
     public var id: String { rawValue }
 
-    /// 表示名
     public var displayName: String {
         switch self {
         case .dalle3: return "DALL-E 3"
@@ -240,7 +246,7 @@ public enum OpenAIImageModel: String, Sendable, Codable, CaseIterable, Equatable
         }
     }
 
-    /// サポートされる画像サイズ
+    /// The sizes this model accepts. Any other size gets the request rejected.
     public var supportedSizes: [ImageSize] {
         switch self {
         case .dalle3: return ImageSize.dalle3Sizes
@@ -249,7 +255,7 @@ public enum OpenAIImageModel: String, Sendable, Codable, CaseIterable, Equatable
         }
     }
 
-    /// 最大生成枚数
+    /// The most images one request may produce.
     public var maxImages: Int {
         switch self {
         case .dalle3: return 1
@@ -261,28 +267,27 @@ public enum OpenAIImageModel: String, Sendable, Codable, CaseIterable, Equatable
 
 // MARK: - Gemini Image Models
 
-/// Gemini 画像生成モデル
+/// The Gemini image generation models.
 ///
-/// 注意: Imagen 3 は Gemini API (generativelanguage.googleapis.com) では
-/// まだ公開されていない（Vertex AI のみ）。
-/// 利用可能なモデルは Imagen 4 および Gemini Image モデルに限る。
+/// Imagen 3 is absent because the Gemini API (generativelanguage.googleapis.com) does not serve it
+/// — it is reachable through Vertex AI only. That leaves the Imagen 4 models and the multimodal
+/// Gemini Image model.
 public enum GeminiImageModel: String, Sendable, Codable, CaseIterable, Equatable {
     // MARK: - Imagen 4 Models
-    /// Imagen 4（最新・高品質画像生成）
+    /// Imagen 4, the current generation.
     case imagen4 = "imagen-4.0-generate-001"
-    /// Imagen 4 Ultra（最高品質）
+    /// Imagen 4 Ultra, the highest quality of the three.
     case imagen4Ultra = "imagen-4.0-ultra-generate-001"
-    /// Imagen 4 Fast（高速画像生成）
+    /// Imagen 4 Fast, which trades quality for speed.
     case imagen4Fast = "imagen-4.0-fast-generate-001"
 
-    // MARK: - Gemini Image Models（マルチモーダル画像生成）
-    /// Gemini 2.0 Flash Image（高速・効率的、1024px）
+    // MARK: - Gemini Image Models (multimodal generation)
+    /// Gemini 2.0 Flash Image. Fast and cheap, but fixed at 1024x1024 and one image at a time.
     case gemini20FlashImage = "gemini-2.0-flash-exp-image-generation"
 
-    /// モデル ID
+    /// The identifier sent to the API.
     public var id: String { rawValue }
 
-    /// 表示名
     public var displayName: String {
         switch self {
         case .imagen4: return "Imagen 4"
@@ -292,7 +297,7 @@ public enum GeminiImageModel: String, Sendable, Codable, CaseIterable, Equatable
         }
     }
 
-    /// Imagen モデルかどうか
+    /// Whether this is one of the Imagen models rather than the multimodal Gemini Image model.
     public var isImagenModel: Bool {
         switch self {
         case .imagen4, .imagen4Ultra, .imagen4Fast:
@@ -302,41 +307,41 @@ public enum GeminiImageModel: String, Sendable, Codable, CaseIterable, Equatable
         }
     }
 
-    /// サポートされる画像サイズ
+    /// The sizes this model accepts. Any other size gets the request rejected.
     public var supportedSizes: [ImageSize] {
         switch self {
         case .imagen4, .imagen4Ultra, .imagen4Fast:
             return ImageSize.imagen3Sizes
         case .gemini20FlashImage:
-            // Gemini Image モデルは固定サイズ
+            // The Gemini Image model renders at a fixed size.
             return [.square1024]
         }
     }
 
-    /// 最大生成枚数
+    /// The most images one request may produce.
     public var maxImages: Int {
         switch self {
         case .imagen4, .imagen4Ultra, .imagen4Fast:
             return 4
         case .gemini20FlashImage:
-            return 1  // Gemini Image は1枚ずつ
+            return 1  // Gemini Image returns one image at a time.
         }
     }
 }
 
 // MARK: - ImageGenerationError
 
-/// 画像生成固有のエラー
+/// Failures specific to image generation, as opposed to transport or decoding errors.
 public enum ImageGenerationError: Error, Sendable, LocalizedError {
-    /// プロンプトが安全性ポリシーに違反
+    /// The prompt was refused by the provider's safety policy, with the reason it gave.
     case contentPolicyViolation(String?)
-    /// サイズがモデルでサポートされていない
+    /// The requested size is not one the model accepts.
     case unsupportedSize(ImageSize, model: String)
-    /// フォーマットがモデルでサポートされていない
+    /// The requested output encoding is not one the model returns.
     case unsupportedFormat(ImageOutputFormat, model: String)
-    /// 生成枚数が上限を超えている
+    /// More images were asked for than the model produces in a single call.
     case exceedsMaxImages(requested: Int, maximum: Int)
-    /// 画像生成がこのプロバイダーでサポートされていない
+    /// The provider generates no images at all.
     case notSupportedByProvider(String)
 
     public var errorDescription: String? {

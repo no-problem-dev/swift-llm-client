@@ -1,64 +1,73 @@
 # ``LLMChat``
 
-構造化出力を維持したままマルチターン会話を継続する会話管理レイヤー。
+Multi-turn conversation that keeps structured output, without hand-assembling the history.
 
 ## Overview
 
-`LLMChat` は `LLMClient` の `StructuredLLMClient` を拡張し、マルチターン会話の継続に必要な
-要素をひとまとめにした高レベル API を提供する。
+A chat completion API is stateless: the model sees only the messages you send, so continuity is
+entirely your bookkeeping. Doing that by hand around structured output is where it usually goes
+wrong — you get a decoded value back, but not the assistant turn that produced it, and the next
+request silently loses a turn.
 
-**ChatCapableClient**: `StructuredLLMClient` を継承するプロトコルで、`chat(messages:model:)` メソッドを
-追加する。`generate` が構造化データのみを返すのに対し、`chat` は `ChatResponse` を返す。
-`ChatResponse` には `result`（構造化データ）と `assistantMessage`（次ターンの履歴に追加すべき
-`LLMMessage`）の両方が含まれるため、呼び出し側が手動でメッセージを組み立てる必要がない。
+`LLMChat` closes that gap.
 
-**ConversationHistory**: スレッドセーフな Actor で会話履歴とトークン使用量を管理する。
-`append(_:)`・`getMessages()`・`getTotalUsage()` の基本操作に加え、`eventStream` プロパティで
-`ConversationEvent` の `AsyncStream` を購読できる。ユーザーメッセージ・アシスタント応答・
-ツール呼び出し・エラーそれぞれのイベントタイプが定義されている。
+**ChatCapableClient** extends `StructuredLLMClient` with `chat(messages:model:)`. Where
+`generate` returns only the decoded value, `chat` returns a ``ChatResponse`` holding both the
+`result` and the `assistantMessage` to append. Append it, and the history stays consistent
+without you reconstructing what the model said.
+
+**ConversationHistory** is an actor that owns the message array and the running token total.
+Being an actor makes concurrent appends safe from any task, and it means every read is `await` —
+a snapshot from `getMessages()` is a value, so a turn started with it is unaffected by appends
+that land while the request is in flight.
+
+Subscribe to `eventStream` for ``ConversationEvent`` values covering user messages, assistant
+replies, tool calls and errors. Running totals arrive there too, as `usageUpdated` — note that
+the total tracks input and output tokens only, so cache and reasoning breakdowns have to come
+from the per-turn `usage` on each ``ChatResponse``.
 
 ```swift
 import LLMChat
 
-// ConversationHistory を使ったマルチターン会話例
 let history = ConversationHistory()
 
-// イベント購読（オプション）
 Task {
     for await event in history.eventStream {
         if case .usageUpdated(let usage) = event {
-            print("累計トークン: \(usage.totalTokens)")
+            print("cumulative tokens: \(usage.totalTokens)")
         }
     }
 }
 
-// ターン 1
-await history.append(.user("Swift の Optional とは何ですか？"))
-let response1: ExplainResult = try await client.chat(
+await history.append(.user("What is an Optional in Swift?"))
+let first: ChatResponse<Explanation> = try await client.chat(
     messages: await history.getMessages(),
     model: .claude(.sonnet)
 )
-await history.append(response1.assistantMessage)
+await history.append(first.assistantMessage)
 
-// ターン 2 — 直前の回答を踏まえた追加質問
-await history.append(.user("Optional Chaining の具体例を見せてください"))
-let response2: ExplainResult = try await client.chat(
+await history.append(.user("Show me optional chaining."))
+let second: ChatResponse<Explanation> = try await client.chat(
     messages: await history.getMessages(),
     model: .claude(.sonnet)
 )
-await history.append(response2.assistantMessage)
+await history.append(second.assistantMessage)
 
-print("会話ターン数: \(await history.turnCount)")
+print(first.result.summary)
 ```
+
+Nothing here truncates the history for you. Every turn re-sends the whole conversation, so input
+tokens grow with the transcript; use `LLMContext` to watch the window and decide when to
+summarise or drop older turns.
 
 ## Topics
 
-### クライアントプロトコル
+### Clients
 
 - ``ChatCapableClient``
 - ``ChatResponse``
 
-### 会話履歴
+### History
 
 - ``ConversationHistory``
 - ``ConversationHistoryProtocol``

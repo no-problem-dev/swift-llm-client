@@ -2,55 +2,68 @@ import Foundation
 
 // MARK: - StreamDelta
 
-/// ストリーミング中の差分イベント
+/// One incremental fragment of a response as it is being generated.
+///
+/// Each delta carries only the newly produced characters, not a running snapshot — append them to
+/// build the text; assigning instead leaves you with the last fragment alone.
+///
+/// Two things this deliberately does not carry. **Tool calls do not stream**: there is no case for
+/// tool-call arguments, so an argument JSON blob only ever becomes visible on the finished
+/// `LLMResponse` delivered by `StreamingAgentEvent.completed`. And a provider without native
+/// streaming emits **no deltas at all** — `AgentCapableClient` supplies a default `streamAgentStep`
+/// that runs the non-streaming call and yields a single `.completed`, so a UI must render the
+/// completed response as well, not only the deltas.
 public enum StreamDelta: Sendable {
-    /// 思考テキストの差分
+    /// Newly produced reasoning text, when the model exposes its thinking.
     case thinkingDelta(String)
 
-    /// テキストコンテンツの差分
+    /// Newly produced response text.
     case textDelta(String)
 }
 
 // MARK: - ThinkingMode
 
-/// Extended Thinking のモード設定
+/// Whether extended thinking is available to the model.
+///
+/// A switch, not a budget: there is no token allowance to set here. For finer control over how
+/// much reasoning is spent, see `ReasoningEffort`, which is a separate OpenAI-specific setting.
 public enum ThinkingMode: Sendable, Equatable {
-    /// Thinking 無効
+    /// No thinking. Also the right choice for models that do not support it.
     case disabled
 
-    /// Adaptive モード（API が必要に応じて thinking を使用）
+    /// Lets the model decide, per request, whether and how deeply to think.
     case adaptive
 }
 
 // MARK: - ReasoningEffort
 
-/// OpenAI GPT-5 系の `reasoning_effort` パラメータ。
+/// The `reasoning_effort` parameter of OpenAI's GPT-5 family.
 ///
-/// reasoning モデルに対して、思考ステップにかけるトークン数（＝速度／コスト／精度）を
-/// 指定する。`ThinkingMode` が「on / off」のスイッチであるのに対し、
-/// こちらは OpenAI 固有の effort 階級を表す独立した設定。
+/// For reasoning models, sets how many tokens go into the thinking step — which is to say speed,
+/// cost, and accuracy. Where `ThinkingMode` is an on/off switch, this is an independent,
+/// OpenAI-specific grade of effort.
 ///
-/// **受け付ける値はモデルによって違う。** 非対応の値を送るとリクエストが弾かれる
-/// （`invalid_request_error`）ので、`GPTModel.supports(_:)` で確かめてから送る。
+/// **Which values a model accepts differs by model.** Sending an unsupported value gets the request
+/// rejected (`invalid_request_error`), so check with `GPTModel.supports(_:)` before sending.
 public enum ReasoningEffort: String, Sendable, Equatable, CaseIterable {
-    /// 思考しない。最速・最安。
+    /// No thinking at all. Fastest and cheapest.
     ///
-    /// - Note: `ReasoningEffort?` と比べるときは `Optional.none` と紛れる。
-    ///   `== ReasoningEffort.none` と型を明示する。
+    /// - Note: Easily confused with `Optional.none` when compared against a `ReasoningEffort?`.
+    ///   Spell out the type as `== ReasoningEffort.none`.
     case none
-    /// 思考トークンを最小化。
+    /// Minimises thinking tokens.
     ///
-    /// - Warning: **現行モデルは受け付けない。** GPT-5.3 以降で `none` に置き換わった。
-    ///   古いモデル（o-series・GPT-5 / 5.1 / 5.2）向けに残してある。
+    /// - Warning: **Current models do not accept this.** It was replaced by `none` in GPT-5.3.
+    ///   Kept for older models: the o-series and GPT-5 / 5.1 / 5.2.
     case minimal
-    /// 浅い思考。triage / 簡単な編集 / 軽量な多段 tool routing 向け。
+    /// Shallow thinking. Suited to triage, small edits, and light multi-step tool routing.
     case low
-    /// 既定。汎用ワークロードに対する safe choice。
+    /// The default, and the safe choice for general workloads.
     case medium
-    /// 深い多段思考。計画立案・複雑な分析向け。
+    /// Deep multi-step thinking. Suited to planning and involved analysis.
     case high
-    /// high より深い思考。
+    /// Deeper still than `high`.
     case xhigh
-    /// 最も深い思考。GPT-5.6 系のみ。
+    /// The deepest thinking available. GPT-5.6 family only.
     case max
 }

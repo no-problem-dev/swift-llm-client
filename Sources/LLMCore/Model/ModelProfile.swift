@@ -2,65 +2,71 @@ import Foundation
 
 // MARK: - ModelProfile
 
-/// モデルの特性・能力・コスト情報を記述する構造体
+/// What a model is like: its limits, what it can handle, and what it costs.
 ///
-/// クラウド LLM とローカル LLM の両方で使用可能。
-/// クラウド固有（pricing）やローカル固有（quantization）のフィールドはオプショナル。
+/// Covers both hosted and on-device models. Fields that only one kind has — pricing for a hosted
+/// model, quantization for a local one — are optional.
 public struct ModelProfile: Sendable, Hashable, Codable {
 
     // MARK: - Common
 
-    /// モデルの一行要約（例: "高速・低コストのバランス型"）
+    /// One-line description of the model, such as "Balanced: fast and inexpensive".
     public let summary: String
 
-    /// モデルファミリー名（例: "Claude", "Qwen", "Gemma"）
+    /// Family the model belongs to, such as "Claude", "Qwen" or "Gemma".
     public let modelFamily: String
 
-    /// パラメータ数（例: "4B", "70B", "30B-A3B"）
+    /// Parameter count as the vendor states it, such as "4B", "70B" or "30B-A3B".
     public let parameterCount: String?
 
     // MARK: - Detail Information
 
-    /// モデルの詳細説明（複数行）
+    /// Longer description of the model, which may run to several lines.
     public let description: String?
 
-    /// コンテキストウィンドウサイズ（トークン数）
+    /// Tokens the model can hold in one request, prompt and response together.
+    ///
+    /// A provider rejects a request that overflows it, so this is the ceiling a conversation has to
+    /// stay under. Nil when the limit is not recorded for this model.
     public let contextWindow: Int?
 
-    /// 最大出力トークン数
+    /// Most tokens the model will produce in one response.
+    ///
+    /// Asking for more is rejected, and this much of the context window has to stay free for the
+    /// answer. Nil when the cap is not recorded.
     public let maxOutputTokens: Int?
 
-    /// 知識カットオフ
+    /// Month the model's training data ends. Anything later has to come from the prompt.
     public let knowledgeCutoff: YearMonth?
 
-    /// 主な強み（例: ["複雑な推論", "コード生成"]）
+    /// What the model is good at, such as ["complex reasoning", "code generation"].
     public let strengths: [String]?
 
-    /// おすすめ用途（例: ["エージェントワークフロー", "コードレビュー"]）
+    /// Work the model suits, such as ["agent workflows", "code review"].
     public let bestFor: [String]?
 
     // MARK: - Capabilities
 
-    /// ツール呼び出しのサポートレベル
+    /// How dependable the model is at calling tools.
     public let toolCallSupport: ToolCallSupport
 
-    /// 日本語サポートレベル
+    /// How well the model handles Japanese.
     public let japaneseSupport: LanguageSupport
 
-    /// サポートするモダリティ
+    /// Kinds of content the model can take in or produce.
     public let modalities: Set<Modality>
 
     // MARK: - Cloud-specific (optional)
 
-    /// トークンあたりのコスト情報
+    /// What the model charges per token. Nil when it is not billed that way, as with a local model.
     public let pricing: Pricing?
 
     // MARK: - Local-specific (optional)
 
-    /// 量子化情報（例: "4bit", "QAT-4bit", "bf16"）
+    /// Quantization of the local weights, such as "4bit", "QAT-4bit" or "bf16".
     public let quantization: String?
 
-    /// 推論速度の相対的な指標
+    /// Roughly how fast the model runs compared with others.
     public let inferenceSpeed: InferenceSpeed?
 
     public init(
@@ -100,9 +106,9 @@ public struct ModelProfile: Sendable, Hashable, Codable {
 
 // MARK: - SupportLevel Protocol
 
-/// サポートレベルの共通プロトコル
+/// A graded level of support that can be compared and sorted.
 public protocol SupportLevel: RawRepresentable, Sendable, Hashable, Codable, Comparable where RawValue == String {
-    /// サポートレベルの並び順
+    /// Rank of the level; a higher number means better support, and drives the comparison operators.
     var sortOrder: Int { get }
 }
 
@@ -114,15 +120,15 @@ extension SupportLevel {
 
 // MARK: - ToolCallSupport
 
-/// ツール呼び出しサポートレベル
+/// How dependable a model is at calling tools.
 public enum ToolCallSupport: String, Sendable, Hashable, Codable, SupportLevel, CaseIterable {
-    /// 高品質・安定（Qwen3, Claude）
+    /// Reliable and well formed, as with Qwen3 and Claude.
     case excellent
-    /// 大半のケースで動作（Llama, Mistral）
+    /// Works in most cases, as with Llama and Mistral.
     case good
-    /// 限定的・不安定（Phi, Gemma small）
+    /// Limited and unreliable, as with Phi and the small Gemma models.
     case basic
-    /// 非対応（DeepSeek R1, SmolLM）
+    /// No tool calling at all, as with DeepSeek R1 and SmolLM.
     case unsupported
 
     public var sortOrder: Int {
@@ -137,15 +143,12 @@ public enum ToolCallSupport: String, Sendable, Hashable, Codable, SupportLevel, 
 
 // MARK: - LanguageSupport
 
-/// 言語サポートレベル
+/// How well a model handles a given language.
 public enum LanguageSupport: String, Sendable, Hashable, Codable, SupportLevel, CaseIterable {
-    /// ネイティブ級・FT 済み
+    /// Near-native, usually because the model was fine-tuned on the language.
     case excellent
-    /// 良好
     case good
-    /// 基本的
     case basic
-    /// 非対応
     case unsupported
 
     public var sortOrder: Int {
@@ -160,18 +163,16 @@ public enum LanguageSupport: String, Sendable, Hashable, Codable, SupportLevel, 
 
 // MARK: - Modality
 
-/// モダリティ
+/// A kind of content a model can take in or produce.
 public enum Modality: String, Sendable, Hashable, Codable {
-    /// テキスト
     case text
-    /// 画像入力（VLM）
+    /// Image input, i.e. a vision-language model.
     case vision
-    /// 音声
     case audio
-    /// コード生成特化
+    /// Built for generating code.
     case code
 
-    /// 表示名
+    /// Japanese label for showing the modality in a user interface.
     public var displayName: String {
         switch self {
         case .text: return "テキスト"
@@ -182,20 +183,19 @@ public enum Modality: String, Sendable, Hashable, Codable {
     }
 }
 
-// Pricing は Cost/Pricing.swift に分離。
+// Pricing lives in Cost/Pricing.swift.
 
 // MARK: - InferenceSpeed
 
-/// 推論速度の相対指標
+/// Roughly how fast a model runs compared with others.
 public enum InferenceSpeed: String, Sendable, Hashable, Codable {
-    /// 高速（小型モデル、LFM2 等）
+    /// Fast, as small models such as LFM2 are.
     case fast
-    /// 標準
     case medium
-    /// 低速（大型モデル）
+    /// Slow, as large models are.
     case slow
 
-    /// 表示名
+    /// Japanese label for showing the speed in a user interface.
     public var displayName: String {
         switch self {
         case .fast: return "高速"

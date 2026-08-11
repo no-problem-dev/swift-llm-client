@@ -1,40 +1,27 @@
 # ``LLMDynamicStructured``
 
-`LLMClient` の後方互換再エクスポートモジュール。
+A compatibility re-export of LLMClient, kept so older targets keep building.
 
 ## Overview
 
-`LLMDynamicStructured` はパッケージ再編成以前の参照を維持するための互換シム。
-構造化出力の実装は `LLMClient` へ統合済みであり、`LLMDynamicStructured` は
-`@_exported import LLMClient` によってすべての型・マクロ・プロトコルをそのまま再エクスポートする。
+Structured output used to live in its own library. It was folded into `LLMClient`, and this
+library remains as `@_exported import LLMClient` and nothing else. It defines no types of its
+own — every symbol you get from it belongs to `LLMClient`, which is why its documentation lives
+there.
 
-既存のターゲットが `LLMDynamicStructured` に依存している場合、コードを変更せずに継続利用できる。
-新規コードでは直接 `LLMClient` を依存に追加することを推奨する。
+A target that depends on this library needs no source changes. New code should depend on
+`LLMClient` directly.
 
 ```swift
-// 既存コード — 変更不要
+// Still works.
 import LLMDynamicStructured
 
-@Structured("タスク情報")
-struct TaskInfo {
-    @StructuredField("タイトル")
-    var title: String
-}
-
-// 新規コードでの推奨形式
+// Prefer this.
 import LLMClient
 
-@Structured("タスク情報")
+@Structured("A task")
 struct TaskInfo {
-    @StructuredField("タイトル")
+    @StructuredField("Title")
     var title: String
 }
 ```
-
-## Topics
-
-### 再エクスポート元
-
-- ``StructuredLLMClient``
-- ``StructuredProtocol``
-- ``JSONSchema``

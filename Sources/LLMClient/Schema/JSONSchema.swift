@@ -2,130 +2,186 @@ import Foundation
 
 // MARK: - JSONSchema
 
-/// JSON Schema の Swift 表現
+/// A JSON Schema describing the JSON a model is required to produce.
 ///
-/// LLM の Structured Output 機能で使用される JSON Schema を表現する。
-/// 各プロバイダー（Anthropic, OpenAI, Gemini）の API で使用可能な形式でエンコードされる。
+/// Use it for structured output — the shape the response must take — and for the arguments of a
+/// tool. Write the schema once for every provider: a ``ProviderSchemaAdapter`` reduces it to the
+/// subset the target endpoint accepts just before the request goes out, and reports back
+/// whatever it had to drop.
 ///
-/// ## 概要
+/// Only the seven types in ``JSONSchemaType`` are modelled. There is no representation for
+/// `anyOf`, `oneOf`, `allOf`, `$ref`, or `$schema`, so those keywords cannot be expressed here
+/// and never reach a provider.
 ///
-/// JSON Schema は構造化データの形式を定義するための標準規格。
-/// このライブラリでは、LLM からの出力を型安全に取得するために使用する。
-///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
-/// // 基本的なスキーマの作成
-/// let nameSchema = JSONSchema.string(description: "名前")
-///
-/// // オブジェクトスキーマの作成
 /// let userSchema = JSONSchema.object(
-///     description: "ユーザー情報",
+///     description: "A user record",
 ///     properties: [
-///         "name": .string(description: "名前"),
+///         "name": .string(description: "Full name"),
 ///         "age": .integer(minimum: 0, maximum: 150)
 ///     ],
 ///     required: ["name", "age"]
 /// )
 ///
-/// // JSON データに変換
 /// let jsonData = try userSchema.toJSONData()
 /// ```
 ///
-/// ## プロバイダー対応
+/// ## Provider differences
 ///
-/// 各 LLM プロバイダーは JSON Schema のサポート範囲が異なる。
-/// このライブラリでは、プロバイダーごとにスキーマを自動的に適合させるため、
-/// ユーザーが直接プロバイダー固有の変換を意識する必要はない。
+/// Providers accept different subsets of JSON Schema and reject the request outright when an
+/// unsupported keyword appears. Declare the constraints you actually want rather than the lowest
+/// common denominator: the adapter strips what the target cannot take and hands back a
+/// ``RemovedConstraint`` for each one, which the caller can restate in the system prompt so the
+/// requirement still reaches the model. ``ProviderSchemaAdapter`` lists what each provider keeps.
 public struct JSONSchema: Sendable, Codable, Equatable {
-    /// スキーマの型
+    /// The type keyword for this node.
+    ///
+    /// Encoding pairs it with ``nullable``: a nullable node goes out as a `["<type>", "null"]`
+    /// union instead of a bare string. Decoding accepts either form.
     public let type: JSONSchemaType
 
-    /// null を許容するか。
+    /// Whether the value is allowed to be null as well.
     ///
-    /// `true` の場合、JSON Schema では型を `["<type>", "null"]` の union として出力する。
-    /// OpenAI strict mode では「optional なプロパティは required に含めつつ null 許容にする」
-    /// のが標準であり、その表現に用いる。
+    /// Encoded by widening the type into a `["<type>", "null"]` union rather than as a keyword of
+    /// its own. OpenAI strict mode has no optional property — every property must be listed in
+    /// `required` — so optionality is expressed as nullability there, and its adapter sets this
+    /// on each property the caller left out of ``required``.
     public let nullable: Bool
 
-    /// スキーマの説明
+    /// Natural-language description of this node, passed straight through to the model.
+    ///
+    /// This is prompt text, not API documentation: the model reads it when deciding what to put
+    /// here, and it costs input tokens on every request carrying the schema. It is also where a
+    /// requirement goes when no keyword survives the trip to the provider.
     public let description: String?
 
-    /// オブジェクト型のプロパティ定義
+    /// The properties of an object, keyed by name.
+    ///
+    /// Meaningful only when ``type`` is object. Because this is a dictionary, the order the
+    /// properties take in the encoded JSON is the encoder's business: ``toJSONData()`` and
+    /// ``toJSONString(prettyPrinted:)`` sort keys and produce identical bytes on every run, while
+    /// a plain `JSONEncoder` does not — and bytes that shift between runs defeat prompt caching.
     public let properties: [String: JSONSchema]?
 
-    /// 必須プロパティ名のリスト
+    /// Names of the properties the model has to fill in.
+    ///
+    /// Omitting a property from this list is how optionality is declared, and not every provider
+    /// can honour it: under OpenAI strict mode every property is required, so its adapter
+    /// rewrites this to name all of them and marks the omitted ones ``nullable`` instead.
     public let required: [String]?
 
-    /// 配列型の要素スキーマ
+    /// The schema every element of an array has to match.
+    ///
+    /// Boxed because the element type of a schema is itself a schema; see ``Box``.
     public let items: Box<JSONSchema>?
 
-    /// 追加プロパティを許可するかどうか
+    /// Whether the model may return properties beyond the declared ones.
+    ///
+    /// Adapters do not treat this as a preference. OpenAI strict mode requires `false` on every
+    /// object and its adapter forces it there; Gemini rejects the keyword and its adapter removes
+    /// it. Only the Anthropic adapter sends what you wrote.
     public let additionalProperties: Bool?
 
-    // MARK: - 配列制約
+    // MARK: - Array constraints
 
-    /// 最小要素数
+    /// The fewest elements the array may hold.
+    ///
+    /// Kept as written only for Gemini. The Anthropic adapter keeps 0 and 1 and drops anything
+    /// larger; the OpenAI adapter always drops it.
     public let minItems: Int?
 
-    /// 最大要素数
+    /// The most elements the array may hold.
+    ///
+    /// Kept only for Gemini; the Anthropic and OpenAI adapters drop it.
     public let maxItems: Int?
 
-    // MARK: - 数値制約
+    // MARK: - Numeric constraints
 
-    /// 最小値（この値を含む）
+    /// The smallest value allowed, inclusive.
+    ///
+    /// Kept only for Gemini; the Anthropic and OpenAI adapters drop numeric bounds.
     public let minimum: Double?
 
-    /// 最大値（この値を含む）
+    /// The largest value allowed, inclusive.
+    ///
+    /// Kept only for Gemini; the Anthropic and OpenAI adapters drop numeric bounds.
     public let maximum: Double?
 
-    /// 最小値（この値を含まない）
+    /// The bound the value has to stay strictly above.
+    ///
+    /// No provider adapter keeps the exclusive bounds — all three drop them and report the
+    /// removal, so an exclusive bound only ever reaches the model as prompt text.
     public let exclusiveMinimum: Double?
 
-    /// 最大値（この値を含まない）
+    /// The bound the value has to stay strictly below.
+    ///
+    /// Dropped by every provider adapter, like ``exclusiveMinimum``.
     public let exclusiveMaximum: Double?
 
-    // MARK: - 文字列制約
+    // MARK: - String constraints
 
-    /// 最小文字数
+    /// The fewest characters the string may contain.
+    ///
+    /// Dropped by every provider adapter. Counted in characters, not tokens, so it is no way to
+    /// bound the length of a generation.
     public let minLength: Int?
 
-    /// 最大文字数
+    /// The most characters the string may contain.
+    ///
+    /// Dropped by every provider adapter, like ``minLength``.
     public let maxLength: Int?
 
-    /// 正規表現パターン
+    /// A regular expression the string has to match.
+    ///
+    /// Kept only for Anthropic. The OpenAI and Gemini adapters drop it, and a dropped pattern
+    /// becomes an instruction in the prompt rather than something the decoder enforces.
     public let pattern: String?
 
-    // MARK: - 列挙・フォーマット
+    // MARK: - Enumeration and format
 
-    /// 許可される値のリスト
+    /// The complete set of values this string is allowed to take.
+    ///
+    /// The one validation keyword every provider adapter passes through untouched, which makes it
+    /// the most dependable way to pin a model down to a fixed vocabulary.
     public let `enum`: [String]?
 
-    /// 文字列フォーマット（例: "email", "uri", "date-time"）
+    /// A named string format such as email, uri, or date-time.
+    ///
+    /// Anthropic accepts any format, Gemini only date-time, date, and time, and OpenAI strict
+    /// mode none at all; the adapter drops what its provider will not take.
     public let format: String?
 
     // MARK: - Initializer
 
-    /// JSONSchema を初期化
+    /// Creates a schema node from raw keywords.
+    ///
+    /// Prefer the factory methods — `string(...)`, `object(...)`, `array(...)` — which only offer
+    /// the keywords that apply to a type. This initializer accepts every keyword whatever the
+    /// type is, and nothing checks that the combination means anything.
     ///
     /// - Parameters:
-    ///   - type: スキーマの型
-    ///   - description: スキーマの説明
-    ///   - properties: オブジェクト型のプロパティ定義
-    ///   - required: 必須プロパティ名のリスト
-    ///   - items: 配列型の要素スキーマ
-    ///   - additionalProperties: 追加プロパティを許可するかどうか
-    ///   - minItems: 最小要素数
-    ///   - maxItems: 最大要素数
-    ///   - minimum: 最小値（この値を含む）
-    ///   - maximum: 最大値（この値を含む）
-    ///   - exclusiveMinimum: 最小値（この値を含まない）
-    ///   - exclusiveMaximum: 最大値（この値を含まない）
-    ///   - minLength: 最小文字数
-    ///   - maxLength: 最大文字数
-    ///   - pattern: 正規表現パターン
-    ///   - enum: 許可される値のリスト
-    ///   - format: 文字列フォーマット
+    ///   - type: The type keyword for this node.
+    ///   - nullable: Whether the value may also be null, encoded as a union with the null type
+    ///     rather than as a keyword. Set it for a property that is optional under a provider
+    ///     whose strict mode requires every property.
+    ///   - description: Natural-language text the model reads; it costs input tokens.
+    ///   - properties: The properties of an object, keyed by name.
+    ///   - required: Names of the properties the model has to fill in.
+    ///   - items: The schema every element of an array has to match.
+    ///   - additionalProperties: Whether properties beyond the declared ones are allowed.
+    ///   - minItems: The fewest elements the array may hold.
+    ///   - maxItems: The most elements the array may hold.
+    ///   - minimum: The smallest value allowed, inclusive.
+    ///   - maximum: The largest value allowed, inclusive.
+    ///   - exclusiveMinimum: The bound the value has to stay strictly above.
+    ///   - exclusiveMaximum: The bound the value has to stay strictly below.
+    ///   - minLength: The fewest characters the string may contain.
+    ///   - maxLength: The most characters the string may contain.
+    ///   - pattern: A regular expression the string has to match.
+    ///   - enum: The complete set of values this string is allowed to take.
+    ///   - format: A named string format such as email, uri, or date-time.
     public init(
         type: JSONSchemaType,
         nullable: Bool = false,
@@ -170,15 +226,13 @@ public struct JSONSchema: Sendable, Codable, Equatable {
 // MARK: - Convenience Properties
 
 extension JSONSchema {
-    /// オブジェクト型かどうか
     public var isObject: Bool { type == .object }
 
-    /// 配列型かどうか
     public var isArray: Bool { type == .array }
 
-    /// プリミティブ型かどうか
+    /// Whether this node is a scalar rather than a container.
     ///
-    /// string, integer, number, boolean, null のいずれかの場合に `true` を返す。
+    /// True for string, integer, number, boolean, and null; false for object and array.
     public var isPrimitive: Bool {
         switch type {
         case .string, .integer, .number, .boolean, .null:

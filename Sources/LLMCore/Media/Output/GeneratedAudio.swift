@@ -1,34 +1,34 @@
 // GeneratedAudio.swift
 // swift-llm-client
 //
-// 生成された音声コンテンツの定義
+// Audio content produced by a model.
 
 import Foundation
 
 // MARK: - GeneratedAudio
 
-/// 生成された音声
+/// Audio a model produced, held whole in memory.
 ///
-/// LLM が生成した音声データを保持する。
-/// OpenAI TTS や Gemini TTS による音声生成の結果として返される。
+/// Returned by OpenAI TTS and Gemini TTS. The samples travel with the value, so the audio survives
+/// even after the identifier that names it on the provider's side stops resolving.
 ///
-/// ## プロバイダー別の特性
-/// - **OpenAI TTS**: 複数のフォーマット（MP3, Opus, AAC, FLAC, WAV, PCM）をサポート
-/// - **Gemini TTS**: PCM（Linear16, 24kHz）のみ
+/// ## Provider Differences
+/// - **OpenAI TTS**: MP3, Opus, AAC, FLAC, WAV, or PCM, and it stamps an identifier and sometimes
+///   an expiry on the result.
+/// - **Gemini TTS**: PCM only — Linear16 at 24 kHz, with no container and no header. Writing it to
+///   a `.wav` file will not make it playable.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
-/// // 音声を生成
 /// let audio = try await client.generateSpeech(
-///     text: "こんにちは、世界！",
-///     voice: .alloy,
-///     model: .tts1
+///     input: "Hello, world!",
+///     model: .tts1,
+///     voice: .alloy
 /// )
 ///
-/// // ファイルに保存
 /// try audio.save(to: URL(fileURLWithPath: "greeting.mp3"))
 ///
-/// // 音声を再生（AVFoundation 利用可能時）
+/// // Where AVFoundation is available.
 /// if let player = audio.audioPlayer {
 ///     player.play()
 /// }
@@ -36,46 +36,48 @@ import Foundation
 public struct GeneratedAudio: GeneratedMediaProtocol {
     // MARK: - Properties
 
-    /// 生成された音声データ（Base64デコード済み）
+    /// The audio bytes, already Base64-decoded.
     public let data: Data
 
-    /// 音声フォーマット
+    /// The encoding of the bytes, which fixes both the MIME type and the file extension.
     public let format: AudioOutputFormat
 
-    /// 音声のテキスト表現（トランスクリプト）
+    /// The words the audio speaks, when the provider reports them.
     ///
-    /// 生成時に使用された元のテキスト、または
-    /// 音声認識によって生成されたテキストが格納される。
+    /// Either the text that was synthesized or, for a transcription round trip, the text
+    /// recognized from the audio.
     public let transcript: String?
 
-    /// 音声ファイルの識別子（OpenAI）
+    /// The provider's identifier for this clip.
     ///
-    /// OpenAI の音声生成 API では、生成された音声に一意の識別子が付与される。
+    /// OpenAI stamps one on generated audio; use it to refer back to the clip in a later request
+    /// rather than resending the bytes. Other providers leave it nil.
     public let id: String?
 
-    /// 有効期限（OpenAI）
+    /// When the provider stops honoring the identifier.
     ///
-    /// OpenAI の一部の API では、生成された音声に有効期限が設定される。
+    /// Only the bytes are permanent. Some OpenAI endpoints expire the server-side clip, after which
+    /// the identifier no longer resolves — check whether it is expired before reusing it.
     public let expiresAt: Date?
 
     // MARK: - GeneratedMediaProtocol
 
-    /// MIME タイプ文字列
+    /// The MIME type of the bytes, taken from the format.
     public var mimeType: String { format.mimeType }
 
-    /// ファイル拡張子
+    /// The file extension for the bytes, taken from the format.
     public var fileExtension: String { format.fileExtension }
 
     // MARK: - Initializers
 
-    /// 初期化
+    /// Creates an audio clip from decoded bytes.
     ///
     /// - Parameters:
-    ///   - data: 音声データ
-    ///   - format: 音声フォーマット
-    ///   - transcript: テキスト表現（オプション）
-    ///   - id: 識別子（オプション）
-    ///   - expiresAt: 有効期限（オプション）
+    ///   - data: Raw audio bytes, not Base64.
+    ///   - format: Encoding of the bytes. It is taken on trust and never verified against them.
+    ///   - transcript: The words the audio speaks, if known.
+    ///   - id: The provider's identifier for the clip.
+    ///   - expiresAt: When the provider stops honoring that identifier.
     public init(
         data: Data,
         format: AudioOutputFormat,
@@ -90,15 +92,15 @@ public struct GeneratedAudio: GeneratedMediaProtocol {
         self.expiresAt = expiresAt
     }
 
-    /// Base64 文字列から初期化
+    /// Creates an audio clip by decoding the Base64 payload a provider returned.
     ///
     /// - Parameters:
-    ///   - base64String: Base64 エンコードされた音声データ
-    ///   - format: 音声フォーマット
-    ///   - transcript: テキスト表現（オプション）
-    ///   - id: 識別子（オプション）
-    ///   - expiresAt: 有効期限（オプション）
-    /// - Throws: Base64 デコードに失敗した場合
+    ///   - base64String: Base64-encoded audio data, exactly as the API delivered it.
+    ///   - format: Encoding of the decoded bytes.
+    ///   - transcript: The words the audio speaks, if known.
+    ///   - id: The provider's identifier for the clip.
+    ///   - expiresAt: When the provider stops honoring that identifier.
+    /// - Throws: `GeneratedMediaError.invalidBase64Data` if the string is not valid Base64.
     public init(
         base64String: String,
         format: AudioOutputFormat,
@@ -118,38 +120,44 @@ public struct GeneratedAudio: GeneratedMediaProtocol {
 
     // MARK: - Metadata
 
-    /// データサイズ（バイト）
+    /// Size of the audio in bytes.
     public var dataSize: Int {
         data.count
     }
 
-    /// Base64 エンコードされた文字列
+    /// The bytes re-encoded as Base64.
+    ///
+    /// Encoding runs on every access and allocates a string roughly a third larger than the audio.
+    /// Store the result if you need it more than once.
     public var base64String: String {
         data.base64EncodedString()
     }
 
-    /// Data URL 形式の文字列
+    /// The audio as a data URL, ready to drop into an HTML audio element.
     ///
-    /// HTML の audio 要素などで使用可能な形式。
-    /// 例: `data:audio/mp3;base64,SUQzBAA...`
+    /// For example, `data:audio/mp3;base64,SUQzBAA...`. It embeds the whole Base64 payload, so it is
+    /// roughly a third larger than the audio itself and is rebuilt on every access.
     public var dataURL: String {
         "data:\(mimeType);base64,\(base64String)"
     }
 
-    /// 有効期限が過ぎているかどうか
+    /// Whether the provider has stopped honoring this clip's identifier.
     ///
-    /// - Returns: 有効期限が設定されていて、かつ現在時刻を過ぎている場合は true
+    /// Clips with no expiry never report true. Only the server-side reference lapses; the bytes
+    /// held here stay playable either way.
     public var isExpired: Bool {
         guard let expiresAt = expiresAt else { return false }
         return Date() > expiresAt
     }
 
-    /// 推定再生時間（秒）
+    /// A rough playing time in seconds, inferred from the byte count.
     ///
-    /// フォーマットごとの一般的なビットレートから概算する。
-    /// 正確な値が必要な場合は AVAudioPlayer を使用すること。
+    /// It divides the size by a nominal bit rate for the format and never inspects the audio, so
+    /// variable-bit-rate MP3 and FLAC can be off by a wide margin, and PCM assumes Gemini's 24 kHz
+    /// 16-bit mono. Despite the optional type it always produces a value. Decode the audio when the
+    /// duration has to be exact.
     public var estimatedDuration: TimeInterval? {
-        // 各フォーマットの一般的なビットレート（bps）を使用
+        // Nominal bit rates in bits per second, one per format.
         let bytesPerSecond: Double
         switch format {
         case .mp3:

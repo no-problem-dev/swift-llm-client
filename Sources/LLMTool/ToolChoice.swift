@@ -2,32 +2,35 @@ import Foundation
 
 // MARK: - ToolChoice
 
-/// ツール選択の動作モード
+/// How much freedom the model has in choosing a tool.
 ///
-/// LLM がツールを使用するかどうか、どのように選択するかを制御する。
+/// Each case is translated into the provider's own tool-choice field, so the same value works
+/// across providers. Forcing a choice applies to one request only: leave it forced on a loop
+/// and the model can never produce the final answer, so the usual pattern is to force the first
+/// request and fall back to automatic selection afterwards.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
-/// // 自動選択（デフォルト）
-/// let result = try await client.generate(
-///     input: "東京の天気は？",
+/// // Automatic selection
+/// let plan = try await client.planToolCalls(
+///     prompt: "What is the weather in Tokyo?",
 ///     model: .sonnet,
 ///     tools: tools,
 ///     toolChoice: .auto
 /// )
 ///
-/// // ツール使用を強制
-/// let result = try await client.generate(
-///     input: "天気を調べて",
+/// // Require some tool to be used
+/// let plan = try await client.planToolCalls(
+///     prompt: "Look up the weather",
 ///     model: .sonnet,
 ///     tools: tools,
 ///     toolChoice: .required
 /// )
 ///
-/// // 特定のツールを強制
-/// let result = try await client.generate(
-///     input: "天気を調べて",
+/// // Require one particular tool
+/// let plan = try await client.planToolCalls(
+///     prompt: "Look up the weather",
 ///     model: .sonnet,
 ///     tools: tools,
 ///     toolChoice: .tool("get_weather")
@@ -35,46 +38,48 @@ import Foundation
 /// ```
 public enum ToolChoice: Sendable, Equatable {
 
-    /// 自動選択（デフォルト）
+    /// Lets the model decide, which is what providers do when no choice is given.
     ///
-    /// LLM がプロンプトに基づいてツールを使用するかを判断する。
-    /// ツールが不要な場合はテキストのみで応答する可能性がある。
+    /// It may answer with text alone when no tool is warranted, so a caller cannot assume the
+    /// response carries calls.
     case auto
 
-    /// ツール使用を強制
+    /// Requires the model to call a tool, leaving it to pick which one.
     ///
-    /// LLM は必ずいずれかのツールを使用する。
-    /// どのツールを使用するかは LLM が選択する。
+    /// Use it when an empty-handed answer is not an acceptable outcome, such as a router whose
+    /// whole job is to dispatch to one of its tools.
     case required
 
-    /// ツール使用を禁止
+    /// Asks for a text-only answer even though tools are attached.
     ///
-    /// LLM はツールを使用せず、テキストのみで応答する。
-    /// ツールが定義されていても無視される。
+    /// Useful for a final summarizing turn where the tools stay in the prompt, and therefore
+    /// stay cached, but must not fire again. Support is uneven: some adapters map it to the
+    /// provider's own suppression field, while others fall through to automatic selection, so
+    /// confirm with the provider before relying on it to hard-block a call.
     case disabled
 
-    /// 特定のツールを強制
+    /// Requires the model to call one named tool.
     ///
-    /// 指定された名前のツールを必ず使用する。
+    /// The most direct way to get structured arguments out of a model: define one tool, force
+    /// it, and read its arguments. The name has to match a tool present in the request.
     ///
-    /// - Parameter name: 使用するツールの名前
+    /// - Parameter name: The name of the tool the model has to call.
     case tool(String)
 }
 
 // MARK: - Parallel Tool Use
 
-/// 並列ツール呼び出しの設定
+/// Whether the model may ask for several tool calls in one reply.
 ///
-/// LLM が単一リクエストで複数のツールを呼び出せるかを制御する。
+/// No request builder reads this value, so passing it does not reach the provider and parallel
+/// tool use follows each provider's own default. Check the response instead: a plan can carry
+/// more than one call whatever this says.
 public enum ParallelToolUse: Sendable, Equatable {
 
-    /// 並列呼び出しを許可（デフォルト）
-    ///
-    /// LLM は必要に応じて複数のツールを同時に呼び出せる。
+    /// Several calls may come back in a single reply.
     case enabled
 
-    /// 並列呼び出しを禁止
-    ///
-    /// LLM は一度に 1 つのツールのみ呼び出す。
+    /// At most one call comes back per reply, which serializes a multi-step task into one
+    /// round trip per step.
     case disabled
 }

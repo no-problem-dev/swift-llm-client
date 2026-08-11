@@ -1,22 +1,23 @@
 # Getting Started with LLMClient
 
-`LLMClient` を使って、型安全な構造化出力と柔軟なプロンプト DSL を活用する方法を説明する。
+Go from a Swift type to a decoded model response, then add prompts, images and conversation history.
 
-## Installation
+## Overview
 
-Swift Package Manager で追加する。
+This walkthrough uses `LLMClient` only. Tool calling lives in `LLMTool` and is covered
+separately; see <doc:ModuleLayout> for the full split.
+
+## Add the dependency
 
 ```swift
 // Package.swift
 dependencies: [
     .package(
         url: "https://github.com/no-problem-dev/swift-llm-client.git",
-        from: "3.9.0"
+        from: "3.0.0"
     )
 ]
 ```
-
-ターゲットの依存に必要なモジュールを追加する。
 
 ```swift
 .target(
@@ -28,128 +29,140 @@ dependencies: [
 )
 ```
 
-## Basic Usage
+## 1. Describe the answer you want
 
-### 1. 構造化出力型を定義する
+`@Structured` makes a type conform to ``StructuredProtocol`` and synthesises its `jsonSchema`.
+`@StructuredField` supplies the per-field description and constraints.
 
-`@Structured` マクロを使うと、型に `StructuredProtocol` 準拠・`jsonSchema` 静的プロパティが
-自動的に合成される。各フィールドには `@StructuredField` で説明と制約を付与する。
+The description strings are not comments. They are sent to the model as part of the schema, and
+they are the main lever you have over field-level accuracy — write them as instructions.
 
 ```swift
 import LLMClient
 
-@Structured("レシピ情報")
+@Structured("A cooking recipe")
 struct Recipe {
-    @StructuredField("料理名")
+    @StructuredField("Dish name")
     var name: String
 
-    @StructuredField("材料リスト（各材料名と分量）")
+    @StructuredField("Ingredients, each with its quantity")
     var ingredients: [String]
 
-    @StructuredField("調理時間（分）", .minimum(1), .maximum(300))
+    @StructuredField("Total cooking time in minutes", .minimum(1), .maximum(300))
     var cookingMinutes: Int
 
-    @StructuredField("難易度", .enum(["easy", "medium", "hard"]))
+    @StructuredField("Difficulty", .enum(["easy", "medium", "hard"]))
     var difficulty: String
 }
 ```
 
-### 2. クライアントで生成する
+Constraints such as `.minimum` and `.enum` are emitted as JSON Schema keywords where the
+provider supports them. Where it does not, ``ProviderSchemaAdapter`` removes the keyword and
+records it in ``SchemaAdaptationResult`` rather than sending a request the provider will reject.
 
-任意のプロバイダー実装（`AnthropicClient`, `OpenAIClient` など）を `StructuredLLMClient` として
-受け取り、`generate(input:model:)` を呼び出す。
+## 2. Generate
+
+Take any provider implementation as a ``StructuredLLMClient`` and call `generate`.
 
 ```swift
-// プロバイダー実装は別パッケージ（例: swift-llm-cloud）が提供
-let client: any StructuredLLMClient<LLMModel> = AnthropicClient(apiKey: "sk-ant-...")
+// Provider implementations ship in separate packages.
+let client: any StructuredLLMClient<LLMModel> = MyProviderClient(apiKey: apiKey)
 
 let recipe: Recipe = try await client.generate(
-    input: "簡単なペペロンチーノの作り方を教えて",
+    input: "How do I make a simple aglio e olio?",
     model: .claude(.sonnet)
 )
 
-print(recipe.name)            // "ペペロンチーノ"
-print(recipe.cookingMinutes)  // 15
+print(recipe.name)           // "Aglio e Olio"
+print(recipe.cookingMinutes) // 15
 ```
 
-トークン使用量も取得したい場合は `generateWithUsage(input:model:)` を使う。
+`generate` discards the usage numbers. If you need to meter or bill, use `generateWithUsage`
+and keep the ``GenerationResult`` — token counts cannot be reconstructed from the decoded value.
 
 ```swift
 let result: GenerationResult<Recipe> = try await client.generateWithUsage(
-    input: "簡単なペペロンチーノの作り方を教えて",
+    input: "How do I make a simple aglio e olio?",
     model: .claude(.sonnet)
 )
 
-print(result.result.name)       // "ペペロンチーノ"
-print(result.usage.inputTokens) // 入力トークン数
-print(result.usage.outputTokens) // 出力トークン数
+print(result.result.name)
+print(result.usage.inputTokens)
+print(result.usage.outputTokens)
 ```
 
-### 3. プロンプト DSL を使う
+## 3. Shape the system prompt
 
-`SystemPrompt` と `PromptComponent` で構造的なシステムプロンプトを組み立てる。
-`render()` メソッドで XML タグ形式に変換される。
+``SystemPrompt`` composes ``PromptComponent`` values and renders them as XML-tagged sections.
+The order in the builder is the order the model sees, so treat it as part of the prompt.
 
 ```swift
 let systemPrompt = SystemPrompt {
-    PromptComponent.role("経験豊富な料理研究家")
-    PromptComponent.objective("ユーザーのリクエストからレシピ情報を抽出する")
-    PromptComponent.constraint("材料の分量は必ず具体的な数値で記載する")
+    PromptComponent.role("An experienced recipe developer")
+    PromptComponent.objective("Extract a structured recipe from the user's request")
+    PromptComponent.constraint("Always give ingredient quantities as concrete numbers")
     PromptComponent.example(
-        input: "カルボナーラを作りたい",
-        output: #"{"name":"カルボナーラ","cookingMinutes":20,"difficulty":"medium"}"#
+        input: "I want to make carbonara",
+        output: #"{"name":"Carbonara","cookingMinutes":20,"difficulty":"medium"}"#
     )
 }
 
 let recipe: Recipe = try await client.generate(
-    input: "ビーフシチューの本格レシピ",
+    input: "A proper beef stew",
     model: .claude(.sonnet),
     systemPrompt: systemPrompt
 )
 ```
 
-### 4. マルチモーダル入力
+A system prompt that is stable across requests is also what makes prompt caching pay off; see
+``PromptCachePolicy``.
 
-`LLMInput` を使うと、テキストに画像・音声・動画を組み合わせられる。
+## 4. Send images, audio or video
+
+``LLMInput`` combines text with attachments. The model must actually support the modality —
+check the model's profile before sending, or the provider will reject the request.
 
 ```swift
-let imageContent = ImageContent.base64(imageData, mediaType: .jpeg)
+let image = ImageContent.base64(imageData, mediaType: .jpeg)
 
 let input = LLMInput(
-    "この画像のレシピを解析してください",
-    images: [imageContent]
+    "Read this recipe card and extract the recipe.",
+    images: [image]
 )
 
 let recipe: Recipe = try await client.generate(
     input: input,
-    model: .gemini(.flash36)  // 画像対応モデルを指定
+    model: .gemini(.flash36)
 )
 ```
 
-### 5. 会話履歴を使った生成
+## 5. Continue a conversation
 
-複数ターンの会話では `messages` オーバーロードを使う。
+For multiple turns, pass the whole message array. Each call is stateless — the model sees only
+what you send, so history is yours to keep.
 
 ```swift
 var messages: [LLMMessage] = []
 
-// 最初のターン
-messages.append(.user("東京のおすすめ観光スポットを3つ教えて"))
-let firstRecipe: CityTips = try await client.generate(
+messages.append(.user("Suggest three things to do in Tokyo."))
+let first: CityTips = try await client.generate(
     messages: messages,
     model: .claude(.sonnet)
 )
 
-// 会話を継続
-messages.append(.assistant(firstRecipe.description))
-messages.append(.user("その中で子ども連れに最適な場所はどこ？"))
-let followUp: CityTips = try await client.generate(
+messages.append(.assistant(first.summary))
+messages.append(.user("Which of those is best with small children?"))
+let second: CityTips = try await client.generate(
     messages: messages,
     model: .claude(.sonnet)
 )
 ```
 
-## Next Steps
+Growing an array by hand gets tedious fast, and it is easy to forget to append the assistant
+turn. `LLMChat` does the bookkeeping and hands back the message to append along with the result.
 
-ツールコール（Function Calling）やエージェントループを使う場合は、
-`LLMTool` モジュールの `Tool` プロトコルと `ToolSet` を参照のこと。
+## Next steps
+
+- `LLMTool` for function calling with the `@Tool` macro.
+- `LLMAgentStep` for driving an agent loop a step at a time.
+- `LLMContext` for showing how much of the context window is left.

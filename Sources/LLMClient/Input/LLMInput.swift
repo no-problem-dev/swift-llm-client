@@ -7,84 +7,81 @@ import Foundation
 
 // MARK: - LLMInput
 
-/// LLMへの入力を表す具象型
+/// One turn of input to a model: a prompt plus any images, audio, or video that go with it.
 ///
-/// テキストプロンプトとマルチモーダルコンテンツを統合した
-/// LLM入力の標準実装。
+/// This is the concrete `LLMInputProtocol` implementation every request path accepts. It is
+/// expressible by string literal, so a plain prompt needs no ceremony, and it is immutable —
+/// the `adding(...)` methods return new values rather than mutating.
 ///
-/// ## 概要
+/// Attaching media does not check whether the target provider supports it. Call
+/// `validate(for:)` before sending, or the provider rejects the request at the network boundary.
 ///
-/// `LLMInput` は `LLMInputProtocol` の具象実装であり、
-/// すべての LLM API 呼び出しで使用される統一入力型。
+/// ## Examples
 ///
-/// ## 使用例
-///
-/// ### テキストのみ
+/// ### Text only
 /// ```swift
-/// // 文字列リテラルから直接作成
-/// let input: LLMInput = "こんにちは"
+/// // Straight from a string literal
+/// let input: LLMInput = "Hello"
 ///
-/// // 明示的な初期化
-/// let input = LLMInput("分析してください")
+/// // Or explicitly
+/// let input = LLMInput("Analyze this.")
 /// ```
 ///
-/// ### SystemPrompt DSL を使用
+/// ### With the SystemPrompt DSL
 /// ```swift
 /// let input = LLMInput(
 ///     SystemPrompt {
-///         PromptComponent.role("データ分析の専門家")
-///         PromptComponent.objective("売上データを分析")
+///         PromptComponent.role("Data analysis expert")
+///         PromptComponent.objective("Analyze the sales figures")
 ///     }
 /// )
 /// ```
 ///
-/// ### マルチモーダル入力
+/// ### Multimodal
 /// ```swift
-/// // 画像付き
+/// // With an image
 /// let input = LLMInput(
-///     "この画像を分析してください",
+///     "Analyze this image.",
 ///     images: [imageContent]
 /// )
 ///
-/// // 音声付き
+/// // With audio
 /// let input = LLMInput(
-///     "この音声を文字起こししてください",
+///     "Transcribe this recording.",
 ///     audios: [audioContent]
 /// )
 ///
-/// // 複数のメディア
+/// // Several kinds of media at once
 /// let input = LLMInput(
 ///     SystemPrompt {
-///         PromptComponent.objective("動画と音声を分析")
+///         PromptComponent.objective("Analyze the video and the audio")
 ///     },
 ///     audios: [audioContent],
 ///     videos: [videoContent]
 /// )
 /// ```
 public struct LLMInput: LLMInputProtocol, ExpressibleByStringLiteral {
-    /// テキストプロンプト
+    /// The prompt text, held in the DSL's own type so composed and literal prompts are one thing.
     public let prompt: SystemPrompt
 
-    /// 画像コンテンツ
+    /// Images to send with the prompt.
     public let images: [ImageContent]
 
-    /// 音声コンテンツ
+    /// Audio to send with the prompt. Not accepted by every provider.
     public let audios: [AudioContent]
 
-    /// 動画コンテンツ
+    /// Video to send with the prompt. Accepted by the fewest providers of the three.
     public let videos: [VideoContent]
 
     // MARK: - Initializers
 
-    /// フル初期化
-    ///
-    /// すべてのプロパティを明示的に指定して初期化する。
+    /// Creates an input from a composed prompt and any accompanying media.
     ///
     /// - Parameters:
-    ///   - prompt: テキストプロンプト
-    ///   - images: 画像コンテンツ（デフォルト: 空）
-    ///   - audios: 音声コンテンツ（デフォルト: 空）
-    ///   - videos: 動画コンテンツ（デフォルト: 空）
+    ///   - prompt: The prompt, typically built with the `SystemPrompt` DSL.
+    ///   - images: Images to attach. Empty by default.
+    ///   - audios: Audio to attach. Empty by default.
+    ///   - videos: Video to attach. Empty by default.
     public init(
         _ prompt: SystemPrompt,
         images: [ImageContent] = [],
@@ -97,15 +94,13 @@ public struct LLMInput: LLMInputProtocol, ExpressibleByStringLiteral {
         self.videos = videos
     }
 
-    /// 文字列から初期化
-    ///
-    /// 単純なテキストプロンプトを作成する。
+    /// Creates an input from a plain string and any accompanying media.
     ///
     /// - Parameters:
-    ///   - text: プロンプトテキスト
-    ///   - images: 画像コンテンツ（デフォルト: 空）
-    ///   - audios: 音声コンテンツ（デフォルト: 空）
-    ///   - videos: 動画コンテンツ（デフォルト: 空）
+    ///   - text: The prompt text, used verbatim.
+    ///   - images: Images to attach. Empty by default.
+    ///   - audios: Audio to attach. Empty by default.
+    ///   - videos: Video to attach. Empty by default.
     public init(
         _ text: String,
         images: [ImageContent] = [],
@@ -131,10 +126,10 @@ public struct LLMInput: LLMInputProtocol, ExpressibleByStringLiteral {
 // MARK: - Convenience Extensions
 
 extension LLMInput {
-    /// 画像を追加した新しい入力を返す
+    /// Returns a copy with one more image appended.
     ///
-    /// - Parameter image: 追加する画像
-    /// - Returns: 画像が追加された新しい LLMInput
+    /// - Parameter image: The image to append.
+    /// - Returns: A new input; the receiver is unchanged.
     public func adding(image: ImageContent) -> LLMInput {
         LLMInput(
             prompt,
@@ -144,10 +139,10 @@ extension LLMInput {
         )
     }
 
-    /// 複数の画像を追加した新しい入力を返す
+    /// Returns a copy with several more images appended, in order.
     ///
-    /// - Parameter images: 追加する画像の配列
-    /// - Returns: 画像が追加された新しい LLMInput
+    /// - Parameter newImages: The images to append.
+    /// - Returns: A new input; the receiver is unchanged.
     public func adding(images newImages: [ImageContent]) -> LLMInput {
         LLMInput(
             prompt,
@@ -157,10 +152,10 @@ extension LLMInput {
         )
     }
 
-    /// 音声を追加した新しい入力を返す
+    /// Returns a copy with one more audio clip appended.
     ///
-    /// - Parameter audio: 追加する音声
-    /// - Returns: 音声が追加された新しい LLMInput
+    /// - Parameter audio: The audio to append.
+    /// - Returns: A new input; the receiver is unchanged.
     public func adding(audio: AudioContent) -> LLMInput {
         LLMInput(
             prompt,
@@ -170,10 +165,10 @@ extension LLMInput {
         )
     }
 
-    /// 複数の音声を追加した新しい入力を返す
+    /// Returns a copy with several more audio clips appended, in order.
     ///
-    /// - Parameter audios: 追加する音声の配列
-    /// - Returns: 音声が追加された新しい LLMInput
+    /// - Parameter newAudios: The audio to append.
+    /// - Returns: A new input; the receiver is unchanged.
     public func adding(audios newAudios: [AudioContent]) -> LLMInput {
         LLMInput(
             prompt,
@@ -183,10 +178,10 @@ extension LLMInput {
         )
     }
 
-    /// 動画を追加した新しい入力を返す
+    /// Returns a copy with one more video appended.
     ///
-    /// - Parameter video: 追加する動画
-    /// - Returns: 動画が追加された新しい LLMInput
+    /// - Parameter video: The video to append.
+    /// - Returns: A new input; the receiver is unchanged.
     public func adding(video: VideoContent) -> LLMInput {
         LLMInput(
             prompt,
@@ -196,10 +191,10 @@ extension LLMInput {
         )
     }
 
-    /// 複数の動画を追加した新しい入力を返す
+    /// Returns a copy with several more videos appended, in order.
     ///
-    /// - Parameter videos: 追加する動画の配列
-    /// - Returns: 動画が追加された新しい LLMInput
+    /// - Parameter newVideos: The videos to append.
+    /// - Returns: A new input; the receiver is unchanged.
     public func adding(videos newVideos: [VideoContent]) -> LLMInput {
         LLMInput(
             prompt,

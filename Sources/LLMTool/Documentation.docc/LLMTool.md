@@ -1,88 +1,99 @@
 # ``LLMTool``
 
-Swift Macro ベースの型安全なツール（Function Calling）定義とオーケストレーション。
+Declare the functions a model may call as Swift types, and keep the arguments type-safe in both directions.
 
 ## Overview
 
-`LLMTool` は、LLM の Function Calling 機能を Swift らしい方法で扱うためのライブラリ。
-`@Tool` マクロと `@ToolArgument` マクロを組み合わせることで、型安全なツールを簡潔に定義できる。
+Function calling normally costs you a hand-written JSON Schema, a string-keyed dispatch table
+and an untyped argument dictionary. `LLMTool` replaces all three: `@Tool` derives the schema
+from the type, `ToolSet` does the dispatch, and `@ToolArgument` gives you real properties.
 
 ```swift
 import LLMTool
 
-@Tool("指定した都市の現在の天気を取得します")
+@Tool("Get the current weather for a city")
 struct GetWeather {
-    // 設定プロパティ（ツール引数にはならない）
+    // A plain stored property is injected configuration.
+    // The model never sees it and never supplies it.
     var apiKey: String
 
-    @ToolArgument("都市名（日本語または英語）")
+    @ToolArgument("City name")
     var city: String
 
-    @ToolArgument("温度単位", .enum(["celsius", "fahrenheit"]))
+    @ToolArgument("Temperature unit", .enum(["celsius", "fahrenheit"]))
     var unit: String?
 
     func call() async throws -> String {
-        // 天気 API を呼び出す実装
-        return "\(city): 晴れ、25°C"
+        "\(city): sunny, 25°C"
     }
 }
 ```
 
-`ToolSet` の Result Builder 構文でツールを束ね、`ToolCallableClient` に渡す。
+The split between `@ToolArgument` properties and plain ones is the thing to internalise. Only
+the annotated ones become schema properties, so secrets and dependencies can live on the same
+type without ever being exposed to the model or hallucinated back at you.
+
+Collect tools with the ``ToolSet`` result builder, which accepts conditionals and loops, then
+hand the set to a client:
 
 ```swift
 let tools = ToolSet {
     GetWeather(apiKey: apiKey)
-    SearchWebTool()
+    SearchWeb()
 
     if isPremium {
-        AdvancedAnalysisTool()
+        DeepAnalysis()
     }
 }
 
 let plan = try await client.planToolCalls(
-    prompt: "東京の天気を調べてください",
-    model: .claude(.sonnet4_5),
+    prompt: "What's the weather in Tokyo?",
+    model: .claude(.sonnet),
     tools: tools
 )
 
-// 計画されたツール呼び出しを実行
 for call in plan.toolCalls {
     let result = try await tools.execute(toolNamed: call.name, with: call.arguments)
     print(result.stringValue)
 }
 ```
 
-ターンを終了させたいツールには `TurnEndingTool` を採用する。エージェントループランタイムが
-このマーカープロトコルを検出し、成功結果を受け取った時点でループを打ち切る。
+`planToolCalls` plans; it does not execute. The model chooses tools and arguments, and you
+decide whether to run them — which is what makes confirmation prompts, sandboxing and dry runs
+possible. Executing the plan and feeding the results back is the caller's loop, or
+`LLMAgentStep`'s.
+
+Adopt ``TurnEndingTool`` on a tool that should stop the loop. An agent runtime looks for that
+marker and finishes the turn once the tool returns successfully, instead of sending the result
+back for another round.
 
 ## Topics
 
-### はじめに
+### Essentials
 
 - <doc:GettingStarted>
 
-### ツール定義
+### Defining tools
 
 - ``Tool``
 - ``TurnEndingTool``
 - ``ToolDefinition``
 - ``EmptyArguments``
 
-### ツールセット
+### Collecting tools
 
 - ``ToolSet``
 - ``ToolSetBuilder``
 - ``ToolExecutionError``
 
-### ツール呼び出し
+### Tool calls
 
 - ``ToolCall``
 - ``ToolCallResponse``
 - ``ToolCallableClient``
 - ``ToolChoice``
 
-### ツール実行結果
+### Results
 
 - ``ToolResult``
 - ``ToolResultConvertible``
@@ -90,12 +101,12 @@ for call in plan.toolCalls {
 - ``ToolResponse``
 - ``DynamicTool``
 
-### トークン計測
+### Token accounting
 
 - ``TokenCounting``
 - ``ToolAnnotations``
 
-### マクロ
+### Macros
 
 - ``Tool(_:name:)``
 - ``ToolArgument(_:_:)``

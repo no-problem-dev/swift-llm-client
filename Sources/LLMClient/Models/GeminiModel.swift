@@ -2,13 +2,13 @@ import Foundation
 
 // MARK: - Gemini Models
 
-/// Google Gemini モデル
+/// The Google Gemini models.
 ///
-/// ここは**アドレス**（どのモデルを指すか）の型。提供終了したモデルの case も
-/// 残す — 保存済みの ID を読み戻せる必要があるため。
-/// **利用者に選ばせる一覧は `Preset`**（提供中のものだけ）。
+/// This type is an **address**: it says which model is meant and nothing else. Cases for retired
+/// models stay here, because a stored identifier still has to read back.
+/// **The list to put in front of a user is `Preset`**, which holds only what is still served.
 public enum GeminiModel: Sendable, Equatable {
-    // MARK: - Aliases (推奨)
+    // MARK: - Aliases (recommended)
     case flash36
     case flash35
     case flashLite35
@@ -16,7 +16,7 @@ public enum GeminiModel: Sendable, Equatable {
     case flashLite31
     case flash3Preview
 
-    // MARK: - Retired (2026-07 に新規利用停止。ID の読み戻し用に残す)
+    // MARK: - Retired (closed to new users 2026-07; kept so stored identifiers read back)
     case pro25
     case flash25
     case flashLite25
@@ -35,9 +35,11 @@ public enum GeminiModel: Sendable, Equatable {
     // MARK: - Custom
     case custom(String)
 
-    /// thinking 制御パラメータを受け付けるか。
-    /// 2.5 系は `thinkingConfig.thinkingBudget`（整数）、3 系は `thinkingConfig.thinkingLevel`（文字列）を使う。
-    /// 非対応モデルにこれを送るとエラーになる。
+    /// Whether the model accepts a thinking control parameter.
+    ///
+    /// The 2.5 family takes `thinkingConfig.thinkingBudget` as an integer and the 3 family takes
+    /// `thinkingConfig.thinkingLevel` as a string. Sending either to a model that takes neither is
+    /// an error, which is the case for every custom identifier.
     public var supportsThinkingConfig: Bool {
         switch self {
         case .flash36, .flash35, .flashLite35, .pro31Preview, .flashLite31, .flash3Preview,
@@ -51,7 +53,10 @@ public enum GeminiModel: Sendable, Equatable {
         }
     }
 
-    /// thinking のスタイル。Gemini 3 系は `thinkingLevel`、2.5 系は `thinkingBudget` を使う。
+    /// Which thinking control parameter to put in the request.
+    ///
+    /// The Gemini 3 family takes `thinkingLevel`, the 2.5 family takes `thinkingBudget`, and a
+    /// custom identifier takes neither.
     public var thinkingControlStyle: ThinkingControlStyle {
         switch self {
         case .flash36, .flash35, .flashLite35, .pro31Preview, .flashLite31, .flash3Preview,
@@ -66,8 +71,11 @@ public enum GeminiModel: Sendable, Equatable {
         }
     }
 
-    /// `thinkingLevel: minimal` を受け付けるか。
-    /// Pro 3.1 と Flash-Lite 3.1 は low/medium/high のみ。Flash 系は minimal も受け付ける。
+    /// Whether the model accepts a minimal thinking level.
+    ///
+    /// The full Flash models — 3.6, 3.5, and the 3 preview — take minimal. Pro 3.1 and both
+    /// Flash-Lite models stop at low, and the 2.5 family is graded by budget instead, so it answers
+    /// false as well.
     public var supportsMinimalThinkingLevel: Bool {
         switch self {
         case .flash36, .flash35, .flash3Preview,
@@ -78,8 +86,10 @@ public enum GeminiModel: Sendable, Equatable {
         }
     }
 
-    /// thinking を完全に無効化できるか（thinkingBudget=0）。
-    /// Gemini 2.5 Pro は不可、それ以外の 2.5 系は可。3 系は thinkingLevel 制御なので別軸（minimal が最小）。
+    /// Whether thinking can be switched off outright with a zero thinking budget.
+    ///
+    /// Gemini 2.5 Pro always thinks; the rest of the 2.5 family can be turned off. The 3 family is
+    /// graded by thinking level rather than budget and so has no off position at all.
     public var canDisableThinking: Bool {
         switch self {
         case .pro25, .pro25_version:
@@ -89,16 +99,17 @@ public enum GeminiModel: Sendable, Equatable {
         case .flash36, .flash35, .flashLite35, .pro31Preview, .flashLite31, .flash3Preview,
              .flash36_version, .flash35_version, .flashLite35_version,
              .pro31_preview_version, .flashLite31_version, .flash3_preview_version:
-            return false  // 3 系は minimal が最小
+            return false  // Minimal is the floor for the 3 family.
         case .custom:
             return false
         }
     }
 
-    /// 新規利用が停止されたモデルか。
+    /// Whether the model has been closed to new users.
     ///
-    /// 呼ぶと 404（"no longer available to new users"）になる。ID を読み戻すために
-    /// case は残してあるので、**選択肢として出す前にここで弾く**。
+    /// Calling one comes back 404 with "no longer available to new users". The cases stay so stored
+    /// identifiers read back, which means **anything offered as a choice has to be filtered on this
+    /// first**.
     public var isRetired: Bool {
         switch self {
         case .pro25, .flash25, .flashLite25,
@@ -109,6 +120,7 @@ public enum GeminiModel: Sendable, Equatable {
         }
     }
 
+    /// The identifier sent to the API.
     public var id: String {
         switch self {
         case .flash36: return "gemini-3.6-flash"
@@ -136,21 +148,30 @@ public enum GeminiModel: Sendable, Equatable {
 
 // MARK: - ThinkingControlStyle
 
-/// Gemini モデルが受け付ける思考予算制御の種別。
+/// Which thinking control parameter a Gemini model accepts.
 public enum ThinkingControlStyle: Sendable, Hashable {
-    /// `thinkingConfig.thinkingLevel`（"minimal" / "low" / "medium" / "high"）— Gemini 3 系
+    /// A named grade of thinking, used by the Gemini 3 family.
+    ///
+    /// Sent as `thinkingConfig.thinkingLevel`, one of "minimal", "low", "medium", or "high".
     case level
-    /// `thinkingConfig.thinkingBudget`（整数トークン）— Gemini 2.5 系
+    /// A token allowance for thinking, used by the Gemini 2.5 family.
+    ///
+    /// Sent as `thinkingConfig.thinkingBudget`, an integer count of tokens.
     case budget
-    /// thinking 制御非対応 — リクエストに送ってはいけない
+    /// No thinking control at all. Nothing of the sort may go in the request.
     case unsupported
 }
 
 // MARK: - RawValue Compatibility
 
 extension GeminiModel: RawRepresentable {
+    /// The model identifier, the same string the API is called with.
     public var rawValue: String { id }
 
+    /// Reads a model back from its identifier.
+    ///
+    /// Failable in form only: an unrecognized string becomes a custom case rather than nil, so a
+    /// stored identifier always round-trips, including one for a retired model.
     public init?(rawValue: String) {
         switch rawValue {
         case "gemini-3.6-flash": self = .flash36
@@ -169,11 +190,11 @@ extension GeminiModel: RawRepresentable {
 
 // MARK: - Preset
 
-/// 利用者に選ばせるモデルの一覧。
+/// The models to put in front of a user.
 ///
-/// **提供中のものだけを載せる。** 提供が終わったモデルはここから外す
-/// （`GeminiModel` 側の case は ID の読み戻しのために残す）。
-/// 一覧に残すと選べてしまい、呼んだときに 404 になる。
+/// **Only what is still served belongs here.** A retired model comes out of this list while its
+/// `GeminiModel` case stays behind, so stored identifiers keep reading back. Leaving one here means
+/// a user can pick it and the call comes back 404.
 extension GeminiModel {
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         case flash36 = "flash36"

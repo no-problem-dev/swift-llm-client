@@ -3,17 +3,22 @@ import LLMClient
 
 // MARK: - ConversationEvent
 
-/// 会話履歴で発生するイベント
+/// Something that happened to a conversation history, delivered on its event stream.
 ///
-/// `ConversationHistoryProtocol` の `eventStream` プロパティから取得できる
-/// AsyncStream で配信されるイベントを表現する。
+/// The stream a history publishes is a plain asynchronous stream, which means one consumer: two
+/// tasks iterating the same history split the events between them rather than each receiving all
+/// of them. Nothing is lost by subscribing late, though — the stream buffers without limit, so
+/// events emitted before anyone iterates arrive as soon as the first consumer starts.
 ///
-/// ## 使用例
+/// A message event carries the message that was appended; the enclosing history is not attached,
+/// so read the history itself when the full conversation is needed.
+///
+/// ## Example
 ///
 /// ```swift
 /// let history = ConversationHistory()
 ///
-/// // イベントを購読
+/// // Subscribe to the events.
 /// Task {
 ///     for await event in history.eventStream {
 ///         switch event {
@@ -21,6 +26,10 @@ import LLMClient
 ///             print("User: \(message.content)")
 ///         case .assistantMessage(let message):
 ///             print("Assistant: \(message.content)")
+///         case .toolCallMessage(let message):
+///             print("Tool call: \(message.content)")
+///         case .toolResultMessage(let message):
+///             print("Tool result: \(message.content)")
 ///         case .usageUpdated(let usage):
 ///             print("Tokens: \(usage.totalTokens)")
 ///         case .cleared:
@@ -32,24 +41,33 @@ import LLMClient
 /// }
 /// ```
 public enum ConversationEvent: Sendable {
-    /// ユーザーメッセージが追加された
+    /// A user message was appended.
     case userMessage(LLMMessage)
 
-    /// アシスタントメッセージが追加された
+    /// An assistant message was appended.
     case assistantMessage(LLMMessage)
 
-    /// ツール呼び出しメッセージが追加された
+    /// A message asking for tools to be called was appended.
+    ///
+    /// Sent in place of an assistant event whenever the appended message carries tool calls, so a
+    /// UI that only handles assistant events shows nothing for a turn that reached for a tool.
     case toolCallMessage(LLMMessage)
 
-    /// ツール結果メッセージが追加された
+    /// A message carrying tool results was appended.
+    ///
+    /// Sent in place of a user event, even though tool results travel in the user role, and it
+    /// does not advance the turn count.
     case toolResultMessage(LLMMessage)
 
-    /// トークン使用量が更新された
+    /// The running token total changed, carrying the new total rather than the increment.
     case usageUpdated(TokenUsage)
 
-    /// 履歴がクリアされた
+    /// The history was cleared.
     case cleared
 
-    /// エラーが発生した
+    /// A request against this history failed.
+    ///
+    /// Reported for observers only; the call that failed still throws, so this is not a substitute
+    /// for handling the error where it was raised.
     case error(LLMError)
 }

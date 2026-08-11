@@ -5,61 +5,61 @@ import Foundation
 
 // MARK: - LLMError
 
-/// LLM API エラー
+/// Something that went wrong talking to a model provider.
 public enum LLMError: Error, Sendable {
-    /// 認証エラー（無効な API キー）
+    /// The API key is missing, wrong, or not allowed to reach this model.
     case unauthorized
 
-    /// レート制限超過
+    /// The provider's rate limit was hit. Back off before retrying.
     case rateLimitExceeded
 
-    /// 無効なリクエスト
+    /// The provider rejected the request as malformed, with its own explanation attached.
     case invalidRequest(String)
 
-    /// モデルが見つからない
+    /// The provider does not know the model identifier that was asked for.
     case modelNotFound(String)
 
-    /// サーバーエラー
+    /// The provider failed on its own side, carrying the status code and the body it returned.
     case serverError(Int, String)
 
-    /// ネットワークエラー
+    /// The request never reached the provider.
     case networkError(Error)
 
-    /// 空のレスポンス
+    /// The provider answered with no content at all.
     case emptyResponse
 
-    /// 無効なエンコーディング
+    /// The response body was not decodable text.
     case invalidEncoding
 
-    /// デコードエラー
+    /// The response did not have the shape that was expected of it.
     case decodingFailed(Error)
 
-    /// モデルがプロバイダーに対応していない
+    /// The model belongs to a different provider than the one it was requested from.
     case modelNotSupported(model: String, provider: String)
 
-    /// 構造化出力がサポートされていない
+    /// The model cannot be made to answer in a fixed schema.
     case structuredOutputNotSupported(model: String)
 
-    /// メディアタイプがプロバイダーでサポートされていない
+    /// The message carries media this provider cannot take.
     ///
-    /// 音声や動画など、特定のプロバイダーでサポートされていないメディアが
-    /// メッセージに含まれている場合に発生する。
+    /// Raised before the request goes out, when a message holds audio, video or another kind the
+    /// chosen provider does not accept.
     ///
     /// - Parameters:
-    ///   - mediaType: サポートされていないメディアタイプ（例: "audio", "video"）
-    ///   - provider: プロバイダー名（例: "Anthropic", "OpenAI"）
+    ///   - mediaType: The kind that is not accepted, such as "audio" or "video".
+    ///   - provider: Provider name, such as "Anthropic" or "OpenAI".
     case mediaNotSupported(mediaType: String, provider: String)
 
-    /// コンテンツがブロックされた（安全性フィルター）
+    /// A safety filter blocked the content.
     case contentBlocked(reason: String?)
 
-    /// 最大トークン数に達した
+    /// Generation ran into the output cap.
     case maxTokensReached
 
-    /// タイムアウト
+    /// The request did not finish within the time allowed.
     case timeout
 
-    /// 不明なエラー
+    /// An error that fits none of the other cases.
     case unknown(Error)
 }
 

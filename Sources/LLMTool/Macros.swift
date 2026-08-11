@@ -2,30 +2,54 @@ import LLMClient
 
 // MARK: - Tool Macros
 
-/// LLM から呼び出し可能なツールを定義するマクロ
+/// Defines a struct as a tool the model can call.
 ///
-/// このマクロを適用することで、構造体は自動的に以下の機能を持ちます：
-/// - `Tool` への準拠
-/// - `toolName` と `toolDescription` の自動生成
-/// - `Arguments` 型の自動生成（`@ToolArgument` を持つプロパティから）
-/// - `execute(with:)` インスタンスメソッドの生成
+/// The macro writes everything the tool protocol needs, leaving the type to declare only its
+/// arguments and a `call()` method. It synthesizes:
 ///
-/// ## 使用例
+/// - conformance to `Tool` and `Sendable`
+/// - `toolName` and `toolDescription`
+/// - a nested `Arguments` type built from the `@ToolArgument` properties, and the
+///   `inputSchema` derived from it
+/// - initializers that take the injected properties, plus `execute(with:)`
+///
+/// It applies to structs only. The type must supply a `call()` method whose return type
+/// conforms to `ToolResultConvertible`.
+///
+/// ## Which properties the model sees
+///
+/// Every stored property falls into exactly one of three groups, and the group decides whether
+/// the model ever learns the property exists:
+///
+/// - **Arguments** — properties marked `@ToolArgument`. They become the fields of `Arguments`
+///   and are the only properties published in the input schema.
+/// - **Injected configuration** — properties with no attribute, no default value, and no
+///   accessor. They become parameters of the generated initializer, so your own code supplies
+///   them when the tool is registered. The model never sees them, which is where API keys,
+///   clients, and fetched state belong.
+/// - **Ignored** — computed properties, properties with a default value, and anything marked
+///   `@ToolExclude`. Neither published nor injected.
+///
+/// `execute(with:)` decodes the incoming JSON into `Arguments` with `.convertFromSnakeCase`,
+/// applies it to a copy of the registered instance, and calls `call()` on that copy. The
+/// injected configuration is therefore still readable inside `call()`, while argument values
+/// arrive one call at a time and never mutate the registered instance.
+///
+/// ## Example
 ///
 /// ```swift
-/// @Tool("指定された都市の現在の天気を取得します")
+/// @Tool("Returns the current weather for a given city")
 /// struct GetWeather {
-///     // 設定プロパティ（オプショナル）- ツール初期化時に設定
+///     // Injected configuration, supplied when the tool is registered.
 ///     var apiKey: String?
 ///
-///     @ToolArgument("都市名（例: 東京、大阪）")
+///     @ToolArgument("City name (for example, Tokyo or Osaka)")
 ///     var location: String
 ///
-///     @ToolArgument("温度の単位", .enum(["celsius", "fahrenheit"]))
+///     @ToolArgument("Temperature unit", .enum(["celsius", "fahrenheit"]))
 ///     var unit: String?
 ///
 ///     func call() async throws -> String {
-///         // 天気 API を呼び出す
 ///         let weather = try await WeatherAPI.fetch(
 ///             location: location,
 ///             unit: unit ?? "celsius",
@@ -36,7 +60,7 @@ import LLMClient
 /// }
 /// ```
 ///
-/// ## ToolSet での使用
+/// ## Registering in a tool set
 ///
 /// ```swift
 /// let tools = ToolSet {
@@ -49,19 +73,19 @@ import LLMClient
 ///     }
 /// }
 ///
-/// let result = try await client.generate(
-///     input: "東京の天気は？",
+/// let plan = try await client.planToolCalls(
+///     prompt: "What is the weather in Tokyo?",
 ///     model: .sonnet,
 ///     tools: tools
 /// )
 /// ```
 ///
-/// ## 引数なしのツール
+/// ## Tools without arguments
 ///
 /// ```swift
-/// @Tool("現在の日時を取得します")
+/// @Tool("Returns the current date and time")
 /// struct GetCurrentTime {
-///     // @ToolArgument なし → 引数なしのツールになる
+///     // No @ToolArgument property, so the tool takes no arguments.
 ///
 ///     func call() async throws -> String {
 ///         return ISO8601DateFormatter().string(from: Date())
@@ -69,20 +93,20 @@ import LLMClient
 /// }
 /// ```
 ///
-/// ## 戻り値の型
+/// ## Return types
 ///
-/// `call()` メソッドの戻り値は `ToolResultConvertible` に準拠した型を使用できる：
-/// - `String`: テキストとして返される
-/// - `Int`, `Double`, `Bool`: 文字列に変換される
-/// - `Array`, `Dictionary`: JSON として返される
-/// - `ToolResult`: 直接制御する場合
-/// - カスタム型: `ToolResultConvertible` に準拠させる
+/// `call()` may return any `ToolResultConvertible` value:
+/// - `String`: sent back as text
+/// - `Int`, `Double`, `Bool`: converted to text
+/// - `Array`, `Dictionary`: encoded as JSON
+/// - `ToolResult`: full control, including errors and attached media
+/// - a custom type: conform it to `ToolResultConvertible`
 ///
 /// - Parameters:
-///   - description: ツールの説明。LLM がツールを選択する際に参照する。
-///     詳細に記述することで、適切なタイミングでツールが呼び出されやすくなる。
-///   - name: ツール名（オプション）。省略時は型名から自動生成される。
-///     `^[a-zA-Z0-9_-]{1,64}$` のパターンに従う必要がある。
+///   - description: What the tool does. The model reads this to decide when to call the tool,
+///     so the more specific it is, the more reliably the tool fires at the right moment.
+///   - name: The name exposed to the model. Defaults to the type name converted to snake case,
+///     and has to match `^[a-zA-Z0-9_-]{1,64}$`.
 @attached(member, names: named(toolName), named(toolDescription), named(inputSchema), named(Arguments), named(arguments), named(init), named(execute))
 @attached(extension, conformances: Tool, Sendable)
 public macro Tool(
@@ -90,25 +114,27 @@ public macro Tool(
     name: String? = nil
 ) = #externalMacro(module: "LLMMacros", type: "ToolMacro")
 
-/// ツールのプロパティをマクロ処理から除外するマーカー
+/// Excludes a stored property from everything the tool macro generates.
 ///
-/// `@Tool` マクロが適用された構造体のストアドプロパティに付けることで、
-/// そのプロパティを注入プロパティとしても扱わなくなる。
-/// コールバッククロージャなど、ツールの引数でも DI 対象でもないプロパティに使用する。
+/// Without it, a stored property that carries no attribute and no default value becomes a
+/// parameter of the generated initializer. Mark the property to keep it out: use this for
+/// callbacks and similar members that are neither an argument for the model nor something the
+/// initializer should demand. Because the generated initializer will not assign it, the
+/// property has to be able to start out on its own, as an optional or with a default value.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
-/// @Tool("UI ブロックを出力します", name: "emit_block")
+/// @Tool("Emits a UI block", name: "emit_block")
 /// struct EmitBlockTool {
-///     @ToolArgument("ブロックの種類")
+///     @ToolArgument("Kind of block")
 ///     var type: String
 ///
 ///     @ToolExclude
-///     var onEmit: @Sendable (UIBlock) async -> Void
+///     var onEmit: (@Sendable (UIBlock) async -> Void)?
 ///
 ///     func call() async throws -> String {
-///         await onEmit(...)
+///         await onEmit?(...)
 ///         return "Done"
 ///     }
 /// }
@@ -116,60 +142,67 @@ public macro Tool(
 @attached(peer)
 public macro ToolExclude() = #externalMacro(module: "LLMMacros", type: "ToolExcludeMacro")
 
-/// ツールの引数を定義するマクロ
+/// Publishes a property of a tool as an argument the model fills in.
 ///
-/// `@Tool` マクロが適用された型のプロパティに使用する。
-/// プロパティは自動的にツールの引数として公開される。
+/// Apply it to stored properties of a type marked `@Tool`. The property becomes a field of the
+/// generated `Arguments` type and appears in the input schema sent to the model; every other
+/// stored property stays private to your code.
 ///
-/// ## 使用例
+/// A non-optional property is published as required, an optional one as optional. The schema
+/// exposes the property name in snake case, and the incoming JSON is decoded back with
+/// `.convertFromSnakeCase`, so `sortBy` reaches the model as `sort_by` and returns as `sortBy`
+/// without any manual mapping.
+///
+/// ## Example
 ///
 /// ```swift
-/// @Tool("商品を検索します")
+/// @Tool("Searches for products")
 /// struct SearchProducts {
-///     // 必須の引数
-///     @ToolArgument("検索キーワード")
+///     // Required argument
+///     @ToolArgument("Search keywords")
 ///     var query: String
 ///
-///     // オプショナルな引数
-///     @ToolArgument("最大件数", .minimum(1), .maximum(100))
+///     // Optional argument
+///     @ToolArgument("Maximum number of results", .minimum(1), .maximum(100))
 ///     var limit: Int?
 ///
-///     // 列挙型の引数
-///     @ToolArgument("並び順", .enum(["relevance", "price_asc", "price_desc"]))
+///     // Argument restricted to a fixed set of values
+///     @ToolArgument("Sort order", .enum(["relevance", "price_asc", "price_desc"]))
 ///     var sortBy: String?
 ///
 ///     func call() async throws -> String {
-///         // 検索ロジック
+///         // Search logic
 ///     }
 /// }
 /// ```
 ///
-/// ## 利用可能な制約
+/// ## Available constraints
 ///
-/// `@StructuredField` と同じ制約が使用できる：
+/// The same constraints as `@StructuredField`:
 ///
-/// ### 配列制約
-/// - `.minItems(n)`: 最小要素数
-/// - `.maxItems(n)`: 最大要素数
+/// ### Arrays
+/// - `.minItems(n)`: fewest elements
+/// - `.maxItems(n)`: most elements
 ///
-/// ### 数値制約
-/// - `.minimum(n)`: 最小値（含む）
-/// - `.maximum(n)`: 最大値（含む）
-/// - `.exclusiveMinimum(n)`: 最小値（含まない）
-/// - `.exclusiveMaximum(n)`: 最大値（含まない）
+/// ### Numbers
+/// - `.minimum(n)`: lowest value, inclusive
+/// - `.maximum(n)`: highest value, inclusive
+/// - `.exclusiveMinimum(n)`: lowest value, exclusive
+/// - `.exclusiveMaximum(n)`: highest value, exclusive
 ///
-/// ### 文字列制約
-/// - `.minLength(n)`: 最小文字数
-/// - `.maxLength(n)`: 最大文字数
-/// - `.pattern("regex")`: 正規表現パターン
+/// ### Strings
+/// - `.minLength(n)`: fewest characters
+/// - `.maxLength(n)`: most characters
+/// - `.pattern("regex")`: regular expression the value has to match
 ///
-/// ### 列挙・フォーマット
-/// - `.enum(["a", "b", "c"])`: 許可される値
-/// - `.format(.email)`: フォーマット指定
+/// ### Enumerations and formats
+/// - `.enum(["a", "b", "c"])`: the permitted values
+/// - `.format(.email)`: the expected format
 ///
 /// - Parameters:
-///   - description: 引数の説明。LLM が適切な値を生成するために使用する。
-///   - constraints: 引数に適用する制約（可変長引数）
+///   - description: What the argument means. The model reads it to decide what value to pass,
+///     so it carries as much weight as the type itself.
+///   - constraints: Constraints to publish alongside the argument in the schema.
 @attached(peer)
 public macro ToolArgument(
     _ description: String,

@@ -2,28 +2,29 @@ import Foundation
 
 // MARK: - Claude Models
 
-/// Anthropic Claude モデル
+/// The Anthropic Claude models.
 ///
-/// エイリアス（推奨）または固定バージョンでモデルを指定できる。
+/// A model is named either by alias, which follows whatever snapshot Anthropic currently points it
+/// at, or by a fixed version that never moves under you.
 ///
-/// ## エイリアス（推奨）
+/// ## Aliases
 /// ```swift
 /// let client = AnthropicClient(apiKey: "...")
 /// let result: UserInfo = try await client.generate(
 ///     input: "...",
-///     model: .sonnet  // 最新の Sonnet を使用
+///     model: .sonnet  // Whichever Sonnet is current.
 /// )
 /// ```
 ///
-/// ## 固定バージョン
+/// ## Pinned versions
 /// ```swift
 /// let result: UserInfo = try await client.generate(
 ///     input: "...",
-///     model: .opus4_6("20260210")  // 特定バージョンを指定
+///     model: .opus4_6_version("20260210")  // One specific snapshot.
 /// )
 /// ```
 ///
-/// ## カスタムモデルID
+/// ## Custom identifiers
 /// ```swift
 /// let result: UserInfo = try await client.generate(
 ///     input: "...",
@@ -31,29 +32,29 @@ import Foundation
 /// )
 /// ```
 public enum ClaudeModel: Sendable, Equatable {
-    // MARK: - Aliases (推奨)
+    // MARK: - Aliases (recommended)
 
-    /// Claude Opus 最新版（最高性能 / 現フラッグシップ = Opus 4.8）
+    /// The current Opus, the top of the range. It resolves to Opus 4.8 and moves as newer ones ship.
     case opus
 
-    /// Claude Sonnet 最新版（バランス型 / 現行 = Sonnet 4.6）
+    /// The current Sonnet, the balanced tier. It resolves to Sonnet 4.6 and moves with the family.
     case sonnet
 
-    /// Claude Haiku 最新版（高速・低コスト / 現行 = Haiku 4.5）
+    /// The current Haiku, the fast and cheap tier. It resolves to Haiku 4.5 and moves with it.
     case haiku
 
     // MARK: - Dateless Snapshots (4.6 generation onward)
 
-    /// Claude Opus 4.8（dateless = pinned snapshot）
+    /// Claude Opus 4.8. The identifier carries no date but still names one fixed snapshot.
     case opus4_8
 
-    /// Claude Opus 4.7（dateless = pinned snapshot）
+    /// Claude Opus 4.7. The identifier carries no date but still names one fixed snapshot.
     case opus4_7
 
-    /// Claude Opus 4.6（dateless）
+    /// Claude Opus 4.6, pinned by a dateless identifier.
     case opus4_6
 
-    /// Claude Sonnet 4.6（dateless）
+    /// Claude Sonnet 4.6, pinned by a dateless identifier.
     case sonnet4_6
 
     // MARK: - Aliased Versions (4.5 generation, dated under the hood)
@@ -86,8 +87,11 @@ public enum ClaudeModel: Sendable, Equatable {
 
     // MARK: - Model ID
 
-    /// Extended Thinking をサポートするか。
-    /// Opus 4.7 は Adaptive Thinking のみ（Extended Thinking 非対応）。Haiku は非対応。
+    /// Whether the model accepts Extended Thinking.
+    ///
+    /// Opus 4.7 and 4.8 do Adaptive Thinking instead and take no Extended Thinking, and neither
+    /// does Haiku — which means the `opus` and `haiku` aliases answer false while `sonnet` answers
+    /// true. A custom identifier is assumed to support it.
     public var supportsExtendedThinking: Bool {
         switch self {
         case .opus, .opus4_8, .opus4_8_version, .opus4_7, .opus4_7_version:
@@ -106,6 +110,7 @@ public enum ClaudeModel: Sendable, Equatable {
         }
     }
 
+    /// The identifier sent to the API, with each alias already resolved to the model it names.
     public var id: String {
         switch self {
         case .opus, .opus4_8:

@@ -9,161 +9,165 @@ import Foundation
 
 extension LLMMessage {
 
-    // MARK: - 画像メッセージ
+    // MARK: - Image messages
 
-    /// テキストと画像を含むユーザーメッセージを作成
+    /// Builds a user message carrying one image and a line of text.
     ///
-    /// 画像は Base64 データまたは URL から作成できる。
+    /// The image is placed before the text in the content list. That ordering is deliberate:
+    /// models attend to a question asked after the image more reliably than to one asked
+    /// before it. Build the content list yourself if you need the other order.
     ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// let imageData = try Data(contentsOf: imageURL)
     /// let message = LLMMessage.user(
-    ///     "この画像に何が写っていますか？",
+    ///     "What is in this image?",
     ///     image: .base64(imageData, mediaType: .jpeg)
     /// )
     /// ```
     ///
     /// - Parameters:
-    ///   - text: テキストメッセージ
-    ///   - image: 画像コンテンツ
-    /// - Returns: ユーザーメッセージ
+    ///   - text: The prompt, placed after the image.
+    ///   - image: The image to attach.
     public static func user(_ text: String, image: ImageContent) -> LLMMessage {
         LLMMessage(role: .user, contents: [.image(image), .text(text)])
     }
 
-    /// 複数の画像を含むユーザーメッセージを作成
+    /// Builds a user message carrying several images and a line of text.
     ///
-    /// 複数の画像を同時に送信する場合に使用する。
+    /// The images keep their given order and all precede the text. Each one is billed as input
+    /// tokens in its own right, so the cost of this message grows with the number of images,
+    /// and providers cap how many a single request may carry.
     ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// let images = [
     ///     ImageContent.base64(image1Data, mediaType: .jpeg),
     ///     ImageContent.base64(image2Data, mediaType: .png)
     /// ]
-    /// let message = LLMMessage.user("これらの画像を比較してください", images: images)
+    /// let message = LLMMessage.user("Compare these images.", images: images)
     /// ```
     ///
     /// - Parameters:
-    ///   - text: テキストメッセージ
-    ///   - images: 画像コンテンツの配列
-    /// - Returns: ユーザーメッセージ
+    ///   - text: The prompt, placed after every image.
+    ///   - images: The images to attach, in the order the model should see them.
     public static func user(_ text: String, images: [ImageContent]) -> LLMMessage {
         var contents: [MessageContent] = images.map { .image($0) }
         contents.append(.text(text))
         return LLMMessage(role: .user, contents: contents)
     }
 
-    // MARK: - 音声メッセージ
+    // MARK: - Audio messages
 
-    /// テキストと音声を含むユーザーメッセージを作成
+    /// Builds a user message carrying an audio clip and a line of text.
     ///
-    /// 音声ファイルを送信してトランスクリプションや分析を行う場合に使用する。
+    /// Use it to have a recording transcribed or described. The audio precedes the text, and
+    /// Anthropic rejects the message outright since it takes no audio input.
     ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// let audioData = try Data(contentsOf: audioURL)
     /// let message = LLMMessage.user(
-    ///     "この音声を文字起こししてください",
+    ///     "Transcribe this recording.",
     ///     audio: .base64(audioData, mediaType: .wav)
     /// )
     /// ```
     ///
     /// - Parameters:
-    ///   - text: テキストメッセージ
-    ///   - audio: 音声コンテンツ
-    /// - Returns: ユーザーメッセージ
+    ///   - text: The prompt, placed after the audio.
+    ///   - audio: The audio to attach.
     public static func user(_ text: String, audio: AudioContent) -> LLMMessage {
         LLMMessage(role: .user, contents: [.audio(audio), .text(text)])
     }
 
-    // MARK: - 動画メッセージ
+    // MARK: - Video messages
 
-    /// テキストと動画を含むユーザーメッセージを作成
+    /// Builds a user message carrying a video and a line of text.
     ///
-    /// 動画ファイルを送信して分析を行う場合に使用する。
-    /// 現在、動画入力は Gemini のみサポートされている。
+    /// The video precedes the text. Gemini is the only provider that accepts video, and a file
+    /// API reference is usually the practical source given how large video gets.
     ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// let message = LLMMessage.user(
-    ///     "この動画の内容を説明してください",
+    ///     "Describe what happens in this video.",
     ///     video: .fileReference("files/video123", mediaType: .mp4)
     /// )
     /// ```
     ///
     /// - Parameters:
-    ///   - text: テキストメッセージ
-    ///   - video: 動画コンテンツ
-    /// - Returns: ユーザーメッセージ
+    ///   - text: The prompt, placed after the video.
+    ///   - video: The video to attach.
     public static func user(_ text: String, video: VideoContent) -> LLMMessage {
         LLMMessage(role: .user, contents: [.video(video), .text(text)])
     }
 
-    // MARK: - ドキュメントメッセージ
+    // MARK: - Document messages
 
-    /// テキストとドキュメントを含むユーザーメッセージを作成
+    /// Builds a user message carrying a document and a line of text.
     ///
-    /// PDF やテキストファイルを送信して分析・要約・抽出を行う場合に使用する。
+    /// Use it to summarize, analyse or extract from a PDF or text file. The document precedes
+    /// the text, and every provider accepts both document formats — but a PDF is billed per
+    /// page, so a long one dominates the token cost of the request.
     ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// let document = try DocumentContent.file(at: "/path/to/report.pdf")
     /// let message = LLMMessage.user(
-    ///     "このPDFを要約してください",
+    ///     "Summarize this PDF.",
     ///     document: document
     /// )
     /// ```
     ///
     /// - Parameters:
-    ///   - text: テキストメッセージ
-    ///   - document: ドキュメントコンテンツ
-    /// - Returns: ユーザーメッセージ
+    ///   - text: The prompt, placed after the document.
+    ///   - document: The document to attach.
     public static func user(_ text: String, document: DocumentContent) -> LLMMessage {
         LLMMessage(role: .user, contents: [.document(document), .text(text)])
     }
 
-    /// 複数のドキュメントを含むユーザーメッセージを作成
+    /// Builds a user message carrying several documents and a line of text.
     ///
-    /// 複数のドキュメントを同時に送信する場合に使用する。
+    /// The documents keep their given order and all precede the text. Give each one a title, or
+    /// the model has no reliable way to say which document an answer came from.
     ///
     /// - Parameters:
-    ///   - text: テキストメッセージ
-    ///   - documents: ドキュメントコンテンツの配列
-    /// - Returns: ユーザーメッセージ
+    ///   - text: The prompt, placed after every document.
+    ///   - documents: The documents to attach, in the order the model should see them.
     public static func user(_ text: String, documents: [DocumentContent]) -> LLMMessage {
         var contents: [MessageContent] = documents.map { .document($0) }
         contents.append(.text(text))
         return LLMMessage(role: .user, contents: contents)
     }
 
-    // MARK: - 複合メッセージ
+    // MARK: - Mixed messages
 
-    /// 任意のコンテンツを含むユーザーメッセージを作成
+    /// Builds a user message from an explicit content list.
     ///
-    /// 複数種類のメディアを組み合わせる場合に使用する。
+    /// The escape hatch from the typed constructors: it mixes media kinds and is the only way
+    /// to control ordering, since the array is used exactly as given rather than being
+    /// rearranged to put media first.
     ///
-    /// ## 使用例
+    /// ## Example
     /// ```swift
     /// let message = LLMMessage.user(contents: [
-    ///     .text("以下の画像と音声について説明してください"),
+    ///     .text("Describe the image and the recording below."),
     ///     .image(imageContent),
     ///     .audio(audioContent)
     /// ])
     /// ```
     ///
-    /// - Parameter contents: メッセージコンテンツの配列
-    /// - Returns: ユーザーメッセージ
+    /// - Parameter contents: The message parts, in the order the model should see them.
     public static func user(contents: [MessageContent]) -> LLMMessage {
         LLMMessage(role: .user, contents: contents)
     }
 
     // MARK: - Convenience Properties
 
-    /// 画像コンテンツを取得
+    /// Every image in the message, in content order.
     ///
-    /// メッセージに含まれる全ての画像を配列で返す。
+    /// Empty when there are none, so it never distinguishes "no images" from "not a media
+    /// message". The array is rebuilt on each access.
     public var images: [ImageContent] {
         contents.compactMap { content in
             if case .image(let image) = content { return image }
@@ -171,9 +175,9 @@ extension LLMMessage {
         }
     }
 
-    /// 音声コンテンツを取得
+    /// Every audio clip in the message, in content order.
     ///
-    /// メッセージに含まれる全ての音声を配列で返す。
+    /// Useful before routing: a non-empty result means the message cannot go to Anthropic.
     public var audios: [AudioContent] {
         contents.compactMap { content in
             if case .audio(let audio) = content { return audio }
@@ -181,9 +185,9 @@ extension LLMMessage {
         }
     }
 
-    /// 動画コンテンツを取得
+    /// Every video in the message, in content order.
     ///
-    /// メッセージに含まれる全ての動画を配列で返す。
+    /// Useful before routing: a non-empty result means the message can only go to Gemini.
     public var videos: [VideoContent] {
         contents.compactMap { content in
             if case .video(let video) = content { return video }
@@ -191,9 +195,7 @@ extension LLMMessage {
         }
     }
 
-    /// ドキュメントコンテンツを取得
-    ///
-    /// メッセージに含まれる全てのドキュメントを配列で返す。
+    /// Every document in the message, in content order.
     public var documents: [DocumentContent] {
         contents.compactMap { content in
             if case .document(let document) = content { return document }
@@ -201,9 +203,10 @@ extension LLMMessage {
         }
     }
 
-    /// メディアコンテンツを含むかどうか
+    /// Whether the message carries an image, audio clip, video or document.
     ///
-    /// 画像、音声、動画、またはドキュメントのいずれかを含む場合に `true` を返す。
+    /// A cheap first filter before deciding whether provider compatibility needs checking at
+    /// all. Tool calls, tool results and thinking blocks do not count as media.
     public var hasMediaContent: Bool {
         contents.contains { content in
             switch content {
@@ -213,22 +216,24 @@ extension LLMMessage {
         }
     }
 
-    /// 画像を含むかどうか
+    /// Whether the message carries at least one image.
+    ///
+    /// Cheaper than building the image array when only the answer matters.
     public var hasImage: Bool {
         contents.contains { if case .image = $0 { return true }; return false }
     }
 
-    /// 音声を含むかどうか
+    /// Whether the message carries at least one audio clip, which rules out Anthropic.
     public var hasAudio: Bool {
         contents.contains { if case .audio = $0 { return true }; return false }
     }
 
-    /// 動画を含むかどうか
+    /// Whether the message carries at least one video, which narrows delivery to Gemini.
     public var hasVideo: Bool {
         contents.contains { if case .video = $0 { return true }; return false }
     }
 
-    /// ドキュメントを含むかどうか
+    /// Whether the message carries at least one document.
     public var hasDocument: Bool {
         contents.contains { if case .document = $0 { return true }; return false }
     }

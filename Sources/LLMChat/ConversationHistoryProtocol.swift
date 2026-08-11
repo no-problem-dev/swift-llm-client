@@ -3,112 +3,101 @@ import LLMClient
 
 // MARK: - ConversationHistoryProtocol
 
-/// 会話履歴を管理するプロトコル
+/// The store a multi-turn conversation is kept in: its messages, its token total, and its changes.
 ///
-/// LLM との会話履歴を Actor で保護された状態として管理する。
-/// 履歴はモデルやクライアントから独立しているため、
-/// 同じ履歴を異なるモデルで継続できる。
+/// Three responsibilities: hold and return the messages, accumulate what the turns have cost, and
+/// announce every change on an event stream. What it holds are messages rather than provider
+/// state, so a conversation can move between models and providers between turns.
 ///
-/// ## 概要
-///
-/// このプロトコルの責務：
-///
-/// - メッセージ履歴の保存と取得
-/// - トークン使用量の累積追跡
-/// - イベントストリームによる変更通知
-///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let history = ConversationHistory()
 ///
-/// // Claude で会話開始
+/// // Open the conversation with Claude.
 /// let claude = AnthropicClient(apiKey: "...")
 /// let result1: CityInfo = try await claude.chat(
-///     "日本の首都は？",
+///     "What is the capital of Japan?",
 ///     history: history,
 ///     model: .sonnet
 /// )
 ///
-/// // 同じ履歴で GPT に切り替え
+/// // Continue the same history with GPT.
 /// let openai = OpenAIClient(apiKey: "...")
 /// let result2: PopulationInfo = try await openai.chat(
-///     "その都市の人口は？",
+///     "What is that city's population?",
 ///     history: history,
 ///     model: .gpt4o
 /// )
 /// ```
 ///
-/// ## カスタム実装
+/// ## Writing your own
 ///
-/// このプロトコルを実装することで、以下のようなカスタム履歴管理が可能：
+/// Implement it where the ready-made history is not enough — one that persists to a store or a
+/// file, one that summarises older turns to keep the prompt inside the context window, or one
+/// that caps how many messages are kept. Dropping or rewriting messages is exactly where a
+/// conversation is at risk of losing a tool call and its result as a pair, which providers reject.
 ///
-/// - 永続化対応の履歴（CoreData、ファイル保存など）
-/// - 圧縮・要約機能付きの履歴
-/// - 制限付きの履歴（最大メッセージ数など）
+/// ## Concurrency
 ///
-/// ## スレッドセーフティ
-///
-/// このプロトコルは `Actor` を要求するため、
-/// すべての実装は自動的にスレッドセーフになる。
+/// The protocol requires an actor, so every implementation serialises its own state and appends
+/// from different tasks cannot tear it. What that does not buy is a stable view across an await:
+/// the message array is a copy taken at the moment of the call, and it may already be out of date
+/// by the time a request built from it is sent.
 public protocol ConversationHistoryProtocol: Actor, Sendable {
     // MARK: - State Access
 
-    /// 現在のメッセージ履歴を取得
+    /// Returns the conversation so far, oldest first, ready to be sent as a request.
     ///
-    /// ユーザーとアシスタントのメッセージが時系列順に格納されている。
+    /// An implementation may repair the array before returning it — the supplied history answers
+    /// unanswered tool calls here — so treat this as the point at which the conversation is made
+    /// sendable, not as a plain accessor.
     func getMessages() -> [LLMMessage]
 
-    /// 累計トークン使用量を取得
-    ///
-    /// この履歴を使用したすべての API 呼び出しの
-    /// トークン使用量の合計を返す。
+    /// Returns what every request against this history has consumed in total.
     func getTotalUsage() -> TokenUsage
 
-    /// 会話のターン数
+    /// The number of turns the user has taken.
     ///
-    /// ユーザーとアシスタントのメッセージペア数を返す。
+    /// The supplied history counts user messages that are not tool results, so a turn in which the
+    /// model called five tools still counts as one. It is not reset by `clear()`.
     var turnCount: Int { get }
 
     // MARK: - State Mutation
 
-    /// メッセージを追加
+    /// Appends a message and announces it on the event stream.
     ///
-    /// メッセージを履歴に追加し、イベントストリームに通知する。
+    /// Which event is emitted follows the content, not the role: a message carrying tool calls or
+    /// tool results is announced as such rather than as an assistant or user message.
     ///
-    /// - Parameter message: 追加するメッセージ
+    /// - Parameter message: The message to append.
     func append(_ message: LLMMessage)
 
-    /// トークン使用量を累積
+    /// Adds one request's token usage to the running total and announces the new total.
     ///
-    /// API 呼び出しのトークン使用量を累計に加算し、
-    /// イベントストリームに通知する。
-    ///
-    /// - Parameter usage: 追加するトークン使用量
+    /// - Parameter usage: The usage reported for a single request, not a total.
     func addUsage(_ usage: TokenUsage)
 
-    /// 履歴をクリア
-    ///
-    /// すべてのメッセージとトークン使用量をリセットし、
-    /// イベントストリームに `.cleared` を通知する。
+    /// Discards the messages and the running token total, then announces the clear.
     func clear()
 
-    /// エラーイベントを発火
+    /// Announces a failed request on the event stream.
     ///
-    /// API 呼び出しでエラーが発生した場合に、
-    /// イベントストリームに `.error` を通知する。
+    /// For observers only. The failing call still throws, so this neither swallows the error nor
+    /// substitutes for handling it.
     ///
-    /// - Parameter error: 発生したエラー
+    /// - Parameter error: The error that was raised.
     func emitError(_ error: LLMError)
 
     // MARK: - Event Stream
 
-    /// イベントストリーム
+    /// Every change to this history, as an asynchronous stream.
     ///
-    /// 履歴の変更（メッセージ追加、クリアなど）を
-    /// AsyncStream として購読できる。
+    /// Nonisolated, so a view can hold it without awaiting the actor. One stream means one
+    /// consumer: two tasks iterating it share the events out between them instead of each seeing
+    /// all of them, so fan out to several observers yourself rather than iterating twice.
     ///
-    /// ## 使用例
+    /// ## Example
     ///
     /// ```swift
     /// Task {
@@ -117,6 +106,10 @@ public protocol ConversationHistoryProtocol: Actor, Sendable {
     ///         case .userMessage(let msg):
     ///             updateUI(msg)
     ///         case .assistantMessage(let msg):
+    ///             updateUI(msg)
+    ///         case .toolCallMessage(let msg):
+    ///             updateUI(msg)
+    ///         case .toolResultMessage(let msg):
     ///             updateUI(msg)
     ///         case .usageUpdated(let usage):
     ///             updateTokenCounter(usage)

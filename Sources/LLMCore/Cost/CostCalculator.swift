@@ -2,13 +2,20 @@ import Foundation
 
 // MARK: - CostCalculator
 
-/// `TokenUsage` × `Pricing` → `Money<USD>` を計算する純関数ユーティリティ。
+/// Pure functions that price a request's token usage in US dollars.
 public enum CostCalculator {
 
-    /// 単一ステップのコスト。
+    /// Cost of a single request.
     ///
-    /// `TokenUsage` のセマンティクス契約（inputTokens は cacheRead/cacheCreation を含む総量、
-    /// reasoningTokens は outputTokens のサブセット）に従って、二重計上ゼロで計算する。
+    /// Follows the semantics contract of the usage type, so no token is billed twice: the input
+    /// count already includes the cached parts, which are split out and charged at the cache rates,
+    /// and reasoning is taken out of the output before the visible-output rate applies. The price
+    /// tier is chosen from the total input size, so a context-tiered model changes rate as the
+    /// prompt grows. A usage with no cache tier is billed at the short-lifetime write rate.
+    ///
+    /// - Parameters:
+    ///   - usage: Token counts reported for the request.
+    ///   - pricing: Rates of the model that served it.
     public static func cost(of usage: TokenUsage, with pricing: Pricing) -> Money<USD> {
         let tier = pricing.tier(forInputTokens: usage.inputTokens)
 
@@ -18,7 +25,8 @@ public enum CostCalculator {
         let visibleOutput = usage.visibleOutputTokens
         let reasoning = usage.reasoningTokens ?? 0
 
-        // 料率の解決: 未設定の場合は基本単価にフォールバック（= 割引なし）。
+        // Resolve the rates; a rate the price sheet leaves unset falls back to the tier's base rate,
+        // i.e. no discount.
         let readRate = pricing.cacheReadPerMTok ?? tier.inputPerMTok
         let writeRate: Double = {
             switch usage.cacheTier {

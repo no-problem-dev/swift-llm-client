@@ -1,98 +1,122 @@
-/// フィールドに適用可能な制約
+/// A JSON Schema keyword applied to a single field of a structured output.
 ///
-/// JSON Schema の keywords に準拠した制約を定義する。
-/// `@StructuredField` マクロと組み合わせて使用する。
+/// Pass constraints to `@StructuredField` and the macro writes them into the generated schema as
+/// the matching JSON Schema keywords — `.minLength(1)` becomes `minLength: 1`, `.format(.dateTime)`
+/// becomes `format: "date-time"`.
+///
+/// Whether a constraint is enforced depends on the provider. Providers accept different subsets of
+/// JSON Schema, so a provider's schema adapter strips the keywords its endpoint rejects and records
+/// each one as a `RemovedConstraint`. Those can be turned back into an `outputConstraint` prompt
+/// component and stated to the model in words instead. Keywords that survive into the schema are
+/// enforced by the provider's decoder; keywords that end up in the prompt are only a request, so
+/// validate the decoded value yourself when the constraint has to hold.
+///
+/// `.enum` is the one case with no removal record, so a provider that ignores it produces neither
+/// a schema error nor a prompt fallback — the model is simply free to answer off the list.
 ///
 /// ```swift
-/// @Structured("商品情報")
+/// @Structured("Product information")
 /// struct Product {
-///     @StructuredField("商品名", .minLength(1), .maxLength(100))
+///     @StructuredField("Product name", .minLength(1), .maxLength(100))
 ///     var name: String
 ///
-///     @StructuredField("価格", .minimum(0))
+///     @StructuredField("Price", .minimum(0))
 ///     var price: Int
 ///
-///     @StructuredField("タグ", .minItems(1), .maxItems(10))
+///     @StructuredField("Tags", .minItems(1), .maxItems(10))
 ///     var tags: [String]
 ///
-///     @StructuredField("カテゴリ", .enum(["electronics", "clothing", "food"]))
+///     @StructuredField("Category", .enum(["electronics", "clothing", "food"]))
 ///     var category: String
 /// }
 /// ```
 public enum FieldConstraint: Sendable, Equatable {
     // MARK: - Array Constraints
 
-    /// 配列の最小要素数
+    /// The fewest elements an array field may hold.
     case minItems(Int)
 
-    /// 配列の最大要素数
+    /// The most elements an array field may hold.
     case maxItems(Int)
 
     // MARK: - Numeric Constraints
 
-    /// 数値の最小値（その値を含む）
+    /// The smallest value a numeric field may take, inclusive.
     case minimum(Int)
 
-    /// 数値の最大値（その値を含む）
+    /// The largest value a numeric field may take, inclusive.
     case maximum(Int)
 
-    /// 数値の最小値（その値を含まない）
+    /// A lower bound a numeric field must stay strictly above.
     case exclusiveMinimum(Int)
 
-    /// 数値の最大値（その値を含まない）
+    /// An upper bound a numeric field must stay strictly below.
     case exclusiveMaximum(Int)
 
     // MARK: - String Constraints
 
-    /// 文字列の最小長
+    /// The fewest characters a string field may hold.
     case minLength(Int)
 
-    /// 文字列の最大長
+    /// The most characters a string field may hold.
     case maxLength(Int)
 
-    /// 文字列の正規表現パターン
+    /// A regular expression the whole string has to match.
+    ///
+    /// The pattern travels to the provider as written, so keep it to the ECMA-262 syntax JSON
+    /// Schema specifies rather than the NSRegularExpression dialect used on device.
     case pattern(String)
 
     // MARK: - Enum Constraint
 
-    /// 許可される値のリスト
+    /// The exact set of values the field may take.
+    ///
+    /// The strongest constraint here, because a provider that supports it decodes against the list
+    /// and cannot return anything else. It is also the only one with no removal record, so a
+    /// provider that drops it does so silently.
     case `enum`([String])
 
     // MARK: - Format Constraints
 
-    /// 文字列のフォーマット（JSON Schema format）
+    /// The shape a string field has to follow.
     case format(StringFormat)
 
-    /// JSON Schema で定義されている文字列フォーマット
+    /// A value for the JSON Schema format keyword.
+    ///
+    /// Format is an annotation rather than a hard rule in JSON Schema, and providers vary in
+    /// whether they enforce it at all. Treat it as a strong hint to the model and parse the
+    /// returned string defensively.
     public enum StringFormat: String, Sendable, Equatable {
-        /// メールアドレス形式
+        /// An address in mailbox form, such as name@example.com.
         case email
 
-        /// URI形式
+        /// An absolute URI, scheme included.
         case uri
 
-        /// UUID形式
+        /// A UUID in its hyphenated 8-4-4-4-12 form.
         case uuid
 
-        /// 日付形式 (YYYY-MM-DD)
+        /// A calendar date in YYYY-MM-DD form.
         case date
 
-        /// 時刻形式 (HH:MM:SS)
+        /// A time of day in HH:MM:SS form.
         case time
 
-        /// 日時形式 (ISO 8601)
+        /// A combined date and time in ISO 8601 form.
+        ///
+        /// The only case whose wire value differs from its Swift name: it is sent as `date-time`.
         case dateTime = "date-time"
 
-        /// IPv4アドレス形式
+        /// A dotted-quad IPv4 address, such as 192.0.2.1.
         case ipv4
 
-        /// IPv6アドレス形式
+        /// A colon-separated IPv6 address.
         case ipv6
 
-        /// ホスト名形式
+        /// A DNS host name, such as api.example.com.
         case hostname
 
-        /// 期間形式 (ISO 8601 duration)
+        /// A length of time in ISO 8601 duration form, such as P3DT4H.
         case duration
     }
 }
@@ -100,31 +124,39 @@ public enum FieldConstraint: Sendable, Equatable {
 // MARK: - Convenience Extensions
 
 extension FieldConstraint {
-    /// 配列の要素数範囲を指定
+    /// Both element-count bounds for a range, as a two-element array.
+    ///
+    /// `@StructuredField` takes its constraints variadically and reads them as source syntax, so an
+    /// array cannot be handed to it and a range literal is not recognized. Write the two cases out
+    /// there instead; this helper is for assembling constraint lists in ordinary code.
     ///
     /// ```swift
-    /// @StructuredField("タグ", .items(1...5))
-    /// var tags: [String]
+    /// FieldConstraint.items(1...5)  // [.minItems(1), .maxItems(5)]
     /// ```
     public static func items(_ range: ClosedRange<Int>) -> [FieldConstraint] {
         [.minItems(range.lowerBound), .maxItems(range.upperBound)]
     }
 
-    /// 数値の範囲を指定
+    /// Both numeric bounds for a range, as a two-element array.
+    ///
+    /// The bounds are inclusive on each side, matching the closed range. Same caveat as the
+    /// element-count helper: `@StructuredField` cannot take the array, so write `.minimum` and
+    /// `.maximum` out in the attribute.
     ///
     /// ```swift
-    /// @StructuredField("評価", .range(1...5))
-    /// var rating: Int
+    /// FieldConstraint.range(1...5)  // [.minimum(1), .maximum(5)]
     /// ```
     public static func range(_ range: ClosedRange<Int>) -> [FieldConstraint] {
         [.minimum(range.lowerBound), .maximum(range.upperBound)]
     }
 
-    /// 文字列の長さ範囲を指定
+    /// Both string-length bounds for a range, as a two-element array.
+    ///
+    /// Same caveat as the other range helpers: `@StructuredField` cannot take the array, so write
+    /// `.minLength` and `.maxLength` out in the attribute.
     ///
     /// ```swift
-    /// @StructuredField("ユーザー名", .length(3...20))
-    /// var username: String
+    /// FieldConstraint.length(3...20)  // [.minLength(3), .maxLength(20)]
     /// ```
     public static func length(_ range: ClosedRange<Int>) -> [FieldConstraint] {
         [.minLength(range.lowerBound), .maxLength(range.upperBound)]

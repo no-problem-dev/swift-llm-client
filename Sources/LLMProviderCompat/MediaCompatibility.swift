@@ -8,26 +8,28 @@ import LLMCore
 
 // MARK: - Provider Capabilities Protocol
 
-/// プロバイダーの機能・能力を定義するプロトコル
+/// What a provider will accept, asked of the provider itself.
 public protocol ProviderCapabilities: Sendable {
-    /// プロバイダーの表示名
+    /// The provider's name as it should appear to a person, in error messages and logs.
     var displayName: String { get }
-    /// 指定されたメディアタイプをサポートしているか
+
+    /// Whether this provider accepts the given media type as input.
     func supports<T: MediaType>(_ mediaType: T) -> Bool
 }
 
 // MARK: - Provider Type
 
-/// プロバイダー識別子
+/// The providers whose media rules this package knows.
 ///
-/// LLMプロバイダーを識別する列挙型。
-/// メディア機能のサポート確認やエラーメッセージに使用する。
+/// Only the three that accept media input at all. Text-only providers the package can otherwise
+/// talk to — Groq, Mistral, xAI, DeepSeek — have no case here, so there is nothing to ask about
+/// their media support.
 public enum ProviderType: String, Sendable, Codable, ProviderCapabilities {
     case anthropic
     case openai
     case gemini
 
-    /// プロバイダーの表示名
+    /// The provider's name as it should appear to a person.
     public var displayName: String {
         switch self {
         case .anthropic: return "Anthropic"
@@ -36,7 +38,10 @@ public enum ProviderType: String, Sendable, Codable, ProviderCapabilities {
         }
     }
 
-    /// 指定されたメディアタイプをサポートしているか
+    /// Whether this provider accepts the given media type as input.
+    ///
+    /// Only the type is checked. Whether the content may be sent as a URL or a file reference is a
+    /// separate question, answered by validating the content itself.
     public func supports<T: MediaType>(_ mediaType: T) -> Bool {
         MediaCompatibility.isSupported(mediaType, by: self)
     }
@@ -44,14 +49,15 @@ public enum ProviderType: String, Sendable, Codable, ProviderCapabilities {
 
 // MARK: - Provider Compatibility Error
 
-/// プロバイダー互換性エラー
+/// A request rejected before it was sent, because the provider would not have accepted the media.
 ///
-/// メディアコンテンツが対象プロバイダーでサポートされない場合にスロー。
+/// Raised by validation rather than by the API, so it costs no round trip and no tokens.
 public enum ProviderCompatibilityError: Error, Sendable, Equatable, LocalizedError {
-    /// プロバイダーが機能をサポートしていない
+    /// The provider does not offer the capability the content relies on, such as audio input or
+    /// sending an image by file reference.
     case notSupportedByProvider(feature: String, provider: ProviderType)
 
-    /// メディアタイプがプロバイダーでサポートされていない
+    /// The provider accepts this kind of media but not this encoding of it.
     case unsupportedMediaType(mimeType: String, provider: ProviderType)
 
     public var errorDescription: String? {
@@ -66,25 +72,37 @@ public enum ProviderCompatibilityError: Error, Sendable, Equatable, LocalizedErr
 
 // MARK: - Media Compatibility Matrix
 
-/// メディアタイプとプロバイダーの互換性マトリクス
+/// Which provider accepts which media, checked before a request goes out.
 ///
-/// 「どのプロバイダーが何を許すか」というプロバイダー固有の知識を集約する。
-/// ドメイン値型（`ImageContent` 等）はこの知識を持たず、検証はここに委譲する。
+/// One place holds the provider-specific rules, so the domain value types stay ignorant of them and
+/// hand validation here. Consulting this turns a rejection that would have cost a round trip into a
+/// local error.
+///
+/// The matrix is maintained by hand against provider documentation; it is a fast pre-flight check,
+/// not a guarantee, and a provider that has since tightened its rules can still refuse.
 public enum MediaCompatibility {
 
     // MARK: - Image Type Compatibility
 
-    /// 全プロバイダーで共通サポートされる画像タイプ
+    /// Image encodings every provider takes: JPEG, PNG, GIF, and WebP.
+    ///
+    /// Safe ground when the destination provider is not known in advance.
     public static var universalImageTypes: [ImageMediaType] {
         [.jpeg, .png, .gif, .webp]
     }
 
-    /// Gemini 専用の画像タイプ
+    /// Image encodings only Gemini takes, namely HEIC and HEIF.
+    ///
+    /// Both are what an iPhone camera produces by default, so photos picked straight from the
+    /// library have to be transcoded for Anthropic and OpenAI.
     public static var geminiOnlyImageTypes: [ImageMediaType] {
         [.heic, .heif]
     }
 
-    /// 指定された画像タイプがプロバイダーでサポートされるか
+    /// Whether the provider accepts images in this encoding.
+    ///
+    /// Gemini takes every encoding the type can express, so it is answered without consulting the
+    /// lists above; Anthropic and OpenAI are held to the universal set.
     public static func isSupported(_ type: ImageMediaType, by provider: ProviderType) -> Bool {
         switch provider {
         case .anthropic, .openai:
@@ -96,17 +114,23 @@ public enum MediaCompatibility {
 
     // MARK: - Audio Type Compatibility
 
-    /// OpenAI Chat Completions でサポートされる音声タイプ
+    /// Audio encodings OpenAI's Chat Completions endpoint takes: WAV and MP3, and nothing else.
+    ///
+    /// A far narrower set than its speech-to-text endpoints accept; anything else has to be
+    /// transcoded before it can go into a chat turn.
     public static var openaiChatAudioTypes: [AudioMediaType] {
         [.wav, .mp3]
     }
 
-    /// Gemini でサポートされる音声タイプ
+    /// Audio encodings Gemini takes, which is all of them.
     public static var geminiAudioTypes: [AudioMediaType] {
         AudioMediaType.allCases
     }
 
-    /// 指定された音声タイプがプロバイダーでサポートされるか
+    /// Whether the provider accepts audio in this encoding.
+    ///
+    /// Anthropic takes no audio input at all, so it refuses every encoding. Gemini takes every one,
+    /// answered without consulting the list above. OpenAI is held to WAV and MP3.
     public static func isSupported(_ type: AudioMediaType, by provider: ProviderType) -> Bool {
         switch provider {
         case .anthropic:
@@ -120,7 +144,10 @@ public enum MediaCompatibility {
 
     // MARK: - Video Type Compatibility
 
-    /// 指定された動画タイプがプロバイダーでサポートされるか
+    /// Whether the provider accepts video in this encoding.
+    ///
+    /// Gemini is the only one that takes video input at all, and it takes every encoding. Anthropic
+    /// and OpenAI refuse all video.
     public static func isSupported(_ type: VideoMediaType, by provider: ProviderType) -> Bool {
         switch provider {
         case .anthropic, .openai:
@@ -132,7 +159,11 @@ public enum MediaCompatibility {
 
     // MARK: - Document Type Compatibility
 
-    /// 指定されたドキュメントタイプがプロバイダーでサポートされるか
+    /// Whether the provider accepts documents in this encoding.
+    ///
+    /// All three take every document encoding, so this always answers yes. How the pages are billed
+    /// differs sharply — PDFs are converted to images and text on the provider's side and can cost
+    /// far more tokens than their file size suggests.
     public static func isSupported(_ type: DocumentMediaType, by provider: ProviderType) -> Bool {
         switch provider {
         case .anthropic, .openai, .gemini:
@@ -142,7 +173,11 @@ public enum MediaCompatibility {
 
     // MARK: - Image Output Format Compatibility
 
-    /// 指定されたプロバイダーがサポートする画像出力フォーマット
+    /// The encodings the provider will return generated images in.
+    ///
+    /// Empty for Anthropic, which generates no images. OpenAI returns PNG, JPEG, or WebP; Gemini
+    /// returns PNG only. An empty result means the whole capability is missing, not that the
+    /// request needs different settings.
     public static func imageOutputFormats(for provider: ProviderType) -> [ImageOutputFormat] {
         switch provider {
         case .anthropic:
@@ -154,14 +189,18 @@ public enum MediaCompatibility {
         }
     }
 
-    /// 指定された画像出力フォーマットがプロバイダーでサポートされるか
+    /// Whether the provider will return a generated image in this encoding.
     public static func isSupported(_ format: ImageOutputFormat, by provider: ProviderType) -> Bool {
         imageOutputFormats(for: provider).contains(format)
     }
 
     // MARK: - Audio Output Format Compatibility
 
-    /// 指定されたプロバイダーがサポートする音声出力フォーマット
+    /// The encodings the provider will return generated speech in.
+    ///
+    /// Empty for Anthropic, which generates no audio. OpenAI offers the full range — MP3, Opus,
+    /// AAC, FLAC, WAV, PCM — while Gemini returns only raw PCM, which needs a header before most
+    /// players will touch it.
     public static func audioOutputFormats(for provider: ProviderType) -> [AudioOutputFormat] {
         switch provider {
         case .anthropic:
@@ -173,14 +212,17 @@ public enum MediaCompatibility {
         }
     }
 
-    /// 指定された音声出力フォーマットがプロバイダーでサポートされるか
+    /// Whether the provider will return generated speech in this encoding.
     public static func isSupported(_ format: AudioOutputFormat, by provider: ProviderType) -> Bool {
         audioOutputFormats(for: provider).contains(format)
     }
 
     // MARK: - Video Output Format Compatibility
 
-    /// 指定されたプロバイダーがサポートする動画出力フォーマット
+    /// The containers the provider will return generated video in.
+    ///
+    /// Empty for Anthropic, which generates no video. OpenAI Sora and Gemini Veo both return MP4
+    /// and nothing else.
     public static func videoOutputFormats(for provider: ProviderType) -> [VideoOutputFormat] {
         switch provider {
         case .anthropic:
@@ -192,14 +234,17 @@ public enum MediaCompatibility {
         }
     }
 
-    /// 指定された動画出力フォーマットがプロバイダーでサポートされるか
+    /// Whether the provider will return generated video in this container.
     public static func isSupported(_ format: VideoOutputFormat, by provider: ProviderType) -> Bool {
         videoOutputFormats(for: provider).contains(format)
     }
 
     // MARK: - Generic Media Type Compatibility
 
-    /// 指定されたメディアタイプがプロバイダーでサポートされるか
+    /// Whether the provider accepts this media type, whatever kind of media it is.
+    ///
+    /// Dispatches on the concrete type at runtime. A media type outside the four known kinds
+    /// answers no rather than yes, so an unrecognized type is rejected before it reaches the wire.
     public static func isSupported<T: MediaType>(_ type: T, by provider: ProviderType) -> Bool {
         switch type {
         case let image as ImageMediaType:
@@ -217,9 +262,12 @@ public enum MediaCompatibility {
 
     // MARK: - Media Type Validation
 
-    /// メディアタイプのプロバイダーサポートを検証
+    /// Rejects a media type the provider will not take.
     ///
-    /// - Throws: `ProviderCompatibilityError.unsupportedMediaType` 未サポート時
+    /// The throwing form of the support check, for use at the top of a request path. It looks only
+    /// at the type; validating the content itself also covers how the bytes are delivered.
+    ///
+    /// - Throws: `ProviderCompatibilityError.unsupportedMediaType` if the provider will not take it.
     public static func validateSupport<T: MediaType>(_ type: T, for provider: ProviderType) throws {
         if !isSupported(type, by: provider) {
             throw ProviderCompatibilityError.unsupportedMediaType(
@@ -231,9 +279,13 @@ public enum MediaCompatibility {
 
     // MARK: - Content Validation
 
-    /// 画像コンテンツのプロバイダー互換性を検証
+    /// Rejects image content the provider will not take.
     ///
-    /// - Throws: `ProviderCompatibilityError` 互換性がない場合
+    /// Checks the encoding, then how the image is delivered: Anthropic has no file-reference
+    /// mechanism, so an image uploaded to a provider's file store cannot be pointed at from an
+    /// Anthropic request.
+    ///
+    /// - Throws: `ProviderCompatibilityError` naming whichever rule the content breaks.
     public static func validate(_ image: ImageContent, for provider: ProviderType) throws {
         try validateSupport(image.mediaType, for: provider)
 
@@ -245,9 +297,13 @@ public enum MediaCompatibility {
         }
     }
 
-    /// 音声コンテンツのプロバイダー互換性を検証
+    /// Rejects audio content the provider will not take.
     ///
-    /// - Throws: `ProviderCompatibilityError` 互換性がない場合
+    /// Anthropic is refused outright, since it accepts no audio input. OpenAI is additionally held
+    /// to inline Base64: it will not fetch audio from a URL, so the bytes have to be carried in the
+    /// request body and counted against its size.
+    ///
+    /// - Throws: `ProviderCompatibilityError` naming whichever rule the content breaks.
     public static func validate(_ audio: AudioContent, for provider: ProviderType) throws {
         if provider == .anthropic {
             throw ProviderCompatibilityError.notSupportedByProvider(
@@ -266,9 +322,12 @@ public enum MediaCompatibility {
         }
     }
 
-    /// 動画コンテンツのプロバイダー互換性を検証
+    /// Rejects video content for any provider but Gemini.
     ///
-    /// - Throws: `ProviderCompatibilityError` 互換性がない場合
+    /// Gemini is the only one that takes video input, and it takes every encoding, so nothing about
+    /// the content itself is examined once the provider is right.
+    ///
+    /// - Throws: `ProviderCompatibilityError.notSupportedByProvider` for Anthropic and OpenAI.
     public static func validate(_ video: VideoContent, for provider: ProviderType) throws {
         if provider != .gemini {
             throw ProviderCompatibilityError.notSupportedByProvider(
@@ -278,9 +337,12 @@ public enum MediaCompatibility {
         }
     }
 
-    /// ドキュメントコンテンツのプロバイダー互換性を検証
+    /// Rejects document content the provider will not take.
     ///
-    /// - Throws: `ProviderCompatibilityError` 互換性がない場合
+    /// All three providers take every document encoding, so this passes today whatever it is given.
+    /// It stays on the request path so a future narrowing has somewhere to live.
+    ///
+    /// - Throws: `ProviderCompatibilityError.unsupportedMediaType` if the encoding is refused.
     public static func validate(_ document: DocumentContent, for provider: ProviderType) throws {
         try validateSupport(document.mediaType, for: provider)
     }

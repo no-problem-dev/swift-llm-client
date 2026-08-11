@@ -3,18 +3,22 @@ import LLMClient
 
 // MARK: - ContextBarSegment
 
-/// スタックバー 1 区画。`fraction` はウィンドウ（不明時は used）に対する比率 0...1。
+/// One band of a stacked context bar: what it represents, its tokens, and its share of the bar.
 public struct ContextBarSegment: Sendable, Hashable {
     public enum Kind: String, Sendable, Hashable, CaseIterable {
         case systemPrompt, toolDefinitions, mcpToolDefinitions, memoryFiles
         case latestToolResults, conversationHistory
-        case cached, fresh   // 内訳が無い時の占有モード
+        case cached, fresh   // Occupancy mode, used when there is no breakdown
         case free
     }
 
     public let kind: Kind
     public let tokens: Int
-    /// ウィンドウ（不明時は used 総量）に対する比率 0...1。
+
+    /// Share of the bar, from 0 to 1, taken against the window size.
+    ///
+    /// Where the window size is unknown the shares are taken against the tokens in use instead, so
+    /// the bands fill the bar completely and none of them means "this fraction of the window".
     public let fraction: Double
 
     public init(kind: Kind, tokens: Int, fraction: Double) {
@@ -26,32 +30,40 @@ public struct ContextBarSegment: Sendable, Hashable {
 
 // MARK: - ContextBarLayout
 
-/// `ContextReport` を表示用スタックバーに変換する純ロジック（SwiftUI 非依存）。
+/// Turns a context report into the bands of a stacked bar, with no dependency on any UI framework.
 ///
-/// - 内訳（`breakdown`）があればカテゴリ別区画 + 空き。
-/// - 無ければ占有（`occupancy`）から fresh / cached / 空きの区画。
-/// - `windowSize` が `nil`（モデル未定義）なら used 総量で正規化し、空き区画は出さない
-///   （占有率を捏造しない = silent fallback 排除）。
+/// Which bands appear depends on what the report holds. With a breakdown, one band per category
+/// that has tokens. Without one, the occupancy is split into cached and fresh, since cached tokens
+/// fill the window just the same but cost far less. A free band is added only when the window size
+/// is known.
+///
+/// When the window size is unknown the shares are taken against the tokens in use instead, so the
+/// bar fills completely and no free band appears. It shows the proportions, not a percentage of a
+/// window nobody knows the size of, which is a figure this deliberately declines to invent.
 public struct ContextBarLayout: Sendable, Hashable {
 
     public let segments: [ContextBarSegment]
     public let windowSize: Int?
     public let usedTokens: Int
 
+    /// Lays out the bands for a report.
+    ///
+    /// - Parameter report: The context state to draw. Its breakdown, if it has one, decides
+    ///   whether the bar shows categories or the cached and fresh split.
     public init(report: ContextReport) {
         let occ = report.occupancy
         let window = occ.windowSize
         self.windowSize = window
         self.usedTokens = occ.used
 
-        // 比率の分母: ウィンドウ既知ならウィンドウ、未知なら used（最低 1）。
+        // Denominator: the window when it is known, otherwise the tokens in use, floored at 1.
         let denom = Double(window ?? max(occ.used, 1))
         func frac(_ tokens: Int) -> Double { denom > 0 ? Double(tokens) / denom : 0 }
 
         var result: [ContextBarSegment] = []
 
         if let breakdown = report.breakdown {
-            // 内訳モード: 安定した表示順で区画化。
+            // Breakdown mode: one band per category, in a fixed display order.
             let order: [(ContextSegment, ContextBarSegment.Kind)] = [
                 (.systemPrompt, .systemPrompt),
                 (.toolDefinitions, .toolDefinitions),
@@ -67,7 +79,8 @@ public struct ContextBarLayout: Sendable, Hashable {
                 }
             }
         } else {
-            // 占有モード: fresh / cached（cached は占有するが安価なので別区画）。
+            // Occupancy mode: fresh and cached apart, since cached tokens fill the window as much
+            // but cost far less.
             let cached = occ.cacheReadTokens + occ.cacheCreationTokens
             let fresh = max(0, occ.used - cached)
             if fresh > 0 {
@@ -78,7 +91,7 @@ public struct ContextBarLayout: Sendable, Hashable {
             }
         }
 
-        // 空き区画（ウィンドウ既知時のみ）。
+        // The free band, only when the window size is known.
         if let free = occ.free, free > 0 {
             result.append(ContextBarSegment(kind: .free, tokens: free, fraction: frac(free)))
         }

@@ -1,21 +1,23 @@
 import SwiftSyntax
 import SwiftSyntaxMacros
 
-/// `@ToolExclude` マクロの実装
+/// Implements the `@ToolExclude` marker macro.
 ///
-/// `@Tool` マクロが適用された構造体のストアドプロパティに付けることで、
-/// そのプロパティを注入プロパティから除外する。
+/// It synthesizes nothing of its own. `@Tool` reads the attribute to keep a stored property out
+/// of the injected configuration, so the generated initializer neither takes it as a parameter
+/// nor assigns it. That is what a callback closure needs: a member that is neither an argument
+/// the model fills in nor something the caller should have to supply at registration. Since
+/// nothing initializes such a property, it has to be optional or carry a default value.
 ///
-/// コールバッククロージャなど、ツールの引数でも注入プロパティでもない
-/// プロパティを `@Tool` マクロの処理対象外にするために使用する。
+/// The declaration it is attached to is never checked here, so a misplaced attribute is ignored
+/// without a diagnostic.
 public struct ToolExcludeMacro: PeerMacro {
     public static func expansion(
         of node: AttributeSyntax,
         providingPeersOf declaration: some DeclSyntaxProtocol,
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        // マーカーとして機能
-        // 実際の処理は @Tool マクロ側で行う
+        // Nothing to emit: the attribute is read by @Tool.
         return []
     }
 }

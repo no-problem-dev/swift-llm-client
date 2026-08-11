@@ -3,25 +3,25 @@ import LLMClient
 
 // MARK: - ToolCallResponse
 
-/// ツール呼び出し計画レスポンス
+/// What the model decided to call, before anything has been called.
 ///
-/// LLM がどのツールをどの引数で呼び出すか判断した結果を保持する。
-/// 計画のみを含み、実際のツール実行は呼び出し側が行う。
-/// テキスト応答とツール呼び出し情報の両方を含む場合がある。
+/// Holds the planned calls and nothing else has happened yet: running them is the caller's
+/// job. A response may carry text and calls together, or text alone when the model chose to
+/// answer directly.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let client = AnthropicClient(apiKey: "...")
 ///
-/// @Tool("天気を取得する")
+/// @Tool("Returns the weather")
 /// struct GetWeather {
-///     @ToolArgument("場所")
+///     @ToolArgument("Location")
 ///     var location: String
 ///
 ///     func call() async throws -> String {
-///         // 天気API呼び出し
-///         return "晴れ、25度"
+///         // Call the weather API
+///         return "Sunny, 25 degrees"
 ///     }
 /// }
 ///
@@ -29,50 +29,64 @@ import LLMClient
 ///     GetWeather()
 /// }
 ///
-/// // LLM にどのツールを呼ぶべきか計画させる
+/// // Let the model plan which tools to call
 /// let plan = try await client.planToolCalls(
-///     prompt: "東京の天気を教えて",
+///     prompt: "Tell me the weather in Tokyo",
 ///     model: .sonnet,
 ///     tools: tools
 /// )
 ///
-/// // 計画されたツール呼び出しを実行
+/// // Run the planned calls
 /// for call in plan.toolCalls {
 ///     let result = try await tools.execute(toolNamed: call.name, with: call.arguments)
 ///     print(result)
 /// }
 /// ```
 public struct ToolCallResponse: Sendable {
-    /// ツール呼び出しのリスト
+    /// The calls the model asked for, in the order it emitted them.
+    ///
+    /// A model may ask for several at once. The calls carry no dependency on each other, so
+    /// they can be run concurrently, but each one has to come back as a result carrying its
+    /// own id before the conversation can continue.
     public let toolCalls: [ToolCall]
 
-    /// テキスト応答（ある場合）
+    /// Text the model produced alongside the plan, such as an explanation of what it is about
+    /// to do. Present or absent independently of whether there are calls.
     public let text: String?
 
-    /// トークン使用量
+    /// Tokens spent planning, which is this request alone.
+    ///
+    /// Tool definitions travel with every request and are counted as input, so the cost scales
+    /// with the size of the tool set rather than with the number of tools actually called.
+    /// Running the tools and sending their results back is a separate request with its own cost.
     public let usage: TokenUsage
 
-    /// 停止理由
+    /// Why the model stopped generating.
+    ///
+    /// A tool-use reason means it paused to wait for results and expects the conversation to
+    /// continue. A max-tokens reason means the reply was cut off, which can leave argument JSON
+    /// truncated and undecodable.
     public let stopReason: LLMResponse.StopReason?
 
-    /// 使用されたモデル ID
+    /// The model id the provider reported serving the request, which may be more specific than
+    /// the alias that was requested.
     public let model: String
 
-    /// ツール呼び出しがあるかどうか
+    /// Whether the model asked for any tool to be run.
     public var hasToolCalls: Bool {
         !toolCalls.isEmpty
     }
 
     // MARK: - Initializer
 
-    /// ToolCallResponse を初期化
+    /// Creates a planned response, normally from a provider adapter parsing a reply.
     ///
     /// - Parameters:
-    ///   - toolCalls: ツール呼び出しのリスト
-    ///   - text: テキスト応答
-    ///   - usage: トークン使用量
-    ///   - stopReason: 停止理由
-    ///   - model: 使用されたモデル ID
+    ///   - toolCalls: The calls, in the order the model emitted them.
+    ///   - text: Text produced alongside the calls.
+    ///   - usage: Tokens spent on this request.
+    ///   - stopReason: Why the model stopped generating.
+    ///   - model: The model id the provider reported.
     public init(
         toolCalls: [ToolCall],
         text: String?,

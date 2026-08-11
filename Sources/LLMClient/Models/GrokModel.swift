@@ -1,26 +1,26 @@
 import Foundation
 
-/// xAI Grok モデル
+/// The xAI Grok models.
 public enum GrokModel: Sendable, Equatable {
-    /// Grok 4.3（フラッグシップ・汎用推奨）
+    /// Grok 4.3, the flagship and the general-purpose choice.
     case grok43
 
-    /// Grok 4.20 Reasoning（高速エージェント特化・推論版）
+    /// Grok 4.20 with reasoning switched on, tuned for fast agent work.
     case grok420Reasoning
 
-    /// Grok 4.20 Non-Reasoning（高速・大量処理向け・非推論版）
+    /// Grok 4.20 with reasoning switched off, for high-volume, low-latency work.
     case grok420NonReasoning
 
-    /// Grok 4.20 Multi-Agent（マルチエージェント協調）
+    /// Grok 4.20 tuned for several agents reasoning together on one task.
     case grok420MultiAgent
 
-    /// Grok Build（コーディング特化ベータ）
+    /// Grok Build, a coding-focused beta. It has the smallest context window of the family.
     case grokBuild
 
-    /// カスタムモデルID
+    /// An identifier passed to the API unchanged, for anything this enum does not name.
     case custom(String)
 
-    /// モデルID文字列を取得
+    /// The identifier sent to the API.
     public var id: String {
         switch self {
         case .grok43:
@@ -42,25 +42,25 @@ public enum GrokModel: Sendable, Equatable {
 // MARK: - Preset
 
 extension GrokModel {
-    /// UI選択用のプリセットモデル
+    /// The models to put in front of a user.
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
-        /// Grok 4.3（フラッグシップ・デフォルト）
+        /// Grok 4.3, the flagship.
         case grok43 = "grok43"
-        /// Grok 4.20 Reasoning（高速エージェント・推論版）
+        /// Grok 4.20 with reasoning switched on.
         case grok420Reasoning = "grok420Reasoning"
-        /// Grok 4.20 Non-Reasoning（高速・大量処理向け・非推論版）
+        /// Grok 4.20 with reasoning switched off.
         case grok420NonReasoning = "grok420NonReasoning"
-        /// Grok 4.20 Multi-Agent（マルチエージェント協調）
+        /// Grok 4.20 tuned for several agents reasoning together.
         case grok420MultiAgent = "grok420MultiAgent"
-        /// Grok Build（コーディング特化ベータ）
+        /// Grok Build, a coding-focused beta.
         case grokBuild = "grokBuild"
 
         public var id: String { rawValue }
 
-        /// デフォルトプリセット（フラッグシップ）
+        /// The preset to start from when the user has not chosen one.
         public static let `default`: Preset = .grok43
 
-        /// 対応する `GrokModel` を取得
+        /// The model this preset names.
         public var model: GrokModel {
             switch self {
             case .grok43: return .grok43
@@ -71,7 +71,6 @@ extension GrokModel {
             }
         }
 
-        /// 表示名
         public var displayName: String {
             switch self {
             case .grok43: return "Grok 4.3"
@@ -82,7 +81,7 @@ extension GrokModel {
             }
         }
 
-        /// 短い表示名
+        /// An abbreviated label, for places too narrow for the full name.
         public var shortName: String {
             switch self {
             case .grok43: return "4.3"
@@ -93,7 +92,7 @@ extension GrokModel {
             }
         }
 
-        /// モデルプロファイル
+        /// Context window, pricing, and capability facts for the model.
         public var profile: ModelProfile {
             switch self {
             case .grok43:

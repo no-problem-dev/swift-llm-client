@@ -6,21 +6,22 @@ let package = Package(
     name: "swift-llm-client",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
-        // 純粋ドメイン層（Foundation のみ・プロバイダ/プラットフォーム非依存）
+        // Pure domain layer: Foundation only, no provider or platform dependency.
         .library(name: "LLMCore", targets: ["LLMCore"]),
         .library(name: "LLMProviderCompat", targets: ["LLMProviderCompat"]),
         .library(name: "LLMMediaKit", targets: ["LLMMediaKit"]),
         .library(name: "LLMClient", targets: ["LLMClient"]),
         .library(name: "LLMTool", targets: ["LLMTool"]),
-        // エージェントステップ契約（純粋な LLMClient/LLMTool から分離）
+        // The agent-step contract, kept separate from LLMClient and LLMTool.
         .library(name: "LLMAgentStep", targets: ["LLMAgentStep"]),
         .library(name: "LLMChat", targets: ["LLMChat"]),
         .library(name: "LLMDynamicStructured", targets: ["LLMDynamicStructured"]),
-        // コンテキストウィンドウ内訳（差分減算）— 純粋ドメインロジック
+        // Context-window breakdown by differential measurement. Pure domain logic.
         .library(name: "LLMContext", targets: ["LLMContext"]),
     ],
     dependencies: [
-        // mlx-swift-lm 3.31.3（swift-syntax 600..<601 要求）と同一グラフで解決できるよう下限を 600 まで許容
+        // Lower bound stays at 600 so this resolves in the same graph as mlx-swift-lm 3.31.3,
+        // which requires swift-syntax 600..<601.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", "600.0.0"..<"604.0.0"),
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.0"),
         .package(url: "https://github.com/no-problem-dev/swift-structured-data.git", "1.3.0" ..< "3.0.0"),
@@ -31,11 +32,11 @@ let package = Package(
             .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
             .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
         ]),
-        // 純粋ドメイン層: Foundation のみに依存（プロバイダ/プラットフォーム非依存）
+        // Pure domain layer: depends on Foundation only.
         .target(name: "LLMCore"),
-        // プロバイダ互換性判定: ドメイン型に内向き依存
+        // Provider compatibility checks. Depends inward, on the domain types only.
         .target(name: "LLMProviderCompat", dependencies: ["LLMCore"]),
-        // プラットフォーム I/O（UIImage/AVFoundation 変換等）の葉ターゲット
+        // Leaf target for platform I/O such as UIImage and AVFoundation conversions.
         .target(name: "LLMMediaKit", dependencies: ["LLMCore"]),
         .target(name: "LLMClient", dependencies: [
             "LLMMacros",
@@ -52,7 +53,7 @@ let package = Package(
         .target(name: "LLMAgentStep", dependencies: ["LLMClient", "LLMTool"]),
         .target(name: "LLMChat", dependencies: ["LLMClient"]),
         .target(name: "LLMDynamicStructured", dependencies: ["LLMClient"]),
-        // コンテキスト内訳: TokenCounting port(LLMTool) のみに依存。cloud 非依存の純ロジック。
+        // Context breakdown. Depends only on the TokenCounting port in LLMTool; no network.
         .target(name: "LLMContext", dependencies: ["LLMTool", "LLMClient"]),
         // Tests
         .testTarget(name: "LLMClientTests", dependencies: ["LLMClient"]),

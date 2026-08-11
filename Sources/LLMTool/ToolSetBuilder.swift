@@ -2,12 +2,12 @@ import Foundation
 
 // MARK: - ToolSetBuilder
 
-/// ツールセット構築用の Result Builder
+/// The result builder behind the tool set DSL.
 ///
-/// Swift の Result Builder 機能を使用して、
-/// SwiftUI のような宣言的な DSL でツールセットを構築できる。
+/// It supplies the methods the compiler calls for a tool set body, which is why `if`, `if-else`,
+/// `for-in` and availability checks all work inside one, the way they do in a SwiftUI view body.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let tools = ToolSet {
@@ -28,96 +28,77 @@ public struct ToolSetBuilder {
 
     // MARK: - Block Building
 
-    /// 複数のツール配列をブロックとして構築
+    /// Flattens the statements of a builder body into one list, keeping their order.
     ///
-    /// - Parameter tools: ツール配列の可変長引数
-    /// - Returns: フラット化されたツールの配列
+    /// - Parameter tools: The list contributed by each statement in the body.
     public static func buildBlock(_ tools: [any Tool]...) -> [any Tool] {
         tools.flatMap { $0 }
     }
 
     // MARK: - Expression Building
 
-    /// ツールインスタンスを配列として構築
+    /// Lifts a single tool written in the body into a list of one.
     ///
-    /// - Parameter tool: Tool に準拠したツールインスタンス
-    /// - Returns: ツールを含む配列
+    /// - Parameter tool: The tool named by the statement.
     public static func buildExpression(_ tool: some Tool) -> [any Tool] {
         [tool]
     }
 
-    /// ツール配列をそのまま返す
+    /// Splices an array of tools into the body without nesting it.
     ///
-    /// ネストされた配列を扱う際に使用する。
+    /// Use it when the tools are already in an array rather than written out one by one.
     ///
-    /// - Parameter tools: ツール配列
-    /// - Returns: そのままのツール配列
+    /// - Parameter tools: The tools to splice in.
     public static func buildExpression(_ tools: [any Tool]) -> [any Tool] {
         tools
     }
 
     // MARK: - Conditional Building
 
-    /// オプショナルなツールを構築
+    /// Contributes nothing when the condition of an `if` without an `else` is false.
     ///
-    /// `if` 文の条件が `false` の場合に使用する。
-    ///
-    /// - Parameter tools: オプショナルなツール配列
-    /// - Returns: ツール配列、または空配列
+    /// - Parameter tools: The tools from the branch, or `nil` when it was not taken.
     public static func buildOptional(_ tools: [any Tool]?) -> [any Tool] {
         tools ?? []
     }
 
-    /// 条件分岐の最初の分岐を構築
+    /// Takes the tools from the `if` branch of an `if-else`.
     ///
-    /// `if-else` 文の `if` 部分に使用する。
-    ///
-    /// - Parameter tools: ツール配列
-    /// - Returns: そのままのツール配列
+    /// - Parameter tools: The tools from that branch.
     public static func buildEither(first tools: [any Tool]) -> [any Tool] {
         tools
     }
 
-    /// 条件分岐の2番目の分岐を構築
+    /// Takes the tools from the `else` branch of an `if-else`.
     ///
-    /// `if-else` 文の `else` 部分に使用する。
-    ///
-    /// - Parameter tools: ツール配列
-    /// - Returns: そのままのツール配列
+    /// - Parameter tools: The tools from that branch.
     public static func buildEither(second tools: [any Tool]) -> [any Tool] {
         tools
     }
 
     // MARK: - Array Building
 
-    /// 配列をフラット化して構築
+    /// Flattens the per-iteration results of a `for-in` loop, keeping iteration order.
     ///
-    /// `for-in` ループで生成されたツールを結合する。
-    ///
-    /// - Parameter tools: ツール配列の配列
-    /// - Returns: フラット化されたツール配列
+    /// - Parameter tools: The list contributed by each pass through the loop.
     public static func buildArray(_ tools: [[any Tool]]) -> [any Tool] {
         tools.flatMap { $0 }
     }
 
     // MARK: - Final Result
 
-    /// 最終結果を構築
+    /// Hands the assembled list back as the value of the builder body.
     ///
-    /// - Parameter tools: 最終的なツール配列
-    /// - Returns: そのままのツール配列
+    /// - Parameter tools: The tools gathered from the whole body.
     public static func buildFinalResult(_ tools: [any Tool]) -> [any Tool] {
         tools
     }
 
     // MARK: - Availability
 
-    /// 制限付きの利用可能性を処理
+    /// Erases the availability of tools declared inside an availability check.
     ///
-    /// `#available` チェックで使用する。
-    ///
-    /// - Parameter tools: ツール配列
-    /// - Returns: そのままのツール配列
+    /// - Parameter tools: The tools from inside the `#available` block.
     public static func buildLimitedAvailability(_ tools: [any Tool]) -> [any Tool] {
         tools
     }

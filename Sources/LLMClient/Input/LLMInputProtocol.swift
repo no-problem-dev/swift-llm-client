@@ -7,84 +7,89 @@ import Foundation
 
 // MARK: - LLMInputProtocol
 
-/// LLMへの入力を表すプロトコル
+/// A prompt plus the images, audio, and video that accompany it.
 ///
-/// テキストプロンプトとマルチモーダルコンテンツ（画像、音声、動画）を
-/// 統一的に扱うためのプロトコル。
+/// Conform a custom type when a request should be assembled from a domain object rather than
+/// from `LLMInput`. Only `prompt` has to be supplied; the media requirements default to empty,
+/// so a text-only conformance is a single property.
 ///
-/// ## 概要
+/// The protocol carries no notion of which provider will serve the request, so conformances can
+/// hold media a given provider will refuse. `validate(for:)` is what turns that into an error
+/// before the request leaves the process.
 ///
-/// LLMに送信する入力を抽象化する。
-/// テキストのみの入力から、画像・音声・動画を含むマルチモーダル入力まで
-/// 一貫したインターフェースで扱える。
-///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
-/// // テキストのみ
-/// let input = LLMInput("こんにちは")
+/// // Text only
+/// let input = LLMInput("Hello")
 ///
-/// // マルチモーダル（画像付き）
+/// // Multimodal
 /// let input = LLMInput(
-///     "この画像を分析してください",
+///     "Analyze this image.",
 ///     images: [imageContent]
 /// )
 ///
-/// // SystemPrompt DSL を使用
+/// // Using the SystemPrompt DSL
 /// let input = LLMInput(
 ///     SystemPrompt {
-///         PromptComponent.role("データ分析の専門家")
-///         PromptComponent.objective("画像から情報を抽出")
+///         PromptComponent.role("Data analysis expert")
+///         PromptComponent.objective("Extract information from the image")
 ///     },
 ///     images: [imageContent]
 /// )
 /// ```
 public protocol LLMInputProtocol: Sendable {
-    /// テキストプロンプト
+    /// The prompt text.
     var prompt: SystemPrompt { get }
 
-    /// 画像コンテンツ
+    /// Images to send with the prompt.
     var images: [ImageContent] { get }
 
-    /// 音声コンテンツ
+    /// Audio to send with the prompt.
     var audios: [AudioContent] { get }
 
-    /// 動画コンテンツ
+    /// Video to send with the prompt.
     var videos: [VideoContent] { get }
 }
 
 // MARK: - Default Implementations
 
 extension LLMInputProtocol {
-    /// 画像コンテンツ（デフォルト: 空）
+    /// No images unless the conforming type provides some.
     public var images: [ImageContent] { [] }
 
-    /// 音声コンテンツ（デフォルト: 空）
+    /// No audio unless the conforming type provides some.
     public var audios: [AudioContent] { [] }
 
-    /// 動画コンテンツ（デフォルト: 空）
+    /// No video unless the conforming type provides some.
     public var videos: [VideoContent] { [] }
 
-    /// メディアコンテンツを含むかどうか
+    /// Whether anything other than text is attached.
+    ///
+    /// Use it to decide whether `validate(for:)` is worth calling, or to pick a model that can
+    /// accept media in the first place.
     public var hasMediaContent: Bool {
         !images.isEmpty || !audios.isEmpty || !videos.isEmpty
     }
 
-    /// LLMMessage に変換
+    /// Converts the input into a single user message ready to send.
     ///
-    /// プロトコルに準拠した入力を、LLM API に送信可能な
-    /// `LLMMessage` 形式に変換する。
+    /// Media blocks are emitted first and the rendered text last, which is the ordering providers
+    /// expect for a prompt that refers to an attachment.
     ///
-    /// - Returns: ユーザーロールの LLMMessage
+    /// The text block is omitted entirely when the rendered prompt is empty. An input with neither
+    /// text nor media therefore produces a message with no content at all, which providers reject.
+    ///
+    /// - Returns: A message in the user role holding the media followed by the text.
     public func toLLMMessage() -> LLMMessage {
         var contents: [LLMMessage.MessageContent] = []
 
-        // メディアを先に追加（LLM API の慣例に従う）
+        // Media first, matching the ordering providers expect.
         contents += images.map { .image($0) }
         contents += audios.map { .audio($0) }
         contents += videos.map { .video($0) }
 
-        // テキストを追加
+        // Then the text.
         let text = prompt.render()
         if !text.isEmpty {
             contents.append(.text(text))
@@ -93,13 +98,13 @@ extension LLMInputProtocol {
         return LLMMessage(role: .user, contents: contents)
     }
 
-    /// プロバイダー互換性をバリデーション
+    /// Checks every attachment against what the target provider accepts.
     ///
-    /// 入力に含まれるメディアコンテンツが、指定されたプロバイダーで
-    /// サポートされているかを検証する。
+    /// Turns a provider-side rejection into a local error before the request is sent. Only media
+    /// is checked — prompt length, token limits, and model-specific restrictions are not.
     ///
-    /// - Parameter provider: ターゲットプロバイダー
-    /// - Throws: `ProviderCompatibilityError` 互換性がない場合
+    /// - Parameter provider: The provider the input is bound for.
+    /// - Throws: `ProviderCompatibilityError` on the first attachment the provider cannot accept.
     public func validate(for provider: ProviderType) throws {
         for image in images {
             try MediaCompatibility.validate(image, for: provider)

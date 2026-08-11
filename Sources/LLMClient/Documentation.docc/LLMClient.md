@@ -1,112 +1,76 @@
 # ``LLMClient``
 
-Anthropic Claude・OpenAI GPT・Google Gemini などを統一 API で扱う、swift-llm-client パッケージのアンブレラモジュール。
+Talk to Claude, GPT, Gemini and the rest through one API, and get answers back as your own Swift types.
 
 ## Overview
 
-`swift-llm-client` は 9 つのモジュールで構成されるプロバイダー非依存 LLM クライアント。
-アプリ・エージェント・マルチモーダルワークフローを問わず、プロバイダーを切り替えても呼び出しコードは変わらない設計。
+`LLMClient` is the layer you write application code against. It takes a Swift type, derives a
+JSON Schema the target provider will actually accept, sends the request through whichever
+provider implementation you bound, and decodes the reply back into that type. Swapping provider
+changes the model argument and nothing else.
 
-**基盤プリミティブ** は `LLMCore` に集約される。メッセージ型 `LLMMessage`、
-マルチモーダルコンテンツ (`ImageContent`, `AudioContent`, `VideoContent`, `DocumentContent`)、
-モデルプロファイル `ModelProfile`、トークン使用量 `TokenUsage`、コスト計算 `CostCalculator` など
-すべてのモジュールが依存するプリミティブはここに定義される。
-`LLMClient`（このモジュール）は `LLMCore` の上位に位置し、構造化出力マクロ・プロンプト DSL・
-`StructuredLLMClient` プロトコルを提供する。
+The package is split into nine libraries so you only compile what you use; see
+<doc:ModuleLayout> for what each one holds and which to import. If you are starting from
+nothing, <doc:GettingStarted> walks the first request end to end.
 
-**ツール呼び出しとエージェント** は 2 層に分かれる。`LLMTool` が `@Tool` マクロと
-Result Builder 構文の `ToolSet`・`ToolCallableClient` でシングルショットの Function Calling を担い、
-`LLMAgentStep` がエージェントループプロトコル `AgentCapableClient` と
-ストリーミングイベント `StreamingAgentEvent` で自動ループを担う。
+Three things live in this module specifically.
 
-**マルチターン会話** は `LLMChat` が提供する。`ChatCapableClient` の `chat(messages:model:)` は
-構造化出力に加えて履歴継続用の `assistantMessage` を `ChatResponse` にまとめて返す。
-状態管理には Actor ベースの `ConversationHistory` を使う。
-
-**メディアとプロバイダー互換性** は `LLMMediaKit` と `LLMProviderCompat` が担う。
-`LLMMediaKit` は AI 生成メディア (`GeneratedImage`, `GeneratedAudio`) をプラットフォームネイティブ型
-(`UIImage`, `NSImage`, `AVAudioPlayer`) に変換する拡張を追加する。
-`LLMProviderCompat` は `MediaCompatibility` と `ProviderType` でプロバイダーごとのメディア対応状況を検査する。
-
-**コンテキスト監視** は `LLMContext` が担う。`AgentContextTracker` は host・サブエージェントごとの
-コンテキストウィンドウ占有をリアルタイムで集計し、`SegmentBreakdownEngine` で
-システムプロンプト・ツール定義・メッセージ履歴のカテゴリ別内訳をオンデマンドに取得できる。
-
-**後方互換** として `LLMDynamicStructured` が存在する。このモジュールは `LLMClient` を再エクスポートしており、
-以前の参照を壊さずに移行できる。
-
----
-
-このモジュール (`LLMClient`) が直接提供する主な機能は次の 3 つ。
-
-**構造化出力**: `@Structured` マクロを型に付与するだけで、JSON Schema の推論・プロンプト注入・
-レスポンスのパースを自動的に処理する。
+**Structured output.** Annotating a type with `@Structured` synthesises its JSON Schema at
+compile time, injects it into the request, and decodes the response. The field descriptions you
+write are what the model sees, so they are prompt engineering, not comments.
 
 ```swift
-@Structured("タスク情報")
+@Structured("A task extracted from free text")
 struct TaskInfo {
-    @StructuredField("タイトル")
+    @StructuredField("Short imperative title")
     var title: String
 
-    @StructuredField("優先度", .enum(["low", "medium", "high"]))
+    @StructuredField("Priority", .enum(["low", "medium", "high"]))
     var priority: String
 
-    @StructuredField("期日（ISO 8601）", .format(.date))
+    @StructuredField("Due date, ISO 8601", .format(.date))
     var dueDate: String?
 }
-
-// プロバイダー実装を介して呼び出す
-let task: TaskInfo = try await client.generate(
-    input: "明日の朝9時までに議事録を書く（優先度: 高）",
-    model: .claude(.sonnet)
-)
 ```
 
-**プロンプト DSL**: `SystemPrompt` と `PromptComponent` を使い、役割・目的・制約・例示を
-構造的に組み立てられる。
+Providers disagree about which schema keywords they accept. ``ProviderSchemaAdapter`` strips the
+ones a given provider rejects and reports them in ``SchemaAdaptationResult``, so a constraint
+that cannot be enforced by the schema can be restated in the prompt instead of being silently
+lost.
 
-```swift
-let prompt = SystemPrompt {
-    PromptComponent.role("データ分析の専門家")
-    PromptComponent.objective("テキストから構造化情報を抽出する")
-    PromptComponent.constraint("明示されていない情報は推測しない")
-    PromptComponent.example(
-        input: "田中さん（42）は大阪に在住",
-        output: #"{"name":"田中","age":42,"city":"大阪"}"#
-    )
-}
-```
+**The prompt DSL.** ``SystemPrompt`` composes ``PromptComponent`` values into XML-tagged text.
+The tag names and the emitted order are part of the contract — reordering components changes
+what the model sees.
 
-**プロバイダー拡張**: `LLMProvider` プロトコルを実装することで、任意のプロバイダーをプラグインとして
-組み込める。上位レイヤーは `StructuredLLMClient` / `ToolCallableClient` を使い、
-プロバイダーを切り替えても呼び出しコードは変わらない。
+**The provider seam.** ``LLMProvider`` and ``StructuredLLMClient`` are the protocols a provider
+package conforms to. This module ships no networking and holds no credentials.
+
+Token accounting is a choice you make at the call site: `generate` returns only the decoded
+value, while `generateWithUsage` also hands back the `TokenUsage` for the call. Reach for the
+second one whenever you need to bill, cap or display cost — the numbers cannot be recovered
+afterwards.
 
 ## Topics
 
-### 基本
+### Essentials
 
 - <doc:GettingStarted>
+- <doc:ModuleLayout>
 
-### クライアントプロトコル
+### Clients and providers
 
 - ``StructuredLLMClient``
 - ``LLMProvider``
 - ``LLMRequest``
 - ``GenerationResult``
+- ``LLMModel``
 
-### メッセージ
+### Input
 
-- ``LLMMessage``
 - ``LLMInput``
 - ``LLMInputProtocol``
 
-### レスポンス
-
-- ``LLMResponse``
-- ``LLMModel``
-- ``LLMError``
-
-### 構造化出力
+### Structured output
 
 - ``StructuredProtocol``
 - ``JSONSchema``
@@ -115,7 +79,7 @@ let prompt = SystemPrompt {
 - ``NamedSchema``
 - ``FieldConstraint``
 
-### スキーマアダプター
+### Provider schema adaptation
 
 - ``ProviderSchemaAdapter``
 - ``SchemaAdaptationResult``
@@ -123,27 +87,27 @@ let prompt = SystemPrompt {
 - ``ConstraintType``
 - ``ConstraintValue``
 
-### プロンプト DSL
+### Prompt DSL
 
 - ``SystemPrompt``
 - ``PromptComponent``
 - ``SystemPromptMetadata``
 - ``SystemPromptBuilder``
 
-### ストリーミング
+### Streaming and caching
 
 - ``StreamDelta``
 - ``ThinkingMode``
 - ``ReasoningEffort``
 - ``PromptCachePolicy``
 
-### マクロ
+### Macros
 
 - ``Structured(_:)``
 - ``StructuredField(_:_:)``
 - ``StructuredEnum(_:)``
 - ``StructuredCase(_:)``
 
-### ユーティリティ
+### Utilities
 
 - ``Box``

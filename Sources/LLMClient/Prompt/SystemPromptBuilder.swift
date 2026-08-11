@@ -2,17 +2,18 @@ import Foundation
 
 // MARK: - SystemPromptBuilder
 
-/// システムプロンプト構築用の Result Builder
+/// The result builder behind the system prompt DSL.
 ///
-/// Swift の Result Builder 機能を使用して、
-/// 宣言的な DSL でシステムプロンプトを構築できる。
+/// Lets a prompt be written declaratively, with `if` and `for` in the middle of it. Every method
+/// here concatenates in source order and none of them reorder or dedupe, so what is written is what
+/// the model reads — which matters, because component order is part of the prompt's behavior.
 ///
-/// ## 使用例
+/// ## Example
 ///
 /// ```swift
 /// let prompt = SystemPrompt {
-///     PromptComponent.role("データアナリスト")
-///     PromptComponent.objective("情報抽出")
+///     PromptComponent.role("Data analyst")
+///     PromptComponent.objective("Extract information")
 ///
 ///     if needsExamples {
 ///         PromptComponent.example(input: "...", output: "...")
@@ -26,86 +27,70 @@ import Foundation
 @resultBuilder
 public struct SystemPromptBuilder {
 
-    /// 複数のコンポーネント配列をブロックとして構築
+    /// Flattens the statements of a block into one list, in source order.
     ///
-    /// - Parameter components: プロンプトコンポーネント配列の可変長引数
-    /// - Returns: フラット化されたコンポーネントの配列
+    /// - Parameter components: One list per statement in the block.
     public static func buildBlock(_ components: [PromptComponent]...) -> [PromptComponent] {
         components.flatMap { $0 }
     }
 
-    /// オプショナルなコンポーネントを構築
+    /// Supplies the components of an if statement that has no else branch.
     ///
-    /// `if` 文の条件が `false` の場合に使用する。
+    /// Swift passes nil when the branch does not run, and the prompt simply omits those components.
     ///
-    /// - Parameter component: オプショナルなコンポーネント配列
-    /// - Returns: コンポーネント配列、または空配列
+    /// - Parameter component: The branch's components, or nil when it was skipped.
     public static func buildOptional(_ component: [PromptComponent]?) -> [PromptComponent] {
         component ?? []
     }
 
-    /// 条件分岐の最初の分岐を構築
+    /// Supplies the components of the first branch of an if-else statement.
     ///
-    /// `if-else` 文の `if` 部分に使用する。
-    ///
-    /// - Parameter component: コンポーネント配列
-    /// - Returns: そのままのコンポーネント配列
+    /// - Parameter component: The branch's components.
     public static func buildEither(first component: [PromptComponent]) -> [PromptComponent] {
         component
     }
 
-    /// 条件分岐の2番目の分岐を構築
+    /// Supplies the components of the second branch of an if-else statement.
     ///
-    /// `if-else` 文の `else` 部分に使用する。
-    ///
-    /// - Parameter component: コンポーネント配列
-    /// - Returns: そのままのコンポーネント配列
+    /// - Parameter component: The branch's components.
     public static func buildEither(second component: [PromptComponent]) -> [PromptComponent] {
         component
     }
 
-    /// 配列をフラット化して構築
+    /// Flattens the per-iteration results of a for-in loop, keeping iteration order.
     ///
-    /// `for-in` ループで生成されたコンポーネントを結合する。
-    ///
-    /// - Parameter components: コンポーネント配列の配列
-    /// - Returns: フラット化されたコンポーネント配列
+    /// - Parameter components: One list per iteration.
     public static func buildArray(_ components: [[PromptComponent]]) -> [PromptComponent] {
         components.flatMap { $0 }
     }
 
-    /// 単一のコンポーネントを配列として構築
+    /// Lifts a single component into the list form the builder works in.
     ///
-    /// - Parameter expression: 単一のプロンプトコンポーネント
-    /// - Returns: コンポーネントを含む配列
+    /// - Parameter expression: A component written on its own line in the block.
     public static func buildExpression(_ expression: PromptComponent) -> [PromptComponent] {
         [expression]
     }
 
-    /// コンポーネント配列をそのまま返す
+    /// Accepts a ready-made array as one statement of the block.
     ///
-    /// ネストされた配列を扱う際に使用する。
+    /// This is what lets a computed list — the constraints a schema adapter dropped, say — be
+    /// dropped into the DSL without spelling out a loop.
     ///
-    /// - Parameter expression: コンポーネント配列
-    /// - Returns: そのままのコンポーネント配列
+    /// - Parameter expression: Components produced elsewhere.
     public static func buildExpression(_ expression: [PromptComponent]) -> [PromptComponent] {
         expression
     }
 
-    /// 最終結果を構築
+    /// Hands the assembled components back to the caller of the block.
     ///
-    /// - Parameter component: 最終的なコンポーネント配列
-    /// - Returns: そのままのコンポーネント配列
+    /// - Parameter component: The finished list.
     public static func buildFinalResult(_ component: [PromptComponent]) -> [PromptComponent] {
         component
     }
 
-    /// 制限付きの利用可能性を処理
+    /// Supplies the components guarded by an availability check.
     ///
-    /// `#available` チェックで使用する。
-    ///
-    /// - Parameter component: コンポーネント配列
-    /// - Returns: そのままのコンポーネント配列
+    /// - Parameter component: The components inside the availability block.
     public static func buildLimitedAvailability(_ component: [PromptComponent]) -> [PromptComponent] {
         component
     }

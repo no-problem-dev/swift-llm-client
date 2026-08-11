@@ -1,17 +1,17 @@
 import Foundation
 
-/// 年月を表現する値型
+/// A calendar month, with no day or time.
 ///
-/// "YYYY-MM" 形式でコーディング/デコードされる。
+/// Encodes and decodes as a "YYYY-MM" string.
 public struct YearMonth: Sendable, Equatable, Hashable, Comparable, Codable, ExpressibleByStringLiteral {
     public let year: Int
     public let month: Int
 
-    /// YearMonth を初期化
+    /// Creates a month, clamping the month number into range instead of rejecting it.
     ///
     /// - Parameters:
-    ///   - year: 年（4桁）
-    ///   - month: 月（1-12）
+    ///   - year: Four-digit year.
+    ///   - month: Month number; anything outside 1 through 12 is clamped to the nearest end.
     public init(year: Int, month: Int) {
         self.year = year
         self.month = max(1, min(12, month))
@@ -19,7 +19,10 @@ public struct YearMonth: Sendable, Equatable, Hashable, Comparable, Codable, Exp
 
     // MARK: - ExpressibleByStringLiteral
 
-    /// "YYYY-MM" 形式の文字列リテラルから初期化
+    /// Creates a month from a "YYYY-MM" string literal.
+    ///
+    /// A literal that does not parse silently becomes 2000-01, since a literal initializer cannot
+    /// fail. Decoding the same text throws instead.
     public init(stringLiteral value: String) {
         let components = value.split(separator: "-").map(String.init)
         if components.count == 2,
@@ -74,7 +77,7 @@ public struct YearMonth: Sendable, Equatable, Hashable, Comparable, Codable, Exp
 
     // MARK: - Convenience
 
-    /// ISO 8601 形式の文字列を返す
+    /// The month as a zero-padded ISO 8601 year-month string, such as "2026-08".
     public var formatted: String {
         String(format: "%04d-%02d", year, month)
     }

@@ -1,46 +1,54 @@
 // GeneratedImage.swift
 // swift-llm-client
 //
-// 生成された画像コンテンツの定義
+// Image content produced by a model.
 
 import Foundation
 
 // MARK: - GeneratedMediaProtocol
 
-/// 生成メディアコンテンツ共通プロトコル
+/// Media a model produced, carried as bytes the caller already owns.
 ///
-/// LLM が生成したメディア（画像・音声など）が準拠するプロトコル。
-/// 入力側の `MediaContentProtocol` に対応する出力側のプロトコル。
+/// The output-side counterpart of `MediaContentProtocol`, which describes media sent *to* a model.
+/// Conforming values hold their bytes in memory, so saving or re-encoding them costs no further
+/// network round trip and nothing about them expires.
 ///
-/// ## 準拠する型
-/// - `GeneratedImage` - 生成された画像
-/// - `GeneratedAudio` - 生成された音声
+/// ## Conforming Types
+/// - `GeneratedImage`
+/// - `GeneratedAudio`
+/// - `GeneratedVideo` — the exception: it may hold no bytes at all and only a provider-hosted URL.
 public protocol GeneratedMediaProtocol: Sendable, Codable, Equatable {
-    /// 生成されたデータ
+    /// The decoded payload.
+    ///
+    /// Providers deliver most media as Base64; conforming types decode it once at construction, so
+    /// this is always raw bytes rather than a Base64 string.
     var data: Data { get }
 
-    /// MIME タイプ文字列
+    /// The MIME type describing the bytes, such as `image/png`.
     var mimeType: String { get }
 
-    /// ファイル保存用の拡張子
+    /// The file extension for the bytes, with no leading dot.
     var fileExtension: String { get }
 }
 
 // MARK: - GeneratedMediaProtocol Default Implementation
 
 extension GeneratedMediaProtocol {
-    /// ファイルに保存
+    /// Writes the bytes to a file.
     ///
-    /// - Parameter url: 保存先のファイルURL
-    /// - Throws: ファイル書き込みエラー
+    /// The URL is used exactly as given; no extension is appended or checked. A video that holds
+    /// only a remote URL has no bytes yet, so saving it writes a zero-length file — download the
+    /// data first.
+    ///
+    /// - Parameter url: Destination file URL.
+    /// - Throws: An error if the bytes cannot be written to that location.
     public func save(to url: URL) throws {
         try data.write(to: url)
     }
 
-    /// 推奨されるファイル名を生成
+    /// Joins a base name to the media's own extension.
     ///
-    /// - Parameter baseName: ベース名（拡張子なし）
-    /// - Returns: 拡張子付きのファイル名
+    /// - Parameter baseName: Name without an extension.
     public func suggestedFileName(baseName: String = "generated") -> String {
         "\(baseName).\(fileExtension)"
     }
@@ -48,27 +56,26 @@ extension GeneratedMediaProtocol {
 
 // MARK: - GeneratedImage
 
-/// 生成された画像
+/// An image a model produced, held whole in memory.
 ///
-/// LLM が生成した画像データを保持する。
-/// OpenAI DALL-E/GPT-Image や Gemini による画像生成の結果として返される。
+/// Returned by OpenAI DALL·E and GPT-Image and by Gemini image generation. The bytes travel with
+/// the value, so nothing here refers to a hosted asset and nothing expires.
 ///
-/// ## プロバイダー別の特性
-/// - **OpenAI**: `revisedPrompt` が含まれる場合がある（プロンプトの自動修正）
-/// - **Gemini**: テキストと画像が混在したレスポンスの一部として返される
+/// ## Provider Differences
+/// - **OpenAI**: may fill in the revised prompt, because the endpoint rewrites prompts before
+///   rendering. Returns PNG, JPEG, or WebP.
+/// - **Gemini**: arrives interleaved with text inside one response, and only ever as PNG.
 ///
-/// ## 使用例
+/// ## Example
 /// ```swift
-/// // 画像を生成
 /// let image = try await client.generateImage(
-///     prompt: "A cat sitting on a window sill",
+///     input: "A cat sitting on a window sill",
 ///     model: .gptImage
 /// )
 ///
-/// // ファイルに保存
 /// try image.save(to: URL(fileURLWithPath: "cat.png"))
 ///
-/// // UIImage に変換（iOS）
+/// // On UIKit platforms only.
 /// if let uiImage = image.uiImage {
 ///     imageView.image = uiImage
 /// }
@@ -76,34 +83,35 @@ extension GeneratedMediaProtocol {
 public struct GeneratedImage: GeneratedMediaProtocol {
     // MARK: - Properties
 
-    /// 生成された画像データ（Base64デコード済み）
+    /// The image bytes, already Base64-decoded.
     public let data: Data
 
-    /// 画像フォーマット
+    /// The encoding of the bytes, which fixes both the MIME type and the file extension.
     public let format: ImageOutputFormat
 
-    /// 修正されたプロンプト（OpenAI DALL-E/GPT-Image）
+    /// The prompt the provider actually rendered, when it rewrote the one that was sent.
     ///
-    /// OpenAI の画像生成 API は安全性やクオリティのためにプロンプトを
-    /// 自動的に修正することがある。その場合、修正後のプロンプトがここに格納される。
+    /// OpenAI's image endpoints revise prompts for safety and quality and report the revision here.
+    /// Gemini never sets it. When a result does not match the request, this is usually the
+    /// explanation.
     public let revisedPrompt: String?
 
     // MARK: - GeneratedMediaProtocol
 
-    /// MIME タイプ文字列
+    /// The MIME type of the bytes, taken from the format.
     public var mimeType: String { format.mimeType }
 
-    /// ファイル拡張子
+    /// The file extension for the bytes, taken from the format.
     public var fileExtension: String { format.fileExtension }
 
     // MARK: - Initializers
 
-    /// 初期化
+    /// Creates an image from decoded bytes.
     ///
     /// - Parameters:
-    ///   - data: 画像データ
-    ///   - format: 画像フォーマット
-    ///   - revisedPrompt: 修正されたプロンプト（オプション）
+    ///   - data: Raw image bytes, not Base64.
+    ///   - format: Encoding of the bytes. It is taken on trust and never verified against them.
+    ///   - revisedPrompt: The prompt the provider rendered, if it revised the one that was sent.
     public init(
         data: Data,
         format: ImageOutputFormat,
@@ -114,13 +122,13 @@ public struct GeneratedImage: GeneratedMediaProtocol {
         self.revisedPrompt = revisedPrompt
     }
 
-    /// Base64 文字列から初期化
+    /// Creates an image by decoding the Base64 payload a provider returned.
     ///
     /// - Parameters:
-    ///   - base64String: Base64 エンコードされた画像データ
-    ///   - format: 画像フォーマット
-    ///   - revisedPrompt: 修正されたプロンプト（オプション）
-    /// - Throws: Base64 デコードに失敗した場合
+    ///   - base64String: Base64-encoded image data, exactly as the API delivered it.
+    ///   - format: Encoding of the decoded bytes.
+    ///   - revisedPrompt: The prompt the provider rendered, if it revised the one that was sent.
+    /// - Throws: `GeneratedMediaError.invalidBase64Data` if the string is not valid Base64.
     public init(
         base64String: String,
         format: ImageOutputFormat,
@@ -136,20 +144,23 @@ public struct GeneratedImage: GeneratedMediaProtocol {
 
     // MARK: - Metadata
 
-    /// データサイズ（バイト）
+    /// Size of the image in bytes.
     public var dataSize: Int {
         data.count
     }
 
-    /// Base64 エンコードされた文字列
+    /// The bytes re-encoded as Base64.
+    ///
+    /// Encoding runs on every access and allocates a string roughly a third larger than the image.
+    /// Store the result if you need it more than once.
     public var base64String: String {
         data.base64EncodedString()
     }
 
-    /// Data URL 形式の文字列
+    /// The image as a data URL, ready to drop into HTML or CSS.
     ///
-    /// HTML や CSS で使用可能な形式。
-    /// 例: `data:image/png;base64,iVBORw0KGgo...`
+    /// For example, `data:image/png;base64,iVBORw0KGgo...`. It embeds the whole Base64 payload, so
+    /// it is roughly a third larger than the image itself and is rebuilt on every access.
     public var dataURL: String {
         "data:\(mimeType);base64,\(base64String)"
     }
@@ -157,18 +168,25 @@ public struct GeneratedImage: GeneratedMediaProtocol {
 
 // MARK: - GeneratedMediaError
 
-/// 生成メディア関連エラー
+/// Failures raised while decoding, storing, or fetching generated media.
 public enum GeneratedMediaError: Error, Sendable, LocalizedError {
-    /// 無効な Base64 データ
+    /// The string handed to a Base64 initializer could not be decoded.
     case invalidBase64Data
 
-    /// 無効な画像データ
+    /// Bytes that could not be read as an image.
+    ///
+    /// Nothing in this package raises it: the initializers trust the format they are given and
+    /// never decode the pixels. It is here for callers that do decode and want a matching error.
     case invalidImageData
 
-    /// ファイル保存エラー
+    /// Writing the media to disk failed, wrapping the underlying file-system error.
+    ///
+    /// Nothing in this package raises it; saving propagates the write error unwrapped.
     case saveError(Error)
 
-    /// ダウンロードエラー
+    /// Fetching a provider-hosted asset failed, wrapping the underlying transport error.
+    ///
+    /// Raised when downloading a video whose bytes live behind a remote URL.
     case downloadError(Error)
 
     public var errorDescription: String? {

@@ -2,13 +2,13 @@ import Foundation
 
 // MARK: - GPT Models
 
-/// OpenAI GPT モデル
+/// The OpenAI GPT models.
 ///
-/// ここは**アドレス**（どのモデルを指すか）の型。提供が終わった case も残す —
-/// 保存済みの ID を読み戻せる必要があるため。
-/// **利用者に選ばせる一覧は `Preset`**（提供中のものだけ）。
+/// This type is an **address**: it says which model is meant and nothing else. Cases for models
+/// OpenAI has withdrawn stay here, because a stored identifier still has to read back.
+/// **The list to put in front of a user is `Preset`**, which holds only what is still served.
 public enum GPTModel: Sendable, Equatable {
-    // MARK: - Aliases (推奨)
+    // MARK: - Aliases (recommended)
 
     case gpt5_6Sol
     case gpt5_6Terra
@@ -67,9 +67,11 @@ public enum GPTModel: Sendable, Equatable {
 
     case custom(String)
 
-    /// `reasoning_effort` パラメータを受け付けるか。
-    /// 受け付けないモデルにこのパラメータを送るとリクエストが弾かれる。
-    /// 対象: o-series (o1, o3, o3-pro, o3-mini, o4-mini) と GPT-5 系全部。
+    /// Whether the model accepts a reasoning effort parameter.
+    ///
+    /// Sending `reasoning_effort` to a model that does not take it gets the whole request rejected.
+    /// The o-series and every GPT-5 model accept it; the GPT-4 models do not, and a custom
+    /// identifier is assumed not to.
     public var supportsReasoningEffort: Bool {
         switch self {
         case .o1, .o1Pro, .o3, .o3Pro, .o3Mini, .o4Mini,
@@ -92,25 +94,26 @@ public enum GPTModel: Sendable, Equatable {
         }
     }
 
-    /// `reasoning_effort` で `.minimal` を許容するか。
+    /// Whether the model accepts minimal reasoning effort.
     ///
-    /// - Warning: 名前のとおり minimal だけを見るもの。**新しく書くコードは
-    ///   `supports(_:)` を使う** — minimal 以外にもモデルごとの差がある。
+    /// - Warning: This answers for one rung only. **New code should call `supports(_:)`**, because
+    ///   models differ on more than minimal.
     @available(*, deprecated, message: "supports(_:) を使う")
     public var supportsMinimalReasoningEffort: Bool { supports(.minimal) }
 
-    /// このモデルが受け付ける最も近い effort に丸める。
+    /// Moves an effort to the nearest rung this model accepts.
     ///
-    /// 非対応の値を送るとリクエストごと弾かれるので、**落とすのではなく寄せる**。
-    /// `reasoning_effort` 自体に非対応なら nil。
+    /// An unsupported value gets the whole request rejected, so the effort is **nudged rather than
+    /// dropped**. Ties at equal distance go to the weaker rung, and the result is nil when the model
+    /// takes no reasoning effort at all.
     ///
-    /// - `max` → `xhigh` → `high`（上から順に下げる）
-    /// - `none` → `minimal` → `low`（下から順に上げる）
+    /// - `max` → `xhigh` → `high`, stepping down.
+    /// - `none` → `minimal` → `low`, stepping up.
     public func clamped(_ effort: ReasoningEffort) -> ReasoningEffort? {
         guard supportsReasoningEffort else {
             return nil
         }
-        // 弱い順。指定値から「近い方へ」順に探す
+        // Weakest first; the search walks outward from the requested rung.
         let ladder: [ReasoningEffort] = [.none, .minimal, .low, .medium, .high, .xhigh, .max]
         guard let index = ladder.firstIndex(of: effort) else {
             return nil
@@ -118,7 +121,8 @@ public enum GPTModel: Sendable, Equatable {
         if supports(effort) {
             return effort
         }
-        // 指定より強い側と弱い側を交互に見て、最初に対応しているものへ寄せる
+        // Take the weaker neighbour then the stronger one at each distance, and stop at the first
+        // rung the model accepts.
         for distance in 1 ..< ladder.count {
             for candidate in [index - distance, index + distance] where ladder.indices.contains(candidate) {
                 if supports(ladder[candidate]) {
@@ -129,20 +133,20 @@ public enum GPTModel: Sendable, Equatable {
         return nil
     }
 
-    /// この effort を受け付けるか。
+    /// Whether the model accepts this reasoning effort.
     ///
-    /// 受け付けない値を送るとリクエストが弾かれる（`invalid_request_error`）。
-    /// 世代で使える段が違う:
+    /// Sending a rung the model does not take gets the request rejected with an
+    /// `invalid_request_error`. Which rungs exist depends on the generation:
     ///
-    /// | 世代 | 使える effort |
+    /// | Generation | Accepted effort |
     /// |---|---|
-    /// | GPT-5.6 系 | none / low / medium / high / xhigh / **max** |
-    /// | GPT-5.2〜5.5 | none / low / medium / high / xhigh |
+    /// | GPT-5.6 family | none / low / medium / high / xhigh / **max** |
+    /// | GPT-5.2 through 5.5 | none / low / medium / high / xhigh |
     /// | GPT-5.1 | none / low / medium / high |
-    /// | GPT-5 / 5.0 系 | **minimal** / low / medium / high |
+    /// | GPT-5.0 family | **minimal** / low / medium / high |
     /// | o-series | low / medium / high |
     ///
-    /// `minimal` は GPT-5.1 以降で `none` に置き換わった。
+    /// `minimal` gave way to `none` from GPT-5.1 onward.
     public func supports(_ effort: ReasoningEffort) -> Bool {
         guard supportsReasoningEffort else {
             return false
@@ -151,7 +155,7 @@ public enum GPTModel: Sendable, Equatable {
         case .low, .medium, .high:
             return true
         case .minimal:
-            // GPT-5.0 系のみ。o-series と 5.1 以降は none に置き換わった
+            // GPT-5.0 family only; the o-series and 5.1 onward took none instead.
             switch self {
             case .gpt5, .gpt5Mini, .gpt5Nano,
                  .gpt5_version, .gpt5Mini_version, .gpt5Nano_version:
@@ -160,7 +164,7 @@ public enum GPTModel: Sendable, Equatable {
                 return false
             }
         case .none:
-            // GPT-5.1 以降。o-series と GPT-5.0 系は非対応
+            // GPT-5.1 onward; the o-series and the GPT-5.0 family reject it.
             switch self {
             case .o1, .o1Pro, .o3, .o3Pro, .o3Mini, .o4Mini,
                  .o1_version, .o3_version, .o3Mini_version, .o4Mini_version,
@@ -171,7 +175,7 @@ public enum GPTModel: Sendable, Equatable {
                 return true
             }
         case .xhigh:
-            // GPT-5.2 以降
+            // GPT-5.2 onward.
             switch self {
             case .gpt5_6Sol, .gpt5_6Terra, .gpt5_6Luna,
                  .gpt5_5, .gpt5_5Pro, .gpt5_4, .gpt5_4Mini, .gpt5_4Nano, .gpt5_4Pro,
@@ -184,7 +188,7 @@ public enum GPTModel: Sendable, Equatable {
                 return false
             }
         case .max:
-            // GPT-5.6 系のみ
+            // GPT-5.6 family only.
             switch self {
             case .gpt5_6Sol, .gpt5_6Terra, .gpt5_6Luna,
                  .gpt5_6Sol_version, .gpt5_6Terra_version, .gpt5_6Luna_version:
@@ -195,6 +199,7 @@ public enum GPTModel: Sendable, Equatable {
         }
     }
 
+    /// The identifier sent to the API.
     public var id: String {
         switch self {
         case .gpt5_6Sol: return "gpt-5.6-sol"
@@ -253,11 +258,11 @@ public enum GPTModel: Sendable, Equatable {
 
 // MARK: - Preset
 
-/// 利用者に選ばせるモデルの一覧。
+/// The models to put in front of a user.
 ///
-/// **提供中のものだけを載せる。** 提供が終わったモデルはここから外す
-/// （`GPTModel` 側の case は ID の読み戻しのために残す）。
-/// 一覧に残すと選べてしまい、呼んだときに 404 になる。
+/// **Only what is still served belongs here.** A withdrawn model comes out of this list while its
+/// `GPTModel` case stays behind, so stored identifiers keep reading back. Leaving one here means a
+/// user can pick it and the call comes back 404.
 extension GPTModel {
     public enum Preset: String, CaseIterable, Identifiable, Codable, Sendable {
         case gpt5_6Sol = "gpt5_6Sol"
