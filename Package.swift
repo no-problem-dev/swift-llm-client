@@ -24,7 +24,7 @@ let package = Package(
         // which requires swift-syntax 600..<601.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", "600.0.0"..<"604.0.0"),
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.0"),
-        .package(url: "https://github.com/no-problem-dev/swift-structured-data.git", "1.3.0" ..< "3.0.0"),
+        .package(url: "https://github.com/no-problem-dev/swift-structured-data.git", from: "3.0.0"),
     ],
     targets: [
         .macro(name: "LLMMacros", dependencies: [

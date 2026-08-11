@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Raised the swift-structured-data pin to 3.0.0. That release makes the YAML parser reject
+  constructs it does not model instead of silently dropping them; nothing in this package's own
+  API changes.
+
+
 Nothing.
 
 ## [3.13.0] - 2026-08-06
