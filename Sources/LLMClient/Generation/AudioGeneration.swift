@@ -37,26 +37,47 @@ public protocol SpeechGenerationCapable<SpeechModel>: Sendable {
     ///   - input: The text to speak.
     ///   - model: The speech model to call.
     ///   - voice: The voice to speak in.
-    ///   - speed: Playback rate, from 0.25 to 4.0. Anything outside that range is rejected.
-    ///   - format: Encoding of the returned bytes. Nil leaves the choice to the provider.
+    ///   - options: Playback rate and the encoding of the returned bytes.
     /// - Returns: The generated audio.
     /// - Throws: `LLMError` or `SpeechGenerationError`.
     func generateSpeech(
         input: LLMInput,
         model: SpeechModel,
         voice: Voice,
-        speed: Double?,
-        format: AudioOutputFormat?
+        options: SpeechGenerationOptions
     ) async throws -> GeneratedAudio
+}
+
+// MARK: - SpeechGenerationOptions
+
+/// The optional settings of one speech-synthesis request.
+///
+/// A protocol requirement cannot declare default arguments, so the requirement takes this value and
+/// the ergonomic overload that does have defaults builds one. Keeping the two signatures distinct
+/// is what makes a conformance that forgets the requirement fail to compile rather than call the
+/// convenience back into itself forever.
+public struct SpeechGenerationOptions: Sendable, Equatable {
+    /// Playback rate, from 0.25 to 4.0. Anything outside that range is rejected.
+    public var speed: Double?
+
+    /// Encoding of the returned bytes. Nil leaves the choice to the provider.
+    public var format: AudioOutputFormat?
+
+    /// Creates a set of options, leaving anything unspecified to the provider's default.
+    ///
+    /// - Parameters:
+    ///   - speed: Playback rate, from 0.25 to 4.0.
+    ///   - format: Encoding of the returned bytes.
+    public init(speed: Double? = nil, format: AudioOutputFormat? = nil) {
+        self.speed = speed
+        self.format = format
+    }
 }
 
 // MARK: - Default Implementations
 
 extension SpeechGenerationCapable {
     /// Synthesizes speech, filling in defaults for the playback rate and the output encoding.
-    ///
-    /// It exists only to supply those defaults and forwards to the conforming type's own
-    /// implementation.
     public func generateSpeech(
         input: LLMInput,
         model: SpeechModel,
@@ -68,8 +89,7 @@ extension SpeechGenerationCapable {
             input: input,
             model: model,
             voice: voice,
-            speed: speed,
-            format: format
+            options: SpeechGenerationOptions(speed: speed, format: format)
         )
     }
 }

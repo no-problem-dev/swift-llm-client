@@ -45,20 +45,19 @@ public actor BreakdownCache {
     /// adding the cached marginals to the freshly measured baseline rather than measured outright.
     ///
     /// - Parameters:
-    ///   - modelID: The model whose tokenizer applies. Not part of the cache signature, so
-    ///     switching models between calls reuses figures measured under the previous tokenizer;
-    ///     invalidate first when the model changes.
+    ///   - modelID: The model whose tokenizer applies. Part of the cache signature, so switching
+    ///     models re-measures rather than reusing figures taken under the previous tokenizer.
     ///   - systemPrompt: The system prompt. A change invalidates every cached segment.
     ///   - messages: The conversation, always re-measured.
     ///   - toolGroups: Tool sets paired with the segment each is charged to. A change to any
-    ///     tool's name or description invalidates every cached segment.
+    ///     tool's name, description, or argument schema invalidates every cached segment.
     public func breakdown(
         modelID: String,
         systemPrompt: String?,
         messages: [LLMMessage],
         toolGroups: [ToolGroup] = []
     ) async throws -> SegmentBreakdown {
-        let sig = Self.signature(systemPrompt: systemPrompt, toolGroups: toolGroups)
+        let sig = Self.signature(modelID: modelID, systemPrompt: systemPrompt, toolGroups: toolGroups)
 
         if signature == sig {
             // Only the messages moved: re-measure the baseline and reuse the marginals.
@@ -84,8 +83,9 @@ public actor BreakdownCache {
 
     /// Drops the cached figures so the next breakdown runs the full ladder.
     ///
-    /// Needed where a change escapes the signature: switching models, or editing a tool's argument
-    /// schema without touching its name or description.
+    /// The signature already covers the model, the system prompt, and every tool's name,
+    /// description, and argument schema, so this is for forcing a re-measurement rather than for
+    /// correcting a change the signature misses.
     public func invalidate() {
         signature = nil
         cachedMarginals = [:]
@@ -93,12 +93,16 @@ public actor BreakdownCache {
 
     // MARK: - Signature
 
-    /// Builds a stable signature of the system prompt and the tool groups.
+    /// Builds a stable signature of everything the cached marginals were measured against.
     ///
-    /// A tool is identified by its name and description only. Its argument schema is not hashed,
-    /// so editing a schema alone leaves the signature unchanged and the stale marginals in place.
-    static func signature(systemPrompt: String?, toolGroups: [ToolGroup]) -> String {
+    /// That is the model whose tokenizer applies, the system prompt, and everything about a tool
+    /// the counter can see: its name, description, argument schema, and system instruction.
+    /// Hashing the schema matters because it is sent to the model in full, so editing one changes
+    /// the tool's token cost while its name and description stay put.
+    static func signature(modelID: String, systemPrompt: String?, toolGroups: [ToolGroup]) -> String {
         var hasher = SHA256()
+        hasher.update(data: Data(modelID.utf8))
+        hasher.update(data: Data([0xff]))
         hasher.update(data: Data((systemPrompt ?? "").utf8))
         hasher.update(data: Data([0xff]))
         for group in toolGroups {
@@ -108,9 +112,27 @@ public actor BreakdownCache {
                 hasher.update(data: Data(tool.toolName.utf8))
                 hasher.update(data: Data([0x1f]))
                 hasher.update(data: Data(tool.toolDescription.utf8))
+                hasher.update(data: Data([0x1f]))
+                hasher.update(data: Self.schemaFingerprint(tool.inputSchema))
+                hasher.update(data: Data([0x1f]))
+                hasher.update(data: Data((tool.systemInstruction ?? "").utf8))
                 hasher.update(data: Data([0x1e]))
             }
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Canonical bytes for a tool's argument schema, used only to tell one schema from another.
+    ///
+    /// Encoded with sorted keys so that two schemas equal in content hash the same whatever order
+    /// their properties were built in. A schema that cannot be encoded falls back to its
+    /// `String(describing:)` form rather than silently hashing as empty.
+    private static func schemaFingerprint(_ schema: JSONSchema) -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        if let data = try? encoder.encode(schema) {
+            return data
+        }
+        return Data(String(describing: schema).utf8)
     }
 }

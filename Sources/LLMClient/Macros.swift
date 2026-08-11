@@ -148,7 +148,6 @@ public macro StructuredField(
 ///
 /// Applied to an enumeration, it synthesises:
 /// - a `public static var jsonSchema` — a string schema constrained to the cases' raw values
-/// - a `public static var enumDescription` — a plain-text listing of the cases, for prompts
 /// - an extension conforming the type to `StructuredProtocol` and `Sendable`
 ///
 /// The enumeration must declare `String` as its raw value type and must have at least one case;
@@ -205,7 +204,7 @@ public macro StructuredField(
 ///
 /// - Parameter description: What this enumeration represents, sent to the model as the schema's
 ///   `description`. As with `@Structured`, only a plain string literal is read in full.
-@attached(member, names: named(jsonSchema), named(enumDescription))
+@attached(member, names: named(jsonSchema))
 @attached(extension, conformances: StructuredProtocol, Sendable)
 public macro StructuredEnum(
     _ description: String? = nil
@@ -216,10 +215,10 @@ public macro StructuredEnum(
 /// Generates no code. It is a marker `@StructuredEnum` reads while expanding, so it has an effect
 /// only inside an enumeration carrying that macro.
 ///
-/// **The text does not reach the model on its own.** Case descriptions are collected into the
-/// generated `enumDescription` string and nowhere else — the JSON Schema still carries only the
-/// bare raw values. To let the model use them, put `enumDescription` into the prompt yourself; a
-/// description written and then never referenced changes nothing about the output.
+/// JSON Schema has nowhere to describe one value of an `enum`, so the text is folded into the
+/// schema's own `description` alongside the enumeration's. That is the field the model reads, so
+/// the descriptions travel with the schema and need no separate wiring. A case left undescribed
+/// contributes nothing beyond its raw value, which `enum` already carries.
 ///
 /// One attribute covers a whole `case` declaration, so `@StructuredCase("…") case low, medium`
 /// gives both cases the same text. Write one case per declaration to describe them separately.
@@ -240,17 +239,18 @@ public macro StructuredEnum(
 /// }
 /// ```
 ///
-/// ## Resulting enumDescription
+/// ## Resulting schema
 ///
-/// ```
-/// Task priority:
-/// - low: Not urgent; can be deferred
-/// - medium: Ordinary priority
-/// - high: Urgent; needs attention right away
+/// ```json
+/// {
+///   "type": "string",
+///   "description": "Task priority. low: Not urgent; can be deferred; medium: Ordinary priority; high: Urgent; needs attention right away",
+///   "enum": ["low", "medium", "high"]
+/// }
 /// ```
 ///
-/// - Parameter description: What this case means, for inclusion in `enumDescription`. Must be a
-///   plain string literal.
+/// - Parameter description: What this case means, folded into the schema's `description`. Must be
+///   a plain string literal.
 @attached(peer)
 public macro StructuredCase(
     _ description: String

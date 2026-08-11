@@ -43,16 +43,12 @@ public protocol VideoGenerationCapable<VideoModel>: Sendable {
     /// - Parameters:
     ///   - input: The prompt to render.
     ///   - model: The video model to call.
-    ///   - duration: Clip length in seconds. Only the lengths in the model's supported list work.
-    ///   - aspectRatio: Frame shape. Nil leaves the choice to the provider's default.
-    ///   - resolution: Output resolution, which the model may cap.
+    ///   - options: Clip length, frame shape, and output resolution.
     /// - Returns: A job to poll. No video is available yet.
     func startVideoGeneration(
         input: LLMInput,
         model: VideoModel,
-        duration: Int?,
-        aspectRatio: VideoAspectRatio?,
-        resolution: VideoResolution?
+        options: VideoGenerationOptions
     ) async throws -> VideoGenerationJob
 
     /// Polls the provider for a job's current status.
@@ -71,13 +67,45 @@ public protocol VideoGenerationCapable<VideoModel>: Sendable {
     func getGeneratedVideo(_ job: VideoGenerationJob) async throws -> GeneratedVideo
 }
 
+// MARK: - VideoGenerationOptions
+
+/// The optional settings of one video-generation request.
+///
+/// A protocol requirement cannot declare default arguments, so the requirement takes this value and
+/// the ergonomic overload that does have defaults builds one. Keeping the two signatures distinct
+/// is what makes a conformance that forgets the requirement fail to compile rather than call the
+/// convenience back into itself forever.
+public struct VideoGenerationOptions: Sendable, Equatable {
+    /// Clip length in seconds. Only the lengths in the model's supported list work.
+    public var duration: Int?
+
+    /// Frame shape. Nil leaves the choice to the provider's default.
+    public var aspectRatio: VideoAspectRatio?
+
+    /// Output resolution, which the model may cap.
+    public var resolution: VideoResolution?
+
+    /// Creates a set of options, leaving anything unspecified to the provider's default.
+    ///
+    /// - Parameters:
+    ///   - duration: Clip length in seconds.
+    ///   - aspectRatio: Frame shape.
+    ///   - resolution: Output resolution.
+    public init(
+        duration: Int? = nil,
+        aspectRatio: VideoAspectRatio? = nil,
+        resolution: VideoResolution? = nil
+    ) {
+        self.duration = duration
+        self.aspectRatio = aspectRatio
+        self.resolution = resolution
+    }
+}
+
 // MARK: - Default Implementations
 
 extension VideoGenerationCapable {
     /// Starts a render, filling in defaults for the duration, aspect ratio, and resolution.
-    ///
-    /// It exists only to supply those defaults and forwards to the conforming type's own
-    /// implementation.
     public func startVideoGeneration(
         input: LLMInput,
         model: VideoModel,
@@ -88,9 +116,11 @@ extension VideoGenerationCapable {
         try await startVideoGeneration(
             input: input,
             model: model,
-            duration: duration,
-            aspectRatio: aspectRatio,
-            resolution: resolution
+            options: VideoGenerationOptions(
+                duration: duration,
+                aspectRatio: aspectRatio,
+                resolution: resolution
+            )
         )
     }
 
@@ -121,9 +151,11 @@ extension VideoGenerationCapable {
         var job = try await startVideoGeneration(
             input: input,
             model: model,
-            duration: duration,
-            aspectRatio: aspectRatio,
-            resolution: resolution
+            options: VideoGenerationOptions(
+                duration: duration,
+                aspectRatio: aspectRatio,
+                resolution: resolution
+            )
         )
 
         let startTime = Date()

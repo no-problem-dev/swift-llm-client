@@ -53,9 +53,9 @@ public enum ToolChoice: Sendable, Equatable {
     /// Asks for a text-only answer even though tools are attached.
     ///
     /// Useful for a final summarizing turn where the tools stay in the prompt, and therefore
-    /// stay cached, but must not fire again. Support is uneven: some adapters map it to the
-    /// provider's own suppression field, while others fall through to automatic selection, so
-    /// confirm with the provider before relying on it to hard-block a call.
+    /// stay cached, but must not fire again. Every cloud adapter maps it to the provider's own
+    /// suppression field and keeps sending the definitions. On-device inference has no such field
+    /// and ignores it, so a local model can still emit a call.
     case disabled
 
     /// Requires the model to call one named tool.
@@ -65,21 +65,4 @@ public enum ToolChoice: Sendable, Equatable {
     ///
     /// - Parameter name: The name of the tool the model has to call.
     case tool(String)
-}
-
-// MARK: - Parallel Tool Use
-
-/// Whether the model may ask for several tool calls in one reply.
-///
-/// No request builder reads this value, so passing it does not reach the provider and parallel
-/// tool use follows each provider's own default. Check the response instead: a plan can carry
-/// more than one call whatever this says.
-public enum ParallelToolUse: Sendable, Equatable {
-
-    /// Several calls may come back in a single reply.
-    case enabled
-
-    /// At most one call comes back per reply, which serializes a multi-step task into one
-    /// round trip per step.
-    case disabled
 }

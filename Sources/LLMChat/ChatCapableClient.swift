@@ -46,18 +46,11 @@ public protocol ChatCapableClient: StructuredLLMClient {
     /// - Parameters:
     ///   - messages: The conversation so far, oldest first.
     ///   - model: The model to serve the request.
-    ///   - systemPrompt: Instructions applied ahead of the history. Keeping it byte-identical
-    ///     across turns is what lets a provider cache the prefix.
-    ///   - temperature: Sampling temperature. Passed through unvalidated; the accepted range
-    ///     differs by provider.
-    ///   - maxTokens: Ceiling on output tokens. A ceiling low enough to cut the JSON short leaves
-    ///     the response undecodable, so leave headroom above the expected result size.
+    ///   - options: The system prompt, temperature, and output ceiling for this turn.
     func chat<T: StructuredProtocol>(
         messages: [LLMMessage],
         model: Model,
-        systemPrompt: String?,
-        temperature: Double?,
-        maxTokens: Int?
+        options: ChatOptions
     ) async throws -> ChatResponse<T>
 }
 
@@ -66,12 +59,8 @@ public protocol ChatCapableClient: StructuredLLMClient {
 extension ChatCapableClient {
     /// Continues a conversation, letting the optional arguments default.
     ///
-    /// This exists only to supply default values, which a protocol requirement cannot declare. It
-    /// forwards straight back through the protocol.
-    ///
-    /// - Warning: Its signature matches the requirement, so it can also stand in as the witness
-    ///   for it. A conformance that omits `chat` therefore compiles and then recurses here forever
-    ///   instead of failing to build.
+    /// It exists only to supply defaults, which a protocol requirement cannot declare, and packs
+    /// them into the `ChatOptions` the requirement takes.
     public func chat<T: StructuredProtocol>(
         messages: [LLMMessage],
         model: Model,
@@ -82,9 +71,11 @@ extension ChatCapableClient {
         try await chat(
             messages: messages,
             model: model,
-            systemPrompt: systemPrompt,
-            temperature: temperature,
-            maxTokens: maxTokens
+            options: ChatOptions(
+                systemPrompt: systemPrompt,
+                temperature: temperature,
+                maxTokens: maxTokens
+            )
         )
     }
 
@@ -111,9 +102,11 @@ extension ChatCapableClient {
         try await chat(
             messages: [input.toLLMMessage()],
             model: model,
-            systemPrompt: systemPrompt,
-            temperature: temperature,
-            maxTokens: maxTokens
+            options: ChatOptions(
+                systemPrompt: systemPrompt,
+                temperature: temperature,
+                maxTokens: maxTokens
+            )
         )
     }
 

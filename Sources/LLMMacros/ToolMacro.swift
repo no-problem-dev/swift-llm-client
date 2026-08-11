@@ -183,7 +183,7 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
                 isOptional: isOptional,
                 isArray: isArray,
                 description: argInfo.description,
-                constraints: argInfo.constraints
+                constraintSource: argInfo.constraintSource
             ))
         }
 
@@ -263,12 +263,12 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
     /// Extracts the description and constraints written on `@ToolArgument`.
     ///
     /// The first argument is taken as the description and everything after it as a constraint.
-    /// The constraints are parsed but go no further: `generateArgumentsType` emits only the
-    /// description, so a constraint written on a tool argument never reaches the schema the
-    /// model is shown.
+    /// Constraints are kept as source text rather than parsed here: `generateArgumentsType` writes
+    /// them straight back onto the generated `@StructuredField`, so a constraint on a tool argument
+    /// reaches the schema by exactly the same path as one written on a structured field.
     private static func extractToolArgumentInfo(
         from attributes: AttributeListSyntax
-    ) -> (hasAttribute: Bool, description: String?, constraints: [ConstraintInfo]) {
+    ) -> (hasAttribute: Bool, description: String?, constraintSource: [String]) {
         for attribute in attributes {
             guard let attr = attribute.as(AttributeSyntax.self),
                   let identifier = attr.attributeName.as(IdentifierTypeSyntax.self),
@@ -278,7 +278,7 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
             }
 
             var description: String?
-            var constraints: [ConstraintInfo] = []
+            var constraintSource: [String] = []
 
             for (index, arg) in arguments.enumerated() {
                 if index == 0 {
@@ -288,62 +288,15 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
                         description = segment.content.text
                     }
                 } else {
-                    // Everything after it is a constraint.
-                    if let constraint = parseConstraint(from: arg.expression) {
-                        constraints.append(constraint)
-                    }
+                    // Everything after it is a constraint, carried through as written.
+                    constraintSource.append(arg.expression.trimmedDescription)
                 }
             }
 
-            return (true, description, constraints)
+            return (true, description, constraintSource)
         }
 
         return (false, nil, [])
-    }
-
-    /// Parses one constraint expression, such as `.minItems(3)` or `.enum(["a", "b"])`.
-    ///
-    /// Mirrors the parser in `StructuredMacro`. Only the first call argument is read, and only
-    /// when it is a literal or a member access; a value reached through a constant yields nil.
-    private static func parseConstraint(from expr: ExprSyntax) -> ConstraintInfo? {
-        guard let funcCall = expr.as(FunctionCallExprSyntax.self),
-              let memberAccess = funcCall.calledExpression.as(MemberAccessExprSyntax.self) else {
-            return nil
-        }
-
-        let constraintName = memberAccess.declName.baseName.text
-
-        guard let firstArg = funcCall.arguments.first else {
-            return nil
-        }
-
-        if let intLiteral = firstArg.expression.as(IntegerLiteralExprSyntax.self) {
-            let value = intLiteral.literal.text
-            return ConstraintInfo(name: constraintName, intValue: Int(value) ?? 0)
-        }
-
-        if let stringLiteral = firstArg.expression.as(StringLiteralExprSyntax.self),
-           let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self) {
-            return ConstraintInfo(name: constraintName, stringValue: segment.content.text)
-        }
-
-        if let arrayExpr = firstArg.expression.as(ArrayExprSyntax.self) {
-            var values: [String] = []
-            for element in arrayExpr.elements {
-                if let stringLiteral = element.expression.as(StringLiteralExprSyntax.self),
-                   let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self) {
-                    values.append(segment.content.text)
-                }
-            }
-            return ConstraintInfo(name: constraintName, arrayValue: values)
-        }
-
-        if let memberAccess = firstArg.expression.as(MemberAccessExprSyntax.self) {
-            let formatValue = memberAccess.declName.baseName.text
-            return ConstraintInfo(name: constraintName, stringValue: formatValue)
-        }
-
-        return nil
     }
 
     /// Indicates whether the type is an array, looking through optional wrappers.
@@ -378,9 +331,9 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
     ///
     /// Every field is emitted with a default value so the generated `init()` can stand the type
     /// up before the model has said anything; the fields stay non-optional, so the schema still
-    /// lists them as required. Only the description reaches `@StructuredField` — constraints
-    /// written on `@ToolArgument` are dropped here — and a property with no description falls
-    /// back to its own name, which is what the model then reads.
+    /// lists them as required. The description and every constraint reach `@StructuredField`
+    /// unchanged, and a property with no description falls back to its own name, which is what the
+    /// model then reads.
     private static func generateArgumentsType(arguments: [ToolArgumentInfo]) -> DeclSyntax {
         if arguments.isEmpty {
             // Alias the shared empty type rather than emitting an empty struct.
@@ -392,7 +345,8 @@ public struct ToolMacro: MemberMacro, ExtensionMacro {
         var propertiesCode = ""
         for arg in arguments {
             let defaultValue = defaultValueForType(arg.typeName, isOptional: arg.isOptional, isArray: arg.isArray)
-            propertiesCode += "    @StructuredField(\"\(arg.description ?? arg.name)\")\n"
+            let constraints = arg.constraintSource.map { ", \($0)" }.joined()
+            propertiesCode += "    @StructuredField(\"\(arg.description ?? arg.name)\"\(constraints))\n"
             propertiesCode += "    public var \(arg.name): \(arg.typeName) = \(defaultValue)\n"
         }
 
@@ -559,7 +513,11 @@ struct ToolArgumentInfo {
     let isOptional: Bool
     let isArray: Bool
     let description: String?
-    let constraints: [ConstraintInfo]
+
+    /// The source text of each constraint written on `@ToolArgument`, re-emitted verbatim onto the
+    /// generated `@StructuredField` so `@Structured` parses it exactly as if it had been written
+    /// there by hand.
+    let constraintSource: [String]
 }
 
 // MARK: - InjectedPropertyInfo

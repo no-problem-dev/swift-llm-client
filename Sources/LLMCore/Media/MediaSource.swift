@@ -77,37 +77,15 @@ public enum MediaSource: Sendable, Equatable {
     /// The undecoded byte count of inline data, or nil when the size is not knowable here.
     ///
     /// The Base64 form sent on the wire is about a third larger than this figure.
+    ///
+    /// Nil is the answer for `.url` and `.fileReference`, whose bytes never pass through this
+    /// process. There is deliberately no "is this within the limit" helper here: it could only
+    /// answer for the inline case, and a guard that waves through everything it cannot see is worse
+    /// than no guard. Check this against a budget where it is non-nil, and leave the remote cases
+    /// to the provider's own limits.
     public var dataSize: Int? {
         guard case .base64(let data) = self else { return nil }
         return data.count
-    }
-
-    /// Reports whether inline data fits a byte budget, counting anything remote as fitting.
-    ///
-    /// URL and file-reference sources answer `true` because their size is unknown here, so a
-    /// `true` result is not evidence that the provider will accept the media — only that
-    /// nothing this process holds is over budget.
-    ///
-    /// - Parameter maxBytes: The budget, compared against the undecoded byte count rather than
-    ///   the longer Base64 form that actually travels in the request.
-    public func isWithinSizeLimit(_ maxBytes: Int) -> Bool {
-        guard let size = dataSize else { return true }
-        return size <= maxBytes
-    }
-
-    /// Throws when inline data is over a byte budget, and does nothing for remote sources.
-    ///
-    /// A URL or file-reference source passes unconditionally, so this cannot stand in for the
-    /// provider's own size check.
-    ///
-    /// - Parameter maxBytes: The budget, compared against the undecoded byte count rather than
-    ///   the longer Base64 form that actually travels in the request.
-    /// - Throws: `MediaError.sizeLimitExceeded`, carrying both the measured and allowed sizes.
-    public func validateSize(maxBytes: Int) throws {
-        guard let size = dataSize else { return }
-        if size > maxBytes {
-            throw MediaError.sizeLimitExceeded(size: size, maxSize: maxBytes)
-        }
     }
 
     // MARK: - Source Type Info

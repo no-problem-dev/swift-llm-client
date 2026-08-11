@@ -3,10 +3,10 @@ import SwiftSyntaxMacros
 
 /// Implements the `@StructuredCase` marker macro.
 ///
-/// It synthesizes nothing of its own. `@StructuredEnum` reads the attribute to attach a
-/// description to a case, and that description reaches the model through `enumDescription`
-/// rather than through the schema — the generated JSON Schema lists the raw values alone. A
-/// description written on a case declaration that names several cases applies to all of them.
+/// It synthesizes nothing of its own. `@StructuredEnum` reads the attribute and folds the
+/// description into the generated schema's own `description`, since JSON Schema has nowhere to
+/// describe an individual `enum` value. A description written on a case declaration that names
+/// several cases applies to all of them.
 ///
 /// Attached to anything other than an enum case, it throws `onlyApplicableToEnumCase`.
 ///

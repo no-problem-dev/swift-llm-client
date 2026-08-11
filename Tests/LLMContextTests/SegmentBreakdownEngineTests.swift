@@ -44,6 +44,13 @@ private func makeTool(_ name: String, _ desc: String) -> DynamicTool {
     } handler: { _ in .text("ok") }
 }
 
+/// 名前も説明も同じで、引数スキーマだけが違うツール。
+private func makeToolWithSchema(_ name: String, _ desc: String, argName: String) -> DynamicTool {
+    DynamicTool(name, description: desc) {
+        JSONSchema.string(description: "arg").named(argName)
+    } handler: { _ in .text("ok") }
+}
+
 private let modelID = "claude-sonnet-4-6"
 
 // MARK: - Tests
@@ -204,5 +211,70 @@ struct BreakdownCacheTests {
         _ = try await cache.breakdown(modelID: modelID, systemPrompt: "DIFFERENT", messages: [LLMMessage.user("m")], toolGroups: groups)
         let c2 = await counter.callCount
         #expect(c2 - c1 == 3) // sig 変化 → フル ladder
+    }
+
+    // MARK: - 署名は「計測が依存しうるもの」を全部覆う
+
+    @Test("引数スキーマだけ変えてもフル ladder を再実行する")
+    func schemaChangeRecomputes() async throws {
+        let counter = MockCounter(wrapper: 340)
+        let cache = BreakdownCache(counter: counter)
+
+        let before = [ToolGroup(
+            segment: .toolDefinitions,
+            tools: ToolSet(tools: [makeToolWithSchema("search", "Search the web", argName: "query")])
+        )]
+        // 名前も説明も同一。変えたのはスキーマのプロパティ名だけ。
+        let after = [ToolGroup(
+            segment: .toolDefinitions,
+            tools: ToolSet(tools: [makeToolWithSchema("search", "Search the web", argName: "q")])
+        )]
+
+        _ = try await cache.breakdown(
+            modelID: modelID, systemPrompt: "A", messages: [LLMMessage.user("m")], toolGroups: before
+        )
+        let c1 = await counter.callCount
+
+        _ = try await cache.breakdown(
+            modelID: modelID, systemPrompt: "A", messages: [LLMMessage.user("m")], toolGroups: after
+        )
+        let c2 = await counter.callCount
+        #expect(c2 - c1 == 3)
+    }
+
+    @Test("モデルを切り替えたらフル ladder を再実行する")
+    func modelChangeRecomputes() async throws {
+        let counter = MockCounter(wrapper: 340)
+        let cache = BreakdownCache(counter: counter)
+        let groups = [ToolGroup(segment: .toolDefinitions, tools: ToolSet(tools: [makeTool("t", "d")]))]
+
+        _ = try await cache.breakdown(
+            modelID: "claude-sonnet-4-6", systemPrompt: "A", messages: [LLMMessage.user("m")], toolGroups: groups
+        )
+        let c1 = await counter.callCount
+
+        _ = try await cache.breakdown(
+            modelID: "gpt-5", systemPrompt: "A", messages: [LLMMessage.user("m")], toolGroups: groups
+        )
+        let c2 = await counter.callCount
+        #expect(c2 - c1 == 3)
+    }
+
+    @Test("何も変えなければ従来どおり bare 1 回で済む")
+    func unchangedInputsStillReuse() async throws {
+        let counter = MockCounter(wrapper: 340)
+        let cache = BreakdownCache(counter: counter)
+        let groups = [ToolGroup(segment: .toolDefinitions, tools: ToolSet(tools: [makeTool("t", "d")]))]
+
+        _ = try await cache.breakdown(
+            modelID: modelID, systemPrompt: "A", messages: [LLMMessage.user("m")], toolGroups: groups
+        )
+        let c1 = await counter.callCount
+
+        _ = try await cache.breakdown(
+            modelID: modelID, systemPrompt: "A", messages: [LLMMessage.user("m2")], toolGroups: groups
+        )
+        let c2 = await counter.callCount
+        #expect(c2 - c1 == 1)
     }
 }

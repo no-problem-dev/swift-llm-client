@@ -33,9 +33,7 @@ private struct MockChatClient: ChatCapableClient {
     func chat<T: StructuredProtocol>(
         messages: [LLMMessage],
         model: Model,
-        systemPrompt: String?,
-        temperature: Double?,
-        maxTokens: Int?
+        options: ChatOptions
     ) async throws -> ChatResponse<T> {
         switch behavior {
         case .success(let json):
@@ -56,9 +54,7 @@ private struct MockChatClient: ChatCapableClient {
     func generateWithUsage<T: StructuredProtocol>(
         input: LLMInput,
         model: Model,
-        systemPrompt: SystemPrompt?,
-        temperature: Double?,
-        maxTokens: Int?
+        options: GenerationOptions
     ) async throws -> GenerationResult<T> {
         throw LLMError.emptyResponse
     }
@@ -66,9 +62,7 @@ private struct MockChatClient: ChatCapableClient {
     func generateWithUsage<T: StructuredProtocol>(
         messages: [LLMMessage],
         model: Model,
-        systemPrompt: SystemPrompt?,
-        temperature: Double?,
-        maxTokens: Int?
+        options: GenerationOptions
     ) async throws -> GenerationResult<T> {
         throw LLMError.emptyResponse
     }
@@ -158,6 +152,56 @@ struct ConversationHistoryAppendTests {
         #expect(usage.inputTokens == 400)
         #expect(usage.outputTokens == 70)
         #expect(usage.totalTokens == 470)
+    }
+
+    @Test("addUsage は reasoning / cache 内訳も合算する")
+    func addUsagePreservesBreakdown() async {
+        let history = ConversationHistory()
+        await history.addUsage(TokenUsage(
+            inputTokens: 1000,
+            outputTokens: 200,
+            reasoningTokens: 120,
+            cacheReadTokens: 800,
+            cacheCreationTokens: 100,
+            cacheTier: .short
+        ))
+        await history.addUsage(TokenUsage(
+            inputTokens: 1500,
+            outputTokens: 300,
+            reasoningTokens: 80,
+            cacheReadTokens: 1200,
+            cacheCreationTokens: 50,
+            cacheTier: .long
+        ))
+
+        let usage = await history.getTotalUsage()
+        #expect(usage.inputTokens == 2500)
+        #expect(usage.outputTokens == 500)
+        // 以下は旧実装では全て nil に落ちていた。課金表示が cache を全額請求してしまう原因。
+        #expect(usage.reasoningTokens == 200)
+        #expect(usage.cacheReadTokens == 2000)
+        #expect(usage.cacheCreationTokens == 150)
+        // freshInput = 2500 - 2000 - 150。cache 分を全額課金しないために必要な数字。
+        #expect(usage.freshInputTokens == 350)
+        #expect(usage.visibleOutputTokens == 300)
+        // ターンごとに課金レートが違いうるので、合算に単一の tier は乗らない。
+        #expect(usage.cacheTier == nil)
+    }
+
+    @Test("内訳を持たない usage を混ぜても合算は壊れない")
+    func addUsageMixesPlainAndDetailedUsage() async {
+        let history = ConversationHistory()
+        await history.addUsage(TokenUsage(inputTokens: 100, outputTokens: 10))
+        await history.addUsage(TokenUsage(
+            inputTokens: 200, outputTokens: 20, reasoningTokens: 5, cacheReadTokens: 150
+        ))
+
+        let usage = await history.getTotalUsage()
+        #expect(usage.inputTokens == 300)
+        #expect(usage.outputTokens == 30)
+        #expect(usage.reasoningTokens == 5)
+        #expect(usage.cacheReadTokens == 150)
+        #expect(usage.cacheCreationTokens == nil)
     }
 
     @Test("clear はメッセージと使用量をリセットする")

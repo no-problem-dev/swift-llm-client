@@ -33,19 +33,13 @@ public protocol ImageGenerationCapable<ImageModel>: Sendable {
     /// - Parameters:
     ///   - input: The prompt to render.
     ///   - model: The image model to call.
-    ///   - size: Output size. Nil leaves the choice to the provider's default.
-    ///   - quality: Rendering quality, for the models that offer the choice.
-    ///   - format: Encoding of the returned bytes.
-    ///   - n: How many images to ask the provider for.
+    ///   - options: Size, quality, encoding, and how many images to ask the provider for.
     /// - Returns: The generated image.
     /// - Throws: `LLMError` or `ImageGenerationError`.
     func generateImage(
         input: LLMInput,
         model: ImageModel,
-        size: ImageSize?,
-        quality: ImageQuality?,
-        format: ImageOutputFormat?,
-        n: Int
+        options: ImageGenerationOptions
     ) async throws -> GeneratedImage
 
     /// Generates a batch of images in one call.
@@ -53,28 +47,61 @@ public protocol ImageGenerationCapable<ImageModel>: Sendable {
     /// - Parameters:
     ///   - input: The prompt to render.
     ///   - model: The image model to call.
-    ///   - size: Output size. Nil leaves the choice to the provider's default.
-    ///   - quality: Rendering quality, for the models that offer the choice.
-    ///   - format: Encoding of the returned bytes.
-    ///   - n: How many images to generate. It must not exceed the model's maximum.
+    ///   - options: Size, quality, encoding, and how many images to generate. The count must not
+    ///     exceed the model's maximum.
     /// - Returns: The generated images, in the order the provider returned them.
     func generateImages(
         input: LLMInput,
         model: ImageModel,
-        size: ImageSize?,
-        quality: ImageQuality?,
-        format: ImageOutputFormat?,
-        n: Int
+        options: ImageGenerationOptions
     ) async throws -> [GeneratedImage]
+}
+
+// MARK: - ImageGenerationOptions
+
+/// The optional settings of one image-generation request.
+///
+/// A protocol requirement cannot declare default arguments, so the requirements take this value and
+/// the ergonomic overloads that do have defaults build one. Keeping the two signatures distinct is
+/// what makes a conformance that forgets a requirement fail to compile rather than call the
+/// convenience back into itself forever.
+public struct ImageGenerationOptions: Sendable, Equatable {
+    /// Output size. Nil leaves the choice to the provider's default.
+    public var size: ImageSize?
+
+    /// Rendering quality, for the models that offer the choice.
+    public var quality: ImageQuality?
+
+    /// Encoding of the returned bytes.
+    public var format: ImageOutputFormat?
+
+    /// How many images to ask the provider for.
+    public var n: Int
+
+    /// Creates a set of options, leaving anything unspecified to the provider's default.
+    ///
+    /// - Parameters:
+    ///   - size: Output size.
+    ///   - quality: Rendering quality.
+    ///   - format: Encoding of the returned bytes.
+    ///   - n: How many images to ask the provider for.
+    public init(
+        size: ImageSize? = nil,
+        quality: ImageQuality? = nil,
+        format: ImageOutputFormat? = nil,
+        n: Int = 1
+    ) {
+        self.size = size
+        self.quality = quality
+        self.format = format
+        self.n = n
+    }
 }
 
 // MARK: - Default Implementations
 
 extension ImageGenerationCapable {
     /// Generates a single image, filling in defaults for everything but the prompt and the model.
-    ///
-    /// It exists only to supply those defaults and forwards to the conforming type's own
-    /// implementation.
     public func generateImage(
         input: LLMInput,
         model: ImageModel,
@@ -86,17 +113,11 @@ extension ImageGenerationCapable {
         try await generateImage(
             input: input,
             model: model,
-            size: size,
-            quality: quality,
-            format: format,
-            n: n
+            options: ImageGenerationOptions(size: size, quality: quality, format: format, n: n)
         )
     }
 
     /// Generates a batch of images, filling in defaults for everything but the prompt and the model.
-    ///
-    /// It exists only to supply those defaults and forwards to the conforming type's own
-    /// implementation.
     public func generateImages(
         input: LLMInput,
         model: ImageModel,
@@ -108,10 +129,7 @@ extension ImageGenerationCapable {
         try await generateImages(
             input: input,
             model: model,
-            size: size,
-            quality: quality,
-            format: format,
-            n: n
+            options: ImageGenerationOptions(size: size, quality: quality, format: format, n: n)
         )
     }
 }

@@ -345,7 +345,8 @@ public enum VideoAspectRatio: String, Sendable, Codable, CaseIterable, Equatable
 /// Fetched once a generation job completes. Unlike generated images and audio, this may carry no
 /// bytes at all — a value built from a URL alone has empty data until it is downloaded, and saving
 /// it in that state writes a zero-length file. Provider-hosted URLs are short-lived, so download
-/// the bytes rather than persisting the link.
+/// the bytes rather than persisting the link; `downloadData(using:)` throws rather than handing
+/// back an empty video when there is nothing to fetch.
 ///
 /// ## Example
 /// ```swift

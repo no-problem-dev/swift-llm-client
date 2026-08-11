@@ -91,7 +91,7 @@ public actor ConversationHistory: ConversationHistoryProtocol {
     /// Creates an empty conversation history.
     public init() {
         self.messages = []
-        self.totalUsage = TokenUsage(inputTokens: 0, outputTokens: 0)
+        self.totalUsage = .zero
         self.userTurnCount = 0
         (self.eventStream, self.continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
     }
@@ -105,7 +105,7 @@ public actor ConversationHistory: ConversationHistoryProtocol {
     /// - Parameter messages: The conversation to start from, oldest first.
     public init(messages: [LLMMessage]) {
         self.messages = messages
-        self.totalUsage = TokenUsage(inputTokens: 0, outputTokens: 0)
+        self.totalUsage = .zero
         // Derive the turn count from the messages handed in.
         self.userTurnCount = messages.filter { !$0.hasToolResult && $0.role == .user }.count
         (self.eventStream, self.continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
@@ -168,18 +168,14 @@ public actor ConversationHistory: ConversationHistoryProtocol {
         emit(event)
     }
 
-    /// Adds a turn's usage to the running total, keeping the input and output counts only.
+    /// Adds a turn's usage to the running total.
     ///
-    /// The reasoning, cache-read, cache-creation and cache-tier figures of the usage handed in are
-    /// dropped, so the total can say how many tokens a conversation moved but not how they were
-    /// billed. A cost display driven from the total therefore prices cached input at full rate and
-    /// cannot separate reasoning tokens from visible output; keep the per-turn usage from each
-    /// `ChatResponse` where that matters.
+    /// Reasoning, cache-read and cache-creation counts are carried into the total alongside the
+    /// input and output counts, so a cost display driven from `getTotalUsage()` prices cached input
+    /// at the cache rate rather than the full one. The cache tier is the one figure that cannot
+    /// survive: every turn may be billed at a different lifetime, so the total carries none.
     public func addUsage(_ usage: TokenUsage) {
-        totalUsage = TokenUsage(
-            inputTokens: totalUsage.inputTokens + usage.inputTokens,
-            outputTokens: totalUsage.outputTokens + usage.outputTokens
-        )
+        totalUsage = totalUsage.adding(usage)
         emit(.usageUpdated(totalUsage))
     }
 
@@ -190,7 +186,7 @@ public actor ConversationHistory: ConversationHistoryProtocol {
     /// count has to match what the messages show.
     public func clear() {
         messages = []
-        totalUsage = TokenUsage(inputTokens: 0, outputTokens: 0)
+        totalUsage = .zero
         emit(.cleared)
     }
 

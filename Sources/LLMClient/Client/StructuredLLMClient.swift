@@ -44,21 +44,13 @@ public protocol StructuredLLMClient<Model>: Sendable {
     /// - Parameters:
     ///   - input: The prompt, optionally carrying images, audio, or video.
     ///   - model: The model to serve the request.
-    ///   - systemPrompt: Instructions applied ahead of the input. Providers generally treat this
-    ///     as a stable prefix, so keeping it byte-identical across calls is what makes prompt
-    ///     caching possible.
-    ///   - temperature: Sampling temperature. Passed through unvalidated; the accepted range
-    ///     differs by provider.
-    ///   - maxTokens: Ceiling on output tokens. A ceiling low enough to cut off the JSON leaves
-    ///     the response undecodable, so leave headroom above the expected result size.
+    ///   - options: The system prompt, temperature, and output ceiling for this call.
     /// - Throws: `LLMError` for transport and provider failures, or a decoding error when the
     ///   returned JSON does not match the schema.
     func generateWithUsage<T: StructuredProtocol>(
         input: LLMInput,
         model: Model,
-        systemPrompt: SystemPrompt?,
-        temperature: Double?,
-        maxTokens: Int?
+        options: GenerationOptions
     ) async throws -> GenerationResult<T>
 
     /// Generates a structured value from a conversation history and reports what the call consumed.
@@ -70,18 +62,13 @@ public protocol StructuredLLMClient<Model>: Sendable {
     ///   - messages: The conversation so far, oldest first. Tool calls left without a matching
     ///     result are rejected by some providers; see `sanitizeOrphanedToolUses()`.
     ///   - model: The model to serve the request.
-    ///   - systemPrompt: Instructions applied ahead of the history.
-    ///   - temperature: Sampling temperature. Passed through unvalidated; the accepted range
-    ///     differs by provider.
-    ///   - maxTokens: Ceiling on output tokens.
+    ///   - options: The system prompt, temperature, and output ceiling for this call.
     /// - Throws: `LLMError` for transport and provider failures, or a decoding error when the
     ///   returned JSON does not match the schema.
     func generateWithUsage<T: StructuredProtocol>(
         messages: [LLMMessage],
         model: Model,
-        systemPrompt: SystemPrompt?,
-        temperature: Double?,
-        maxTokens: Int?
+        options: GenerationOptions
     ) async throws -> GenerationResult<T>
 }
 
@@ -93,12 +80,8 @@ extension StructuredLLMClient {
 
     /// Generates a structured value from a prompt, letting the optional arguments default.
     ///
-    /// This exists only to supply default values, which a protocol requirement cannot declare. It
-    /// forwards straight back through the protocol.
-    ///
-    /// - Warning: Because it forwards through the protocol, a conforming type that does not
-    ///   implement the corresponding requirement recurses here forever instead of failing to
-    ///   compile. Every conformance must implement both `generateWithUsage` requirements.
+    /// It exists only to supply defaults, which a protocol requirement cannot declare, and packs
+    /// them into the `GenerationOptions` the requirement takes.
     public func generateWithUsage<T: StructuredProtocol>(
         input: LLMInput,
         model: Model,
@@ -109,17 +92,16 @@ extension StructuredLLMClient {
         try await generateWithUsage(
             input: input,
             model: model,
-            systemPrompt: systemPrompt,
-            temperature: temperature,
-            maxTokens: maxTokens
+            options: GenerationOptions(
+                systemPrompt: systemPrompt,
+                temperature: temperature,
+                maxTokens: maxTokens
+            )
         )
     }
 
     /// Generates a structured value from a conversation history, letting the optional arguments
     /// default.
-    ///
-    /// - Warning: Like its single-prompt counterpart, this forwards through the protocol, so a
-    ///   conformance that omits the requirement recurses here forever.
     public func generateWithUsage<T: StructuredProtocol>(
         messages: [LLMMessage],
         model: Model,
@@ -130,9 +112,11 @@ extension StructuredLLMClient {
         try await generateWithUsage(
             messages: messages,
             model: model,
-            systemPrompt: systemPrompt,
-            temperature: temperature,
-            maxTokens: maxTokens
+            options: GenerationOptions(
+                systemPrompt: systemPrompt,
+                temperature: temperature,
+                maxTokens: maxTokens
+            )
         )
     }
 
@@ -154,9 +138,11 @@ extension StructuredLLMClient {
         let result: GenerationResult<T> = try await generateWithUsage(
             input: input,
             model: model,
-            systemPrompt: systemPrompt,
-            temperature: temperature,
-            maxTokens: maxTokens
+            options: GenerationOptions(
+                systemPrompt: systemPrompt,
+                temperature: temperature,
+                maxTokens: maxTokens
+            )
         )
         return result.result
     }
@@ -176,9 +162,11 @@ extension StructuredLLMClient {
         let result: GenerationResult<T> = try await generateWithUsage(
             messages: messages,
             model: model,
-            systemPrompt: systemPrompt,
-            temperature: temperature,
-            maxTokens: maxTokens
+            options: GenerationOptions(
+                systemPrompt: systemPrompt,
+                temperature: temperature,
+                maxTokens: maxTokens
+            )
         )
         return result.result
     }

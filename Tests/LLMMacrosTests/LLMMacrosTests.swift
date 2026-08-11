@@ -238,7 +238,12 @@ final class StructuredFieldMacroTests: XCTestCase {
 
 final class StructuredEnumMacroTests: XCTestCase {
 
-    func testBasicEnumGeneratesEnumSchemaAndDescription() {
+    /// `@StructuredCase` の説明がスキーマの description に畳み込まれること。
+    ///
+    /// 以前は enumDescription という誰も読まない別プロパティに入るだけで、スキーマには
+    /// 生の raw value しか載らなかった。JSON Schema には enum の各値に説明を付ける場所が
+    /// 無いので、description に畳むのが唯一モデルへ届く経路。
+    func testStructuredCaseDescriptionsFoldIntoSchemaDescription() {
         assertMacroExpansion(
             """
             @StructuredEnum("優先度")
@@ -256,16 +261,74 @@ final class StructuredEnumMacroTests: XCTestCase {
                 public static var jsonSchema: JSONSchema {
                     JSONSchema(
                         type: .string,
-                        description: "優先度", enum: ["low", "H"]
+                        description: "優先度. low: 低い", enum: ["low", "H"]
                     )
-                }
-
-                public static var enumDescription: String {
-                    "優先度:\\n- low: 低い\\n- H"
                 }
             }
 
             extension Priority: StructuredProtocol, Sendable {
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    /// 説明の無い enum は従来どおり description 無しのスキーマになる。
+    func testEnumWithoutAnyDescriptionOmitsDescription() {
+        assertMacroExpansion(
+            """
+            @StructuredEnum
+            enum Status: String {
+                case active
+                case inactive
+            }
+            """,
+            expandedSource: """
+            enum Status: String {
+                case active
+                case inactive
+
+                public static var jsonSchema: JSONSchema {
+                    JSONSchema(
+                        type: .string,
+                        enum: ["active", "inactive"]
+                    )
+                }
+            }
+
+            extension Status: StructuredProtocol, Sendable {
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    /// enum 自体に説明が無くても、ケースの説明だけで description が立つ。
+    func testCaseDescriptionsAloneProduceDescription() {
+        assertMacroExpansion(
+            """
+            @StructuredEnum
+            enum Status: String {
+                @StructuredCase("使用中")
+                case active
+                @StructuredCase("停止中")
+                case inactive
+            }
+            """,
+            expandedSource: """
+            enum Status: String {
+                case active
+                case inactive
+
+                public static var jsonSchema: JSONSchema {
+                    JSONSchema(
+                        type: .string,
+                        description: "active: 使用中; inactive: 停止中", enum: ["active", "inactive"]
+                    )
+                }
+            }
+
+            extension Status: StructuredProtocol, Sendable {
             }
             """,
             macros: testMacros
@@ -469,6 +532,119 @@ final class ToolMacroTests: XCTestCase {
             }
 
             extension WeatherTool: Tool, Sendable {
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    /// `@ToolArgument` に書いた制約がスキーマまで届くこと。
+    ///
+    /// 以前は `generateArgumentsType` が説明だけを `@StructuredField` に転記していたため、
+    /// `.minimum(1)` などは解析されたあと捨てられ、モデルに見せるスキーマには入らなかった。
+    /// ドキュメントは「スキーマに載る」と書いていたので、挙動とドキュメントが食い違っていた。
+    func testToolArgumentConstraintsReachTheSchema() {
+        assertMacroExpansion(
+            """
+            @Tool("検索する", name: "search")
+            struct SearchTool {
+                @ToolArgument("検索語", .minLength(1), .maxLength(100))
+                var keyword: String
+
+                @ToolArgument("最大件数", .minimum(1), .maximum(100))
+                var limit: Int
+
+                @ToolArgument("並び順", .enum(["relevance", "price_asc"]))
+                var sortBy: String
+
+                @ToolArgument("連絡先", .pattern("^[a-z]+$"), .format(.email))
+                var contact: String
+
+                func call() async throws -> String {
+                    "ok"
+                }
+            }
+            """,
+            expandedSource: """
+            struct SearchTool {
+                var keyword: String
+                var limit: Int
+                var sortBy: String
+                var contact: String
+
+                func call() async throws -> String {
+                    "ok"
+                }
+
+                public let toolName: String = "search"
+
+                public let toolDescription: String = "検索する"
+                public struct Arguments {
+                    public var keyword: String = ""
+                    public var limit: Int = 0
+                    public var sortBy: String = ""
+                    public var contact: String = ""
+
+                    public static var jsonSchema: JSONSchema {
+                        JSONSchema(
+                            type: .object,
+
+                            properties: [
+                                "keyword": JSONSchema(type: .string, description: "検索語", minLength: 1, maxLength: 100),
+                                "limit": JSONSchema(type: .integer, description: "最大件数", minimum: 1, maximum: 100),
+                                "sort_by": JSONSchema(type: .string, description: "並び順", enum: ["relevance", "price_asc"]),
+                                "contact": JSONSchema(type: .string, description: "連絡先", pattern: "^[a-z]+$", format: "email")
+                            ],
+                            required: ["keyword", "limit", "sort_by", "contact"],
+                            additionalProperties: false
+                        )
+                    }
+                }
+
+                public var inputSchema: JSONSchema {
+                    Arguments.jsonSchema
+                }
+
+                public var arguments: Arguments
+
+                public init() {
+                    // ToolSet 登録時のデフォルト初期化
+                    // 実際の引数は execute(with:) で設定される
+                    self.keyword = ""
+                    self.limit = 0
+                    self.sortBy = ""
+                    self.contact = ""
+                    // arguments は execute 時に設定されるため、空の Arguments で初期化
+                    self.arguments = Arguments()
+                }
+
+                public init(arguments: Arguments) {
+                    self.arguments = arguments
+                    self.keyword = arguments.keyword
+                    self.limit = arguments.limit
+                    self.sortBy = arguments.sortBy
+                    self.contact = arguments.contact
+                }
+
+                public func execute(with argumentsData: Data) async throws -> ToolResult {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let args = try decoder.decode(Arguments.self, from: argumentsData)
+                    var copy = self
+                    copy.arguments = args
+                    copy.keyword = args.keyword
+                    copy.limit = args.limit
+                    copy.sortBy = args.sortBy
+                    copy.contact = args.contact
+                    let result = try await copy.call()
+                    return try result.asToolResult()
+                }
+            }
+
+            extension Arguments: StructuredProtocol, Codable, Sendable {
+            }
+
+            extension SearchTool: Tool, Sendable {
             }
             """,
             macros: testMacros

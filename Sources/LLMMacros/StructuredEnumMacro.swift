@@ -4,8 +4,9 @@ import SwiftSyntaxMacros
 /// Implements the `@StructuredEnum` macro.
 ///
 /// On an enum with a `String` raw value it synthesizes a `jsonSchema` static property holding a
-/// string schema whose `enum` lists the raw values, an `enumDescription` static property that
-/// spells the cases out for a prompt, and conformance to `StructuredProtocol` and `Sendable`.
+/// string schema whose `enum` lists the raw values, and conformance to `StructuredProtocol` and
+/// `Sendable`. Descriptions written with `@StructuredCase` are folded into that schema's
+/// `description`, which is the only place JSON Schema has room for them.
 ///
 /// The member expansion is what reports misuse: it throws `onlyApplicableToEnum` on any other
 /// kind of declaration, `requiresStringRawValue` when `String` is absent from the inheritance
@@ -62,12 +63,7 @@ public struct StructuredEnumMacro: MemberMacro, ExtensionMacro {
             cases: cases
         )
 
-        let enumDescriptionDecl = generateEnumDescriptionProperty(
-            typeDescription: typeDescription,
-            cases: cases
-        )
-
-        return [DeclSyntax(jsonSchemaDecl), DeclSyntax(enumDescriptionDecl)]
+        return [DeclSyntax(jsonSchemaDecl)]
     }
 
     // MARK: - ExtensionMacro
@@ -192,13 +188,17 @@ public struct StructuredEnumMacro: MemberMacro, ExtensionMacro {
 
     /// Builds the `jsonSchema` property: a string schema whose `enum` lists the raw values.
     ///
-    /// Per-case descriptions are deliberately left out; they travel through `enumDescription`.
+    /// JSON Schema has nowhere to hang a description on an individual enum value, so the ones
+    /// written with `@StructuredCase` are appended to the schema's own `description`. That is the
+    /// only field the model reads, so a case description that did not go here would not reach the
+    /// model at all.
     private static func generateJSONSchemaProperty(
         typeDescription: String?,
         cases: [EnumCaseInfo]
     ) -> VariableDeclSyntax {
-        let enumValues = cases.map { "\"\($0.rawValue)\"" }.joined(separator: ", ")
-        let descriptionArg = typeDescription.map { "description: \"\($0)\", " } ?? ""
+        let enumValues = cases.map { "\"\(escaped($0.rawValue))\"" }.joined(separator: ", ")
+        let description = composedDescription(typeDescription: typeDescription, cases: cases)
+        let descriptionArg = description.map { "description: \"\($0)\", " } ?? ""
 
         let code: DeclSyntax = """
             public static var jsonSchema: JSONSchema {
@@ -212,46 +212,47 @@ public struct StructuredEnumMacro: MemberMacro, ExtensionMacro {
         return code.cast(VariableDeclSyntax.self)
     }
 
-    /// Builds the `enumDescription` property, the wording to hand to the model in a prompt.
+    /// Joins the enum's own description with whatever the cases said about themselves.
     ///
-    /// The schema carries only the raw values, so a per-case description reaches the model
-    /// through this string or not at all. The lines are joined with escaped newlines, which
-    /// keeps the emitted literal on a single line.
-    ///
-    /// ```
-    /// Task priority:
-    /// - low: not urgent
-    /// - medium: ordinary work
-    /// - high: urgent
-    /// ```
-    private static func generateEnumDescriptionProperty(
+    /// A case with no `@StructuredCase` contributes nothing: its raw value is already in `enum`,
+    /// so listing it again with no explanation adds tokens and says nothing. Returns nil when
+    /// neither the enum nor any case was described, which leaves `description` off the schema.
+    private static func composedDescription(
         typeDescription: String?,
         cases: [EnumCaseInfo]
-    ) -> VariableDeclSyntax {
-        var lines: [String] = []
-
-        // Title line, present only when the enum itself was described.
-        if let desc = typeDescription {
-            lines.append("\(desc):")
+    ) -> String? {
+        let described = cases.compactMap { caseInfo -> String? in
+            guard let text = caseInfo.description else { return nil }
+            return "\(escaped(caseInfo.rawValue)): \(escaped(text))"
         }
 
-        for caseInfo in cases {
-            if let caseDesc = caseInfo.description {
-                lines.append("- \(caseInfo.rawValue): \(caseDesc)")
-            } else {
-                lines.append("- \(caseInfo.rawValue)")
+        let title = typeDescription.map(escaped)
+
+        switch (title, described.isEmpty) {
+        case (let title?, true):
+            return title
+        case (let title?, false):
+            return "\(title). \(described.joined(separator: "; "))"
+        case (nil, false):
+            return described.joined(separator: "; ")
+        case (nil, true):
+            return nil
+        }
+    }
+
+    /// Escapes what a Swift string literal cannot carry raw, so a description holding a quote or a
+    /// backslash produces valid code instead of a syntax error.
+    private static func escaped(_ text: String) -> String {
+        var out = ""
+        out.reserveCapacity(text.count)
+        for character in text {
+            switch character {
+            case "\\": out += "\\\\"
+            case "\"": out += "\\\""
+            default: out.append(character)
             }
         }
-
-        let description = lines.joined(separator: "\\n")
-
-        let code: DeclSyntax = """
-            public static var enumDescription: String {
-                \"\(raw: description)\"
-            }
-            """
-
-        return code.cast(VariableDeclSyntax.self)
+        return out
     }
 }
 

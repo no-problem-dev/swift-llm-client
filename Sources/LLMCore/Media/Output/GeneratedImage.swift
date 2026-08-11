@@ -189,6 +189,19 @@ public enum GeneratedMediaError: Error, Sendable, LocalizedError {
     /// Raised when downloading a video whose bytes live behind a remote URL.
     case downloadError(Error)
 
+    /// A download was asked for on a value that holds no remote URL.
+    ///
+    /// There is nothing to fetch and nothing to fall back on, so this is raised rather than
+    /// returning the value untouched: an empty video that reports success writes a zero-length file
+    /// and blames the provider for it.
+    case noRemoteURL
+
+    /// The provider answered the download with a non-success HTTP status.
+    ///
+    /// The body of such a response is an error page, not media, so it is refused rather than stored
+    /// as the asset. Expired provider links are the usual cause.
+    case downloadHTTPStatus(code: Int)
+
     public var errorDescription: String? {
         switch self {
         case .invalidBase64Data:
@@ -199,6 +212,10 @@ public enum GeneratedMediaError: Error, Sendable, LocalizedError {
             return "Failed to save file: \(error.localizedDescription)"
         case .downloadError(let error):
             return "Failed to download: \(error.localizedDescription)"
+        case .noRemoteURL:
+            return "No remote URL to download from"
+        case .downloadHTTPStatus(let code):
+            return "Download failed with HTTP status \(code)"
         }
     }
 }

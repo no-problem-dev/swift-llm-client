@@ -63,6 +63,7 @@ let package = Package(
             .product(name: "JSONParsing", package: "swift-structured-data"),
         ]),
         .testTarget(name: "LLMChatTests", dependencies: ["LLMChat", "LLMClient"]),
+        .testTarget(name: "LLMMediaKitTests", dependencies: ["LLMMediaKit", "LLMCore"]),
         .testTarget(name: "LLMContextTests", dependencies: ["LLMContext", "LLMTool", "LLMClient"]),
         .testTarget(name: "LLMMacrosTests", dependencies: [
             "LLMMacros", "LLMClient",
