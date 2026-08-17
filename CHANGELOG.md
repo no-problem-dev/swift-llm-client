@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-08-17
+
 ### Added
 
 - `TokenBreakdown` splits a `TokenUsage` into the parts it is actually billed as — cache reads,
