@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0] - 2026-08-17
+
 ### Added
 
 - **`ModelPreset`, so a model picker no longer has to be written per app.** Every provider's
