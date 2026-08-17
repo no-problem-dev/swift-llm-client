@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `TokenBreakdown` splits a `TokenUsage` into the parts it is actually billed as — cache reads,
+  cache writes, fresh input, visible output, reasoning — with a token count and, given a `Pricing`,
+  a cost for each. The two splits disagree on purpose: cached input is typically most of the tokens
+  and almost none of the money, so a count-only view points at the wrong thing to optimise. Slice
+  costs sum to `CostCalculator.cost(of:with:)`, which a test pins.
+- `TokenBreakdown(combining:)` for a run that used more than one model. Pricing a mixed run from
+  one model's sheet charges a cheap model's tokens at an expensive model's rates; combining
+  per-model breakdowns keeps every token at the rate it was billed at, and never re-selects a price
+  tier from the summed input.
+- `TokenCategory` names the parts and fixes their order, so a breakdown reads the same wherever it
+  is shown.
+
 ## [5.1.0] - 2026-08-17
 
 ### Added

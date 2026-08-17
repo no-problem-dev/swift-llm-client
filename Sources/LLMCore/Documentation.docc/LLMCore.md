@@ -36,6 +36,8 @@ cache-inclusive, output tokens include reasoning tokens, and the cache figures a
 the input. Read its documentation before writing a provider adapter — getting this wrong makes
 every downstream cost figure wrong. `CostCalculator` turns usage plus `Pricing` into `Money`,
 whose currency is a type parameter so `Money<USD>` and `Money<JPY>` cannot be added by accident.
+`TokenBreakdown` splits one usage into the parts it is billed as, by count and by cost — the two
+disagree, because cached input is usually most of the tokens and almost none of the money.
 
 ```swift
 import LLMCore
@@ -102,6 +104,8 @@ authentication, rate limiting, context overflow. Media-specific failures are `Me
 - ``CacheTier``
 - ``ContextOccupancy``
 - ``CostCalculator``
+- ``TokenBreakdown``
+- ``TokenCategory``
 - ``Money``
 - ``CurrencyProtocol``
 - ``USD``
