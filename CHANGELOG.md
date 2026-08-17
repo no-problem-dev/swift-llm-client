@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ModelPreset`, so a model picker no longer has to be written per app.** Every provider's
+  `Preset` already carried `displayName`, `shortName`, `profile`, and an address to call — but as
+  seven unrelated enums, so nothing could hold "the model the user picked" or build one list out
+  of several providers. Callers wrote the same wrapper themselves: a case per provider, a `switch`
+  per member, and a hand-rolled identifier to store the choice under. Counted across two apps and
+  a prototype, that was the same wrapper written three times. The protocol adds no members — all
+  seven presets already satisfied it — so conforming them changed no existing declaration.
+- `ModelPreset.globalID` (`"<providerID>:<rawValue>"`) and `init?(globalID:)`. `rawValue` is only
+  unique within one provider, so it is not safe to store once models from several providers share
+  a list. `providerID` matches the corresponding `LLMModel` case name, so the two ways of naming a
+  provider agree.
+- `ModelDescriptor` and `ModelCatalog`. A `ModelPreset` is generic over its provider and cannot go
+  in a mixed array; the descriptor is what it flattens to — `Codable`, carrying no provider type,
+  so a picker can render one without linking the provider and a server can send one to a client
+  that does not have it. `ModelCatalog.resolve(_:)` turns a stored choice back into one that still
+  exists, which is what a settings screen needs after a vendor retires a model.
+
 ## [5.0.0] - 2026-08-11
 
 ### Removed

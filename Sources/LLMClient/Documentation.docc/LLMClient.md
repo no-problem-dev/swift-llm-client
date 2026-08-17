@@ -65,6 +65,12 @@ afterwards.
 - ``GenerationResult``
 - ``LLMModel``
 
+### Offering a choice of model
+
+- ``ModelPreset``
+- ``ModelDescriptor``
+- ``ModelCatalog``
+
 ### Input
 
 - ``LLMInput``
