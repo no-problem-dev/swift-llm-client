@@ -68,8 +68,8 @@ implementations live in separate packages.
 
 ## Documentation
 
-The full API reference and guides are hosted at
-[no-problem-dev.github.io/swift-llm-client](https://no-problem-dev.github.io/swift-llm-client/documentation/llmclient/).
+The full API reference and guides live in
+the DocC catalog [`Sources/LLMClient/Documentation.docc`](Sources/LLMClient/Documentation.docc).
 Start with **Getting Started**, and read **Module Layout** to decide which of the nine
 libraries to import.
 

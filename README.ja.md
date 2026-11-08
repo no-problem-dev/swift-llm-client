@@ -69,8 +69,8 @@ let plan = try await client.planToolCalls(
 ## ドキュメント
 
 API リファレンスとガイドは
-[no-problem-dev.github.io/swift-llm-client](https://no-problem-dev.github.io/swift-llm-client/documentation/llmclient/)
-にホストされている（英語）。まず **Getting Started** を読み、どのライブラリを import するかは
+DocC カタログ [`Sources/LLMClient/Documentation.docc`](Sources/LLMClient/Documentation.docc)
+にある（英語）。まず **Getting Started** を読み、どのライブラリを import するかは
 **Module Layout** で決める。
 
 ## インストール
